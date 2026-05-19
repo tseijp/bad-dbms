@@ -9,6 +9,7 @@ export interface ColumnConfig {
         hasOrder?: boolean
         orderRange?: [number, number]
         references?: { fn: () => SQL; onDelete?: string }
+        tag?: 'str'
 }
 
 export interface ColumnDescriptor extends ColumnConfig {
@@ -87,7 +88,7 @@ export const column = (type: string, name?: string, config: ColumnConfig = {}): 
 
 export type Columns = Record<string, Column>
 
-export const text = (name?: string, config?: ColumnConfig) => column('u32', name, { ...config, ...{ tag: 'str' } as any })
+export const text = (name?: string, config?: ColumnConfig) => column('u32', name, { ...config, tag: 'str' })
 export const integer = (name?: string, config?: ColumnConfig) => column('i32', name, config)
 export const float = (name?: string, config?: ColumnConfig) => column('f32', name, config)
 export const uint = (name?: string, config?: ColumnConfig) => column('u32', name, config)
