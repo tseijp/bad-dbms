@@ -1,0 +1,6 @@
+{
+        "$schema": "node_modules/wrangler/config-schema.json",
+        "name": "bad-dbms",
+        "compatibility_date": "2025-05-01",
+        "main": "src/index.ts",
+}
