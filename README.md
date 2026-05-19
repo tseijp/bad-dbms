@@ -34,8 +34,7 @@ browser 上で migration を回せない前提を採るため、schema ───
 ## Architecture
 
 bad-dbms は依存方向が一方向の四層構造。
-
-## File Layout
+ファイル単位の責務は次のとおり。
 
 ```sql
 src/interface/          user 向け drizzle-like API + AST 構築
@@ -247,112 +246,182 @@ synthetic 0-row を 1 つ emit (count = 0 / sum = 0 / min = Infinity / max = -In
 ### Lowering 例
 
 ```sql
-select({ s: sum(cells.a) })
-  .from(cells)
-  .where(and(
-    between(cells.x, c.x.sub(1), c.x.add(1)),
-    between(cells.y, c.y.sub(1), c.y.add(1)),
-  ))
+db.select({ totalPosts: count() })
+  .from(posts)
+  .where(eq(posts.userId, 1))
                 │
                 ▼ planSelect
-{ op: 'Projection', fields: ['s'],
-  child: { op: 'Aggregate', groupBy: [], aggs: [{name:'s', kind:'sum', field:'a'}],
+{ op: 'Projection', fields: ['totalPosts'],
+  child: { op: 'Aggregate', groupBy: [], aggs: [{name:'totalPosts', kind:'count', field:''}],
     child: { op: 'Filter', predicate: <compiled fn>,
-      child: { op: 'SeqScan', table: 'cells' } } } }
+      child: { op: 'SeqScan', table: 'posts' } } } }
 ```
 
 ## API
 
 drizzle-orm に倣った declarative API。
-`table()` で schema を、`column()` で型と制約を、`database()` で実体を作る。
+`table()` で schema を宣言し、`database()` で connection を開き、`select` / `insert` / `update` / `delete` で query を組む。
 
-### Schema
+### Schema declaration
 
 ```ts
 import { table } from './interface/table'
-import { uint, float, integer, text } from './interface/column'
+import { integer, text, float } from './interface/column'
 
-const cells = table('cells', {
-        x: uint('x').order(0, 16),
-        y: uint('y').order(0, 16),
-        a: float('a').$defaultFn(() => (Math.random() < 0.1 ? 0 : 1)),
+const users = table('users', {
+        id: integer('id').primaryKey(),
+        name: text('name').notNull(),
+        email: text('email').unique(),
+})
+
+const posts = table('posts', {
+        id: integer('id').primaryKey(),
+        userId: integer('user_id').references(() => users.id),
+        title: text('title').notNull(),
+        score: float('score').default(0),
 })
 ```
 
 column factory:
 
 ```sql
-uint(name?)     ───→ u32 (4 bytes)
 integer(name?)  ───→ i32 (4 bytes)
+uint(name?)     ───→ u32 (4 bytes)
 float(name?)    ───→ f32 (4 bytes)
-text(name?)     ───→ 内部は u32 として保持、将来 dictionary encoding で文字列を code 化
+text(name?)     ───→ 内部 u32 + tag='str' で保持
 ```
 
 column 修飾:
 
 ```sql
-.primaryKey()           ───→ catalog 側で nbtree index を自動配置
-.unique()               ───→ catalog 側で nbtree index を自動配置
-.order(min, max)        ───→ catalog 側で nbtree index を自動配置 + .all(n) の座標 hint として orderRange を保持
-.default(value)         ───→ .all(n) の row 生成で value を埋める
-.$defaultFn(() => v)    ───→ .all(n) の row 生成で fn() を呼ぶ (alias: .defaultFn)
-.notNull()              ───→ $col.notNull に flag (現状 catalog は読まない)
-.references(() => col)  ───→ $col.references に metadata (現状 catalog は読まない)
+.primaryKey()           主キー、catalog が nbtree index を自動配置
+.unique()               unique 制約、nbtree index を自動配置
+.notNull()              NOT NULL 制約
+.default(value)         挿入時の既定値
+.$defaultFn(() => v)    挿入時の既定値を関数で (alias: .defaultFn)
+.references(() => col)  外部キー宣言
 ```
 
-column は SQL expression としても振る舞い、`.add`/`.sub`/`.mul`/`.div`/`.mod`/`.eq`/`.ne`/`.lt`/`.lte`/`.gt`/`.gte`/`.toFloat`/`.toInt`/`.toBool`/`.at(i)` を chain できる。
+column は SQL expression としても振る舞い、`.add` / `.sub` / `.mul` / `.div` / `.mod` / `.eq` / `.ne` / `.lt` / `.lte` / `.gt` / `.gte` / `.toFloat` / `.toInt` / `.toBool` の chain method を持つ。
 
-### Transaction
+### Database connection
+
+```ts
+const db = database({ users, posts })
+```
+
+`database(schema)` は in-memory adapter で動く connection を返す。
+永続化 adapter (OPFS / Durable Object / Node fs) を渡したい場合は第 2 引数の config に `fileAdapter` を指定。
+
+```ts
+const db = database({ users, posts }, { fileAdapter: myAdapter, pageSize: 4096 })
+```
+
+config の代表項目: `fileAdapter` (file.ts の adapter pattern), `pageSize` (default 4096), `frameCount` (buffer pool の normal frame 数, default 64), `ringCount` (bulk hint 用 ring frame 数, default 8)。
+
+### Queries
+
+#### select
+
+```ts
+const all = await db.select().from(users)
+const byId = await db.select().from(users).where(eq(users.id, 1))
+const projected = await db.select({ id: users.id, name: users.name }).from(users)
+const aggregated = await db
+        .select({ avgScore: avg(posts.score) })
+        .from(posts)
+        .groupBy(posts.userId)
+const ordered = await db.select().from(posts).orderBy(desc(posts.score)).limit(10)
+```
+
+chain method: `.from(table)` / `.where(cond)` / `.groupBy(...cols)` / `.orderBy(...cols)` / `.limit(n)` / `.offset(n)`。
+
+戻り値は row 配列。`.groupBy` 無しで aggregate のみを projection した場合は単一 row object に unwrap される。
+
+#### insert
+
+```ts
+await db.insert(users).values({ id: 1, name: 'Alice', email: 'a@example.com' })
+await db.insert(users).values([
+        { id: 2, name: 'Bob', email: 'b@example.com' },
+        { id: 3, name: 'Carol', email: 'c@example.com' },
+])
+const rids = await db.insert(users).values({ id: 4, name: 'Dave' }).returning()
+```
+
+戻り値は `{ rowCount: n }`。`.returning()` を付けると rid (`[pageId, offset]`) 配列。
+
+#### update
+
+```ts
+await db.update(posts).set({ score: 0 }).where(eq(posts.userId, 1))
+await db
+        .update(posts)
+        .set({ score: posts.score.add(1) })
+        .where(lt(posts.score, 10))
+```
+
+`set` の値はリテラルか SQL expression。expression なら row ごとに評価。
+戻り値は `[{ updated: n }]`。
+
+#### delete
+
+```ts
+await db.delete(posts).where(eq(posts.id, 5))
+await db.delete(users).where(isNull(users.email))
+```
+
+戻り値は `[{ deleted: n }]`。
+
+### Conditions
+
+```ts
+eq(users.id, 1)
+and(eq(users.id, 1), eq(users.name, 'Alice'))
+or(eq(users.id, 1), eq(users.id, 2))
+between(posts.score, 1, 10)
+inArray(users.id, [1, 2, 3])
+isNotNull(users.email)
+```
+
+### Aggregates
+
+```ts
+import { count, sum, avg, min, max, countDistinct } from './interface/sql'
+
+db.select({ total: count() }).from(users)
+db.select({ avgScore: avg(posts.score), maxScore: max(posts.score) }).from(posts)
+```
+
+### Transactions
+
+```ts
+await db.transaction(async (tx) => {
+        await tx.insert(users).values({ id: 10, name: 'Eve' })
+        await tx.update(posts).set({ score: 100 }).where(eq(posts.userId, 10))
+})
+```
+
+`tx` は `db` と同じ surface (`select` / `insert` / `update` / `delete`) を持つ。
+callback の返り値が `await db.transaction(...)` の結果になる。
+
+per-row 走査 mode として、callback が第 2 引数を受ける variant がある。
 
 ```ts
 const tick = db.transaction(async (tx, c) => {
-        const result = await tx
-                .select({ s: sum(cells.a) })
-                .from(cells)
-                .where(and(between(cells.x, c.x.sub(1), c.x.add(1)), between(cells.y, c.y.sub(1), c.y.add(1))))
-        const s = result.s ?? 0
-        await tx
-                .update(cells)
-                .set({ a: or(eq(s, 3), and(eq(c.a, 1), eq(s, 4))).toFloat() })
-                .from(cells)
-                .where(and(eq(c.x, cells.x), eq(c.y, cells.y)))
+        await tx.update(users).set({ active: 1 }).where(eq(users.id, c.id))
 })
-
-await tick.run({})
+await tick.run()
 ```
 
-`db.transaction(fn)` は `{ run(extra?) }` を返す。
-`run(extra)` は primary table の全 row を 1 行ずつ走査し、`fn(tx, c)` を per-row で呼ぶ。
-第二引数 `c` は currentTuple proxy で、`c.x` / `c.a` のような property access が `{type:'currentTuple', col:'x', tableName:'cells'}` の SqlNode を返す。
-`fn` 内の SQL 式は `c` の closure を持ち、各 row 評価時に `ctx.current` から値を resolve。
+primary table の各 row に対して callback を呼び、`c.colName` が「現在 row の値」として SQL 式に組み込まれる。
 
-`run(extra)` は `extra` をそのまま return。
-下流 (rendering 等) が継続 chain を組むためのパイプ。
-
-### Select / Insert / Update / Delete
-
-```ts
-await db.select({ x: cells.x, a: cells.a }).from(cells)
-await db
-        .select({ s: sum(cells.a) })
-        .from(cells)
-        .groupBy(cells.x)
-
-await db.insert(cells).values([
-        { x: 0, y: 0, a: 1 },
-        { x: 1, y: 0, a: 0 },
-])
-await db.update(cells).set({ a: 0 }).where(eq(cells.x, 5))
-await db.delete(cells).where(lt(cells.a, 0.5))
-```
-
-各 builder は thenable。
-`await` でそのまま実行が走り、結果は以下。
+### 戻り値の規約
 
 ```sql
 Select  配列 [{...row}]
-        Aggregate のみで group by 無しの場合は単一の row object に unwrap
-Insert  { rowCount: n } を返す
+        aggregate のみ + group by 無しの場合は単一 row object に unwrap
+Insert  { rowCount: n }
         .returning() を付けると rid 配列
 Update  [{ updated: n }]
 Delete  [{ deleted: n }]
@@ -395,8 +464,8 @@ type 分離により evalNode の責務は pure func 評価に限定し、aggreg
 
 ### `currentTuple`
 
-`db.transaction(fn).run(ctx)` の `fn` 第二引数 `c` は Proxy。
-任意 property access が `{ type:'currentTuple', col, tableName }` SqlNode を返し、evalNode 内で `ctx.current[col]` を読む。
+`db.transaction(fn)` が第 2 引数 `c` を取る per-row variant の中核。
+`c` は Proxy で、任意 property access が `{ type:'currentTuple', col, tableName }` SqlNode を返し、evalNode 内で `ctx.current[col]` を読む。
 
 transaction loop は以下の構造。
 
@@ -406,8 +475,14 @@ for each row of primary table:
     await fn(tx, c)
 ```
 
-`c.x.sub(1)` のような expression は AST build 時には未確定のまま (col 名と tableName だけ持つ)、eval 時に `ctx.current.x - 1` に解決。
+```ts
+db.transaction(async (tx, c) => {
+        const neighbors = await tx.select({ total: count() }).from(posts).where(eq(posts.userId, c.id))
+        if (neighbors.total > 10) await tx.update(users).set({ active: 1 }).where(eq(users.id, c.id))
+})
+```
 
+`c.id` は AST build 時には未確定のまま (col 名と tableName だけ持つ) で、eval 時に `ctx.current.id` に解決。
 AST build 時点で「現在の row」が未定なため、Proxy の get-trap で property access を SqlNode に変換し、closure 経由で transaction loop の row を参照する形を採用。
 同じ AST tree を全 row に対して再評価する形式が成立し、interface 側だけで currentTuple を解決できるため、executor は SqlNode の存在を知らずに済む。
 
