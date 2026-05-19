@@ -6,41 +6,26 @@ TypeScript で書かれた OLAP 向け column-store な relational database。dr
 
 ## Overview
 
-bad-dbms は「user code から query plan AST を組み立て、backend が物理 plan に lower して pull-based に execute する」最小構成の rdbms。
-
-read-heavy / bulk-update workload を想定し、tuple 単位の ACID は採用しない。一回の tick で全 row を走査する OLAP 向けに、column を独立した page 列として持つ DSM layout で構築。
+drizzle-like な declarative API から query plan AST を組み立て、backend が物理 plan に lower して pull-based に execute する OLAP 向け column-store rdbms。tick 単位 bulk commit、tuple 単位の ACID は採用しない。
 
 ```
-user code (drizzle-like)
-        │  table() / column() / select() / update() / ...
-        ▼
-interface (logical AST)
-        │  { op: 'Select' | 'Insert' | 'Update' | 'Delete' | 'InitAll', ... }
-        ▼
-planSelect (lowering)
-        │  { op: 'SeqScan' | 'Filter' | 'Projection' | 'Aggregate' | 'Sort' | ... }
-        ▼
-backend executor (Volcano pull)
-        │  iter.next() → tuple
-        ▼
+user code (table / column / select / update / ...)
+   ↓ logical AST  { op: 'Select' | 'Insert' | 'Update' | 'Delete' | 'InitAll' }
+planSelect (interface 側 lowering)
+   ↓ physical AST { op: 'SeqScan' | 'Filter' | 'Aggregate' | 'Projection' | 'Sort' | ... }
+executor (Volcano pull)
+   ↓ rid = [pageId, offset]
 access (heap / nbtree / hash / transam)
-        │  rid = [pageId, offset]
-        ▼
+   ↓ block I/O (relId, forkId, blockNo)
 storage (free / page / buffer / smgr / file / lmng)
-        │  byte I/O
-        ▼
-pluggable adapter (memory / OPFS / durable object …)
+   ↓ pluggable adapter (memory / OPFS / ...)
 ```
 
 ## Why
 
-OLAP workload と「将来 gpgpu 系 backend に shape を合わせる」要件から、設計の方向性は最初から column-store。
+OLAP の bulk scan は row-store より column-store が I/O を削減できる。固定長型 (i32 / f32 / u32) のみを基底に置くと tuple の物理位置が `valueSize × offset` で決定論的に算出でき、slot array を持たない packed layout が成立。tombstone は 1 bit / slot の bitmap として page header 直後に集約。
 
-書き込みは tick 単位の bulk commit で、scan のたびに全 row を読む前提なので、row-store (NSM) より column-store (DSM) のほうが「使う column の page だけ pin する」ぶんの I/O 削減が効く。
-
-固定長型 (i32 / f32 / u32) のみを基底にしたのは、tuple の物理位置を `valueSize × offset` で決定論的に算出するため。slot array を持たず、tombstone は 1 bit / slot の bitmap として page header 直後に集約。文字列など可変長型は将来 dictionary encoding 経由で固定長 code に正規化する想定で、interface API には `text()` factory を残しつつ内部 type を u32 として扱う。
-
-index は user が migration で明示生成するのではなく、column の制約 (`primaryKey()` / `unique()` / `order(min, max)`) から catalog が自動で nbtree / hash を配置する。browser 上で user が migration を回せないため、自動 schema 構築を前提に据える。
+index は user の migration ではなく column 制約 (`primaryKey` / `unique` / `order`) から catalog が自動配置。browser 上で migration を回せない前提を採るため、schema → index の自動構築を必須とする。
 
 ## Architecture
 
@@ -145,11 +130,11 @@ transam           xid と snapshot                              begin/commit/abo
 
 heap / nbtree / hash は同一の `rid = [pageId, offset]` 形式を共有し、byte 表現には依存しない。access 層を超えた layout 変更が独立に進められる。
 
-heap が rid を発行する唯一の主体。index は leaf に rid を保持するだけで自前の物理 ID 空間を持たない。catalog の `insertRow(name, row)` は column 順に heap を呼び出し、index には「heap が返した rid をそのまま渡す」だけの直列パイプ。これにより index 側の再 build は heap に触れず、`heap.delete(rid)` で論理削除した後に index の `deleteKey` で対応 entry を tombstone 化する非対称な lifecycle が成立。
+heap が rid を発行する唯一の主体。index は leaf に rid を保持するだけで自前の物理 ID 空間を持たない。catalog の `insertRow(name, row)` は column 順に heap を呼び出し、index には heap が返した rid をそのまま渡す直列パイプ。delete 時の各層の役割分担は Internals > rid alignment 参照。
 
-nbtree は Blink-tree 風に各 leaf が prev/next sibling pointer を持つ。split は右側に新 leaf を切り出して sibling rewire と pivot 伝播を同時に行い、root split のみ高さを 1 増やす。`bulkLoad(sortedEntries)` は事前 sort 済 input を前提に leaf を密に詰め、各 leaf の先頭 key を pivot として上位 level を bottom-up に build。点 lookup と range scan を同じ leaf linked list で処理し、forward / backward は方向違いの walk として対称に実装。
+nbtree は Blink-tree 風に prev/next sibling pointer を持つ。`LEAF_CAP = INTERNAL_CAP = 64`。leaf split は右側に新 leaf を切り出して sibling rewire と pivot 伝播を同時に行い、propagateUp が path stack を pop しながら親 internal に entry を挿入。root に到達した時点で path が空なら新 root を確保して meta block の rootPageId を書き換え、高さが 1 増える。merge / borrow は未実装で、delete は leaf slot の tombstone 化のみ。`bulkLoad(sortedEntries)` は事前 sort 済 input を前提に leaf を `LEAF_CAP` まで密に詰め、各 leaf の先頭 key を pivot として上位 level を bottom-up に build (split 0 回 / 全 page 1 回 write)。
 
-hash は postgres hash index 系の linear hashing。primary bucket page + overflow chain (`nextPageId`) で同 hash の entry を保持。load factor (tuples / nBuckets) が 1.5 を超えた時点で incremental split を 1 bucket 進める。`splitPointer` が指す bucket の entry を全て読み出し、`level + 1` bit で再 hash して旧 bucket と新 bucket に振り分ける。splitPointer が `1 << level` に達すると 0 に戻して level を 1 増やす。これにより table 全体の rebuild を避けつつ bucket 数を 2 倍まで段階的に成長させる。
+hash は postgres hash index 系の linear hashing。primary bucket page + overflow chain (`nextPageId`) で同 hash の entry を保持。load factor (`tuples / nBuckets`) が 1.5 を超えた瞬間に 1 bucket だけ incremental split。`splitPointer` が指す bucket の entry を `level + 1` bit で再 hash して旧 / 新 bucket に振り分け、splitPointer が `1 << level` に達したら 0 に戻して level を 1 増やす。1 insert あたり最大 1 bucket rehash で amortized cost が一定。
 
 transam は xid 発行 + commit log + active set + snapshot 構築の論理層。`begin()` で新 xid を取り `activeTop` に加え、commit / abort で clog を更新して活動集合から外す。`snapshot()` は `xmin = min(activeTop)`, `xmax = nextXid`, `xip = clone(activeTop)` を凍結。`isVisible(xid, snap)` は xid < xmin なら clog の committed のみ可視、xid ≥ xmax なら不可視、xmin ≤ xid < xmax なら xip に含まれず committed のときのみ可視、というルールで判定。sub-transaction は親子連結 list として保持し、savepoint commit / rollback で親に戻る。現状 access 層からは未呼び出しで、bulk-update 主体の golden path では single-thread を前提に snapshot 経由の visibility 判定を skip。
 
@@ -177,9 +162,7 @@ lmng   ← 「論理 lock + 物理 latch」                          acquireLock
                                                             releaseAll(xid)
 ```
 
-buffer は clock-sweep を normal 用 frame に、ring buffer を bulk hint (`bulk_read` / `bulk_write` / `vacuum`) 用に分ける二段構え。sequential scan が hot frame を汚染しない。
-
-fsm (free space map) は per-relation per-fork の `Uint8Array` を leaf に、その上に max-of-children を持つ upper 配列を載せる二層 tree。`floor(freeBytes / 16)` の粗い粒度で空き bytes を保持し、findPage は upper を走査して候補 group を絞ってから leaf を読む。
+fsm (free space map) は per-relation per-fork の `Uint8Array` を leaf に、その上に max-of-children を持つ upper 配列を載せる二層 tree。`floor(freeBytes / 16)` の粗い粒度で空き bytes を保持し、findPage は upper を走査して候補 group を絞ってから leaf を読む。buffer の二段 pool 構造は Internals > Buffer pool の二段構え参照。
 
 ## Query Plan
 
@@ -213,6 +196,8 @@ interface が logical AST を組み立て、`planSelect` が physical AST に lo
 ```
 
 executor の各 operator は `{ next(): row | null, close() }` を返す pull iterator。`next` は子 iterator の `next` を呼び、必要な変換を施してから返す。LIMIT 相当は Sort や Aggregate の出力を Projection が打ち切る形で表現。
+
+executor 自身は同期 iterator だが、外向きの `backend.execute(ast)` は async wrapper (`Promise<any[]>`) で iterator を `drain` した配列を返す。`InitAll` op だけ executor を経由せず `index.ts` 層で `catalog.registerTable` を回す。空 row の場合も `[]` を返し、null / undefined にはならない。aggregate-no-groupBy-zero-input のときは executor の `makeAggregate` が synthetic 0-row を 1 つ emit (count = 0 / sum = 0 / min = Infinity / max = -Infinity)。
 
 ### Lowering 例
 
@@ -380,52 +365,41 @@ for each row of primary table:
 
 AST build 時点で「現在の row」が未定なため、Proxy の get-trap で property access を SqlNode に変換し、closure 経由で transaction loop の row を参照する形を採用。同じ AST tree を全 row に対して再評価する形式が成立し、interface 側だけで currentTuple を解決できるため、executor は SqlNode の存在を知らずに済む。
 
-### Logical vs physical AST 境界
+### Update / Delete の関数化境界
 
-interface が emit する logical AST は `{ op: 'Select' | 'Insert' | 'Update' | 'Delete' | 'InitAll' }` の 5 種。`planSelect` が Select を物理 operator (SeqScan / Filter / Aggregate / Projection / Sort) に lower。executor は物理 op だけを consume し、SqlNode を直接 evaluate する経路は logical Select fallback (`makeSelectLogical`) のみ。
-
-Update / Delete は interface 側で `where` の predicate と `set` の setter を関数化してから physical AST に乗せる。currentTuple を含む式は interface の closure (`ctx.current`) を関数値に閉じ込めるため、executor の boundary を越える時点で SqlNode は残らない。executor は `predicate: (row) => boolean` と `setters: Record<string, (row) => any>` だけを受け取る。
+`planSelect` が Select の `where` を `(row) => boolean` に compile して `Filter` に乗せるのと並行して、`runUpdate` / `runDelete` も interface 側で `where` を predicate に、`set` の各値を setter (`(row) => any`) に変換してから physical Update / Delete op に乗せる。currentTuple を含む式は interface の closure (`ctx.current`) を関数値に閉じ込めるため、executor は SqlNode を受け取らず `predicate` / `setters` の関数だけで動く。
 
 ### `compile.ts` / `plan.ts` 分離
 
-`evalNode` (SqlNode → 値) と `compilePredicate` / `compileExpr` (SqlNode → 関数) は副作用無しの pure module として `src/interface/compile.ts` に集約。`planSelect` (logical → physical lowering) は `src/interface/plan.ts` に切り出し。`database.ts` は builder / dispatch / lifecycle のみを保持。
-
-evalNode は再帰的に SqlNode を走査するため、currentTuple / column / literal / binop / unop / func / list の全パターンを 1 関数で網羅。aggregate / order / table の type は evalNode では値化せず、それぞれ executor の Aggregate / Sort operator と plan 側の `tableNameOf` が処理。
+`compile.ts` = `evalNode` (SqlNode → 値) + `compilePredicate` / `compileExpr` (SqlNode → 関数)、`plan.ts` = `planSelect` + `buildProjection` + `tableNameOf`。`database.ts` は builder / dispatch / lifecycle のみ。evalNode は currentTuple / column / literal / binop / unop / func / list を 1 関数で網羅し、aggregate / order / table は値化せず executor の Aggregate / Sort operator と plan 側の `tableNameOf` が処理。
 
 ### catalog の自動 index 配置
 
 ```
-column 制約                  自動配置される access method
-─────────────────────────────────────────────────
-primaryKey() / unique()      nbtree index
-hasOrder (= .order(min,max)) nbtree index
-それ以外                     index 無し (heap のみ)
+column 制約                          access method     index 名
+──────────────────────────────────────────────────────────────────
+primaryKey() / unique() / order()    nbtree            <table>_<col>_idx
+それ以外                             index 無し
 ```
 
-`isPrimary` / `isUnique` / `hasOrder` のいずれかが立っている column について、`name_idx` という名前で nbtree を作成。`hash` は equi lookup 専用なので現状は catalog からは選ばれず、access 層が直接立ち上げる経路のみ。
+`isPrimary` / `isUnique` / `hasOrder` のいずれかが立つ column に対し、catalog が空 nbtree を作成。hash index は equi lookup 専用で、catalog の自動経路には現状乗らない。
 
 ### rid alignment (DSM の不変条件)
 
-DSM では 1 row が複数 heap に跨る。catalog の `insertRow(name, row)` は table の column を順に走査し、各 heap に `insert(value)` を発行。同 table の全 column が同一 valueSize (i32 / f32 / u32 いずれも 4 bytes 固定) を持つため、各 heap の fsm は同型の状態遷移を辿る。insert を同期的に直列で呼ぶ限り `(blockNo, slot)` が全 column 一致する不変条件が成立。
+DSM では 1 row が複数 heap に跨る。catalog の `insertRow(name, row)` は column 順に各 heap へ `insert(value)` を発行。同 table の全 column は valueSize = 4 で揃うため、各 heap の fsm は同型の状態遷移を辿り、insert を同期的に直列で呼ぶ限り `(blockNo, slot)` が全 column で一致。
 
-`heap.update(rid, value)` は同一 slot を再利用し row 構造を破壊しない。`heap.delete(rid)` は executor の `makeDelete` が全 column heap に dispatch (`for (let i = 0; i < rel.heaps.length; i++) rel.heaps[i].delete(rid)`)。index 側の対応 entry は index の `deleteKey(key, rid?)` で別途 tombstone 化。
+`heap.update(rid, value)` は同一 slot を再利用し row 構造を破壊しない。`heap.delete(rid)` は executor の `makeDelete` が全 column heap に dispatch、index 側 entry は `deleteKey(key, rid?)` で別途 tombstone 化。
 
-### interface ↔ catalog の情報受け渡し
+### interface ↔ catalog の境界属性
 
-`database.ts > registerTables` が table の column descriptor (`$col`) を catalog の `register(name, def)` 用 plain object に正規化する境界点。現状 def に渡しているのは `type / isPrimary / isUnique / hasOrder` の 4 項目のみ。
-
-interface 側だけが知っていて catalog に渡していない属性。
+`database.ts > registerTables` が `$col` を catalog の `register(name, def)` に正規化する。def に渡る項目と interface 側にだけ留まる項目。
 
 ```
-$col.orderRange   .order(min, max) の range hint。.all(n) の row 生成で 2D 格子を組むために interface が直接読む
-$col.defaultFn    .all(n) の row 生成で fn() を呼ぶために interface が直接読む
-$col.defaultValue 同上、$defaultFn が無い場合の fallback
-$col.notNull      interface の flag。catalog は読まない
-$col.references   外部参照 metadata。catalog は読まない
-$col.tag          text() が立てる 'str' 識別子。将来 dictionary encoding 用
+def に渡る          type / isPrimary / isUnique / hasOrder
+interface 内に留まる  orderRange / defaultFn / defaultValue / notNull / references / tag
 ```
 
-将来 catalog 側で orderRange を IndexScan の default range として使いたくなった場合、`register` の def に `orderRange` を追加する経路で連携。tag についても同様で、catalog が `tag === 'str'` を見て dictionary heap を別 fork で立てる設計が後付けで可能。現時点ではどちらも interface 内に閉じる。
+留まる側を catalog 経路に流す再設計は Roadmap 参照。
 
 ### Buffer pool の二段構え
 
@@ -463,63 +437,79 @@ heap 内部の `HEAP_FORK = 0` と組み合わせ、最終的な file id は `${
 
 ## File Layout
 
+責務は Architecture セクション参照。
+
 ```
 projects/bad-dbms/
-├── README.md                       本書
+├── README.md
 ├── src/
-│   ├── index.ts                    entry。golden path を保持
-│   ├── interface/                  user 向け API
+│   ├── index.ts                    entry / golden path
+│   ├── interface/
 │   │   ├── column.ts
 │   │   ├── table.ts
-│   │   ├── sql.ts                  SqlNode + sql`` template tag
-│   │   ├── expressions/
-│   │   │   ├── conditions.ts       eq, and, or, between, not, ...
-│   │   │   └── select.ts           asc, desc
-│   │   ├── functions/
-│   │   │   ├── aggregate.ts        count, sum, avg, min, max
-│   │   │   └── vector.ts           distance 系
-│   │   ├── compile.ts              evalNode, compilePredicate, compileExpr
-│   │   ├── plan.ts                 planSelect, buildProjection
-│   │   └── database.ts             database({tables}).all(n).transaction()
+│   │   ├── sql.ts
+│   │   ├── expressions/{conditions,select}.ts
+│   │   ├── functions/{aggregate,vector}.ts
+│   │   ├── compile.ts
+│   │   ├── plan.ts
+│   │   └── database.ts
 │   └── backend/
-│       ├── index.ts                createDatabase: 全層を wire
-│       ├── catalog.ts              relation / column / index の schema
-│       ├── executor.ts             Volcano operator iterator
-│       ├── access/
-│       │   ├── heap.ts             固定長 record の置き場
-│       │   ├── nbtree.ts           B+tree index
-│       │   ├── hash.ts             linear hashing index
-│       │   └── transam.ts          xid + snapshot
-│       └── storage/
-│           ├── page.ts             header + tombstone + 値域
-│           ├── free.ts             page 空き bytes の tree
-│           ├── buffer.ts           clock-sweep + ring frame pool
-│           ├── smgr.ts             relation を block 列に抽象化
-│           ├── file.ts             byte I/O 境界
-│           └── lmng.ts             lock + latch
+│       ├── index.ts
+│       ├── catalog.ts
+│       ├── executor.ts
+│       ├── access/{heap,nbtree,hash,transam}.ts
+│       └── storage/{page,free,buffer,smgr,file,lmng}.ts
 └── package.json
 ```
 
 ## Roadmap
 
-現時点で未着手の項目。実装順序は usecase 駆動。
+未着手項目。trigger は「golden path がこれ無しに進めない瞬間」。phase は固定せず、必要になったものから着手。
 
 ```
-string の dictionary encoding         column の $col.tag === 'str' を catalog 側でも認識し、
-                                       dictionary heap を別 fork で立てる経路を追加
-                                       (現状は u32 として保持するのみ、code ↔ string の双方向変換は未実装)
-parallel worker thread                multi-thread message queue で論理的に並列 scan
-lock / latch wiring                   access 層から lmng を呼ぶ。bulk-update 主体では single-thread で十分なので保留
-vacuum                                tombstone 化された slot の物理回収と
-                                       page compaction、bottom-up な nbtree rebuild
-external partitioning                 hash join / aggregate が memory 超過時の
-                                       partitioned hash + recursive partitioning
-adapter 実装                          OPFS / Durable Object / Cloudflare KV 等の
-                                       永続化 backend を file.ts adapter に
-snapshot read                          tick 内で読み取り集合を凍結する API
-                                       (Game of Life の同時更新 semantics 用)
-orderRange の catalog 渡し             register(def) の def に orderRange を追加し、
-                                       IndexScan の default range として使えるようにする (現状は interface 内)
+dictionary encoding      $col.tag === 'str' を catalog が認識して dictionary heap を別 fork に確保。
+                         insertRow が string → hash → code 変換、read が逆変換。
+                         trigger: 文字列 column を golden path に乗せる時
+
+OPFS adapter             createFileAdapter() の adapter pattern に OPFS / Durable Object / Node fs 実装を追加。
+                         file.ts の 7 関数 (read/write/sync/close/list/exists/size) を満たす差し替え。
+                         trigger: state を tab 越しに永続化する時、または node bench を回す時
+
+snapshot read            tick 内の read 集合を読み取り専用 view に凍結する API。
+                         buffer pool の COW frame で実装。
+                         trigger: GoL semantics を sequential update から simultaneous update に直す時
+
+worker thread            page directory を持つ親 thread が child worker に scan を分配、
+                         per-thread buffer pool で並列実行。message queue で同期。
+                         trigger: scan が CPU bound になった時
+
+lock / latch wiring      heap / nbtree / hash の page write で lmng.acquireLatch、commit / abort で releaseAll。
+                         single-thread の現状では race source 無しのため未配線。
+                         trigger: worker thread を入れる瞬間
+
+external partitioning    HashJoin / Aggregate の build side が memory 超過時に h1 hash で disk spill、
+                         probe phase で bucket 単位に hash table 再構築。
+                         trigger: build side が buffer pool に収まらない workload が出た時
+
+vacuum                   tombstone 化 slot の物理回収、page compaction、nbtree の bottom-up rebuild。
+                         dead 比率の高い page を background で compact。
+                         trigger: 永続化 adapter で file size 増大が visible になった時
+
+orderRange を catalog に  register(def) の def に orderRange を追加し、IndexScan の default range として使う経路。
+                         現状は interface の generateInitRows 内に閉じる。
+                         trigger: catalog が cost-based に IndexScan を選ぶ判断材料を持ちたい時
+```
+
+### 明示的に non-goal
+
+時間と精度のトレードオフから、現時点で意図的に作らないもの。
+
+```
+tuple 単位の ACID         OLAP / bulk update 前提で tick 単位 commit に倒す
+distributed replication   単一 process / 単一 thread で動くものを先に固める
+ANSI SQL parser           drizzle-like AST 経由で済むため SQL 文字列のパースは作らない
+GIN / GiST / SP-GiST      vector / inverted / spatial index は射程外
+WAL / crash recovery      永続化 adapter が transaction を保証する想定で WAL を持たない
 ```
 
 ## Status
