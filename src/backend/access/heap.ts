@@ -16,39 +16,39 @@ const firstFree = (p: HeapPage, cap: number) => {
 export const createHeap = <T = unknown>({ pageCapacity = 256 }: HeapOptions = {}) => {
         const meta: HeapMeta = { next: 1, pages: 0, tuples: 0, live: 0, pageCapacity, head: NONE, tail: NONE }
         const pages = new Map<number, HeapPage>()
-        const data = new Map<number, T[]>()
-        const order: number[] = []
-        const getPage = (id: number) => pages.get(id) as HeapPage
-        const getData = (id: number) => data.get(id) as T[]
-        const createPage = () => {
+        const _data = new Map<number, T[]>()
+        const _order: number[] = []
+        const _getPage = (id: number) => pages.get(id) as HeapPage
+        const _getData = (id: number) => _data.get(id) as T[]
+        const _createPage = () => {
                 const p: HeapPage = { id: meta.next++, count: 0, live: 0, alive: new Uint8Array(pageCapacity) }
                 pages.set(p.id, p)
-                data.set(p.id, new Array(pageCapacity))
-                order.push(p.id)
+                _data.set(p.id, new Array(pageCapacity))
+                _order.push(p.id)
                 meta.pages += 1
                 if (meta.head === NONE) meta.head = p.id
                 meta.tail = p.id
                 return p
         }
-        const writable = () => {
-                if (meta.tail === NONE) return createPage()
-                const tail = getPage(meta.tail)
+        const _writable = () => {
+                if (meta.tail === NONE) return _createPage()
+                const tail = _getPage(meta.tail)
                 if (hasRoom(tail, pageCapacity)) return tail
-                for (const id of order) {
-                        const p = getPage(id)
+                for (const id of _order) {
+                        const p = _getPage(id)
                         if (hasRoom(p, pageCapacity)) return p
                 }
-                return createPage()
+                return _createPage()
         }
-        const liveTuple = (rid: Rid) => {
+        const _liveTuple = (rid: Rid) => {
                 const p = pages.get(rid[0])
                 if (!isLive(p, rid[1])) return undefined
-                return { page: p, data: getData(rid[0]) }
+                return { page: p, data: _getData(rid[0]) }
         }
         const insert = (value: T): Rid => {
-                const p = writable()
+                const p = _writable()
                 const slot = firstFree(p, pageCapacity)
-                getData(p.id)[slot] = value
+                _getData(p.id)[slot] = value
                 p.alive[slot] = 1
                 if (slot === p.count) p.count += 1
                 p.live += 1
@@ -56,51 +56,61 @@ export const createHeap = <T = unknown>({ pageCapacity = 256 }: HeapOptions = {}
                 meta.live += 1
                 return [p.id, slot]
         }
-        const read = (rid: Rid) => liveTuple(rid)?.data[rid[1]]
-        const update = (rid: Rid, value: T) => {
-                const tuple = liveTuple(rid)
-                if (tuple === undefined) return false
-                tuple.data[rid[1]] = value
-                return true
-        }
-        const deleteRid = (rid: Rid) => {
-                const tuple = liveTuple(rid)
-                if (!tuple?.page) return false
-                tuple.page.alive[rid[1]] = 0
-                tuple.page.live -= 1
-                meta.live -= 1
-                return true
-        }
-        const scan = (emit: (rid: Rid, value: T) => boolean) => {
-                for (const id of order)
-                        for (let i = 0, p = getPage(id), buf = getData(id); i < p.count; i++) {
-                                if (p.alive[i] === 0) continue
-                                if (!emit([id, i], buf[i])) return
+        return {
+                meta,
+                pages,
+                insert,
+                read(rid: Rid) {
+                        return _liveTuple(rid)?.data[rid[1]]
+                },
+                update(rid: Rid, value: T) {
+                        const tuple = _liveTuple(rid)
+                        if (tuple === undefined) return false
+                        tuple.data[rid[1]] = value
+                        return true
+                },
+                deleteRid(rid: Rid) {
+                        const tuple = _liveTuple(rid)
+                        if (!tuple?.page) return false
+                        tuple.page.alive[rid[1]] = 0
+                        tuple.page.live -= 1
+                        meta.live -= 1
+                        return true
+                },
+                scan(emit: (rid: Rid, value: T) => boolean) {
+                        for (const id of _order)
+                                for (let i = 0, p = _getPage(id), buf = _getData(id); i < p.count; i++) {
+                                        if (p.alive[i] === 0) continue
+                                        if (!emit([id, i], buf[i])) return
+                                }
+                },
+                vacuum() {
+                        let removed = 0
+                        for (const id of _order) {
+                                const p = _getPage(id)
+                                const buf = _getData(id)
+                                let write = 0
+                                for (let read = 0; read < p.count; read++) {
+                                        if (p.alive[read] === 0) continue
+                                        if (write !== read) buf[write] = buf[read]
+                                        write += 1
+                                }
+                                buf.fill(undefined as T, write, p.count)
+                                p.alive.fill(1, 0, write)
+                                p.alive.fill(0, write, pageCapacity)
+                                removed += p.count - write
+                                p.count = write
                         }
+                        meta.tuples = meta.live
+                        return removed
+                },
+                bulkLoad(values: Iterable<T>) {
+                        return Array.from(values, insert)
+                },
+                stats() {
+                        return { pages: meta.pages, tuples: meta.tuples, live: meta.live, pageCapacity, head: meta.head, tail: meta.tail }
+                },
         }
-        const vacuum = () => {
-                let removed = 0
-                for (const id of order) {
-                        const p = getPage(id)
-                        const buf = getData(id)
-                        let write = 0
-                        for (let read = 0; read < p.count; read++) {
-                                if (p.alive[read] === 0) continue
-                                if (write !== read) buf[write] = buf[read]
-                                write += 1
-                        }
-                        buf.fill(undefined as T, write, p.count)
-                        p.alive.fill(1, 0, write)
-                        p.alive.fill(0, write, pageCapacity)
-                        removed += p.count - write
-                        p.count = write
-                }
-                meta.tuples = meta.live
-                return removed
-        }
-        const bulkLoad = (values: Iterable<T>) => Array.from(values, insert)
-        const stats = () => ({ pages: meta.pages, tuples: meta.tuples, live: meta.live, pageCapacity, head: meta.head, tail: meta.tail })
-        return { meta, pages, insert, read, update, deleteRid, scan, vacuum, bulkLoad, stats }
 }
 
 export type Heap<T = unknown> = ReturnType<typeof createHeap<T>>
