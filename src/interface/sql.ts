@@ -1,5 +1,5 @@
-import { Column } from '../column'
-import { Table } from '../table'
+import { Column } from './column'
+import { Table } from './table'
 export * from './expressions/conditions'
 export * from './expressions/select'
 export * from './functions/aggregate'

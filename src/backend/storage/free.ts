@@ -1,1 +1,1 @@
-export const freeSpaceMap = () => {}
+export const freeSpaceManager = () => {}

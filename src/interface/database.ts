@@ -1,5 +1,5 @@
 import { Columns } from './column'
-import { SQL } from './interface/sql'
+import { SQL } from './sql'
 import { Table } from './table'
 
 export const database = (config: any) => {

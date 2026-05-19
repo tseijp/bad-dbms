@@ -1,4 +1,4 @@
-import { SQL } from './interface/sql'
+import { SQL } from './sql'
 
 interface Config {
         mode?: string
@@ -16,24 +16,22 @@ export const column = (type: string, id: string, config: Config = {}) => {
                         config.primaryKey = true
                         return ret
                 },
+                secoundaryKey() {
+                        return ret
+                },
                 unique() {
-                        config.unique = true
                         return ret
                 },
                 notNull() {
-                        config.notNull = true
                         return ret
                 },
                 default(value: any) {
-                        config.default = value
                         return ret
                 },
                 defaultFn(fn: () => string) {
-                        config.defaultFn = fn
                         return ret
                 },
                 references(fn: () => SQL, { onDelete }: { onDelete: string }) {
-                        config.onDelete = onDelete
                         return ret
                 },
         }

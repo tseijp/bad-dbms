@@ -1,1 +1,1 @@
-export const buffer = () => {}
+export const createBuffer = () => {}

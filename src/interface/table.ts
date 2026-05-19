@@ -1,5 +1,5 @@
 import { Column, Columns } from './column'
-import { sql, SQL } from './interface/sql'
+import { sql, SQL } from './sql'
 
 export type Table = Record<string, SQL>
 

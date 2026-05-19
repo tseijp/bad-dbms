@@ -1,8 +1,8 @@
 import { logger } from 'hono/logger'
 import { Hono } from 'hono'
-import { database } from './database'
-import { table } from './table'
-import { text, integer } from './column'
+import { database } from './interface/database'
+import { table } from './interface/table'
+import { text, integer } from './interface/column'
 import { eq } from './interface/sql'
 
 const storage = new Map()

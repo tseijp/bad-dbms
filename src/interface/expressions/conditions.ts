@@ -1,4 +1,4 @@
-import { Column } from '../../column'
+import { Column } from '../column'
 import { SQL, Placeholder } from '../sql'
 
 export const bindIfParam = (value: unknown, column: SQL) => {}
