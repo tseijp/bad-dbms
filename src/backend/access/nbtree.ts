@@ -1,113 +1,296 @@
-// import { NONE, bound, createPage, defaultCmp, isPivot, sameRid } from '../storage/page'
-// import { createNbtreeScans } from '../storage/scan'
-// import type { Cmp, Key, LeafItem, Meta, Node, Pivot, Rid } from '../storage/page'
-// export const createNbtree = <K extends Key = Key>({ pageCapacity = 64, cmp = defaultCmp as Cmp<K> }: { pageCapacity?: number; cmp?: Cmp<K> } = {}) => {
-//         const meta: Meta = { root: NONE, next: 1, height: 0, tuples: 0, capacity: pageCapacity }
-//         const { pages, page, get } = createPage<K>(meta)
-//         const _right = (node: Node<K>, key: K) => {
-//                 let cur = node
-//                 while (cur.next !== NONE && cur.high !== undefined && cmp(cur.high, key) < 0) cur = get(cur.next)
-//                 return cur
-//         }
-//         const _seek = (key: K, stop = 0) => {
-//                 const path: Node<K>[] = []
-//                 let node = get(meta.root)
-//                 while (node.level > stop) {
-//                         node = _right(node, key)
-//                         path.push(node)
-//                         const at = Math.max(0, bound(node.items, key, cmp, true) - 1)
-//                         node = get((node.items[at] as Pivot<K>).child)
-//                 }
-//                 return { node: _right(node, key), path }
-//         }
-//         const _link = (left: Node<K>, sibling: Node<K>) => {
-//                 sibling.next = left.next
-//                 sibling.prev = left.id
-//                 if (left.next !== NONE) get(left.next).prev = sibling.id
-//                 left.next = sibling.id
-//         }
-//         const _newRoot = (left: Node<K>, right: Node<K>, key: K) => {
-//                 const root = page(left.level + 1)
-//                 root.items = [
-//                         { key: left.items[0].key, child: left.id },
-//                         { key, child: right.id },
-//                 ]
-//                 meta.root = root.id
-//                 meta.height = root.level
-//         }
-//         const _insertPivot = (path: Node<K>[], left: Node<K>, sibling: Node<K>, key: K): void => {
-//                 const parent = path.pop()
-//                 if (parent === undefined) return _newRoot(left, sibling, key)
-//                 const node = _right(parent, key)
-//                 node.items.splice(bound(node.items, key, cmp), 0, { key, child: sibling.id })
-//                 if (node.items.length > pageCapacity) _split(node, path)
-//         }
-//         const _split = (node: Node<K>, path: Node<K>[]) => {
-//                 const mid = node.items.length >>> 1
-//                 const sibling = page(node.level)
-//                 sibling.items = node.items.splice(mid)
-//                 _link(node, sibling)
-//                 node.high = sibling.items[0].key
-//                 const sep = sibling.items[0].key
-//                 if (meta.root === node.id) return _newRoot(node, sibling, sep)
-//                 _insertPivot(path, node, sibling, sep)
-//         }
-//         const { forward, backward } = createNbtreeScans(meta, get, _seek, cmp)
-//         return {
-//                 pages,
-//                 meta,
-//                 forward,
-//                 backward,
-//                 insert(key: K, rid: Rid): void {
-//                         if (meta.root === NONE) {
-//                                 const root = page(0)
-//                                 root.items.push({ key, rid })
-//                                 meta.root = root.id
-//                                 meta.tuples = 1
-//                                 return
-//                         }
-//                         const { node, path } = _seek(key)
-//                         const item = { key, rid }
-//                         const at = bound(node.items, key, cmp)
-//                         node.items.splice(at, 0, item)
-//                         meta.tuples += 1
-//                         if (node.items.length > pageCapacity) _split(node, path)
-//                 },
-//                 search(key: K): Rid | undefined {
-//                         if (meta.root === NONE) return undefined
-//                         const { node } = _seek(key)
-//                         const item = node.items[bound(node.items, key, cmp)]
-//                         if (item === undefined || isPivot(item) || cmp(item.key, key) !== 0) return undefined
-//                         return item.rid
-//                 },
-//                 lookup(key: K, emit: (rid: Rid) => boolean): void {
-//                         forward(key, key, (_, rid) => emit(rid))
-//                 },
-//                 deleteKey(key: K, rid?: Rid): boolean {
-//                         if (meta.root === NONE) return false
-//                         const { node } = _seek(key)
-//                         let at = bound(node.items, key, cmp)
-//                         while (at < node.items.length && cmp(node.items[at].key, key) === 0) {
-//                                 const item = node.items[at] as LeafItem<K>
-//                                 if (rid === undefined || sameRid(item.rid, rid)) {
-//                                         node.items.splice(at, 1)
-//                                         meta.tuples -= 1
-//                                         return true
-//                                 }
-//                                 at += 1
-//                         }
-//                         return false
-//                 },
-//                 bulkLoad(entries: Iterable<[K, Rid]>): void {
-//                         for (const [key, rid] of entries) this.insert(key, rid)
-//                 },
-//                 beginVacuum() {
-//                         return 0
-//                 },
-//                 stats() {
-//                         return { pages: pages.size, root: meta.root, height: meta.height, tuples: meta.tuples, pageCapacity: meta.capacity }
-//                 },
-//         }
-// }
-// export type Nbtree<K extends Key = Key> = ReturnType<typeof createNbtree<K>>
-// export type { Cmp, Key, Rid }
+import { createPage } from '../storage/page'
+
+export type Rid = [number, number]
+export type Cmp = (a: number, b: number) => number
+
+export interface NBTreeOptions {
+        buffer: any
+        smgr: any
+        fsm: any
+        relId: number
+        forkId: number
+        cmp?: Cmp
+        keyOf?: (entry: any) => number
+}
+
+const META_BLOCK = 0
+const LEAF_CAP = 64
+const INTERNAL_CAP = 64
+const ENTRY_BYTES = 12
+
+const defaultCmp: Cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
+
+export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCmp }: NBTreeOptions) => {
+        const pin = (b: number) => buffer.pin(relId, forkId, b)
+        const unpin = (f: any, d?: boolean) => buffer.unpin(f, d)
+        const ridOf = (e: any): Rid => [e.ridPageId, e.ridOffset]
+        const writeLeaf = (p: any, slot: number, key: number, rid: Rid) => p.writeLeafEntry(slot, key, { pageId: rid[0], offset: rid[1] })
+        const notifyFree = (block: number, used: number, cap: number) => fsm.update(relId, forkId, block, (cap - used) * ENTRY_BYTES)
+        const readRoot = (): number => {
+                const f = pin(META_BLOCK)
+                const p = createPage(f.bytes)
+                const r = p.readValue(0, 'i32')
+                unpin(f, false)
+                return r
+        }
+        const writeRoot = (root: number) => {
+                const f = pin(META_BLOCK)
+                const p = createPage(f.bytes)
+                p.writeValue(0, 'i32', root)
+                unpin(f, true)
+        }
+        const ensureInit = (): number => {
+                if (smgr.nBlocks(relId, forkId) > 0) return readRoot()
+                const meta = smgr.extend(relId, forkId)
+                const leaf = smgr.extend(relId, forkId)
+                const fm = pin(meta)
+                const mp = createPage(fm.bytes)
+                mp.setHeader({ kind: 'meta' })
+                mp.writeValue(0, 'i32', leaf)
+                unpin(fm, true)
+                const fl = pin(leaf)
+                const lp = createPage(fl.bytes)
+                lp.setHeader({ kind: 'leaf', slotCount: 0, prevPageId: -1, nextPageId: -1 })
+                unpin(fl, true)
+                return leaf
+        }
+        const leafBS = (lp: any, count: number, key: number): number => {
+                let lo = 0
+                let hi = count
+                while (lo < hi) {
+                        const mid = (lo + hi) >>> 1
+                        const e = lp.readLeafEntry(mid)
+                        if (cmp(e.key, key) < 0) lo = mid + 1
+                        else hi = mid
+                }
+                return lo
+        }
+        const intBS = (ip: any, count: number, key: number): number => {
+                let lo = 0
+                let hi = count
+                while (lo < hi) {
+                        const mid = (lo + hi) >>> 1
+                        const e = ip.readInternalEntry(mid)
+                        if (cmp(e.key, key) <= 0) lo = mid + 1
+                        else hi = mid
+                }
+                return Math.max(0, lo - 1)
+        }
+        const descendToLeaf = (key: number, path: number[]): number => {
+                let cur = readRoot()
+                while (true) {
+                        const f = pin(cur)
+                        const p = createPage(f.bytes)
+                        const h = p.getHeader()
+                        if (h.kind === 'leaf') {
+                                unpin(f, false)
+                                return cur
+                        }
+                        const at = intBS(p, h.slotCount || 0, key)
+                        const child = p.readInternalEntry(at).childPageId
+                        unpin(f, false)
+                        path.push(cur)
+                        cur = child
+                }
+        }
+        const propagateUp = (path: number[], sepKey: number, rightId: number): void => {
+                if (path.length === 0) {
+                        const oldRoot = readRoot()
+                        const nr = smgr.extend(relId, forkId)
+                        const fr = pin(nr)
+                        const rp = createPage(fr.bytes)
+                        rp.setHeader({ kind: 'internal', slotCount: 2 })
+                        rp.writeInternalEntry(0, sepKey, oldRoot)
+                        rp.writeInternalEntry(1, sepKey, rightId)
+                        unpin(fr, true)
+                        writeRoot(nr)
+                        return
+                }
+                const parentId = path.pop() as number
+                const f = pin(parentId)
+                const p = createPage(f.bytes)
+                const h = p.getHeader()
+                const count = h.slotCount || 0
+                const entries: any[] = []
+                for (let i = 0; i < count; i++) entries.push(p.readInternalEntry(i))
+                let at = 0
+                while (at < entries.length && cmp(entries[at].key, sepKey) <= 0) at++
+                entries.splice(at, 0, { key: sepKey, childPageId: rightId })
+                if (entries.length <= INTERNAL_CAP) {
+                        for (let i = 0; i < entries.length; i++) p.writeInternalEntry(i, entries[i].key, entries[i].childPageId)
+                        p.setHeader({ slotCount: entries.length })
+                        unpin(f, true)
+                        return
+                }
+                const midI = entries.length >>> 1
+                const leftE = entries.slice(0, midI)
+                const rightE = entries.slice(midI)
+                const newId = smgr.extend(relId, forkId)
+                const fr = pin(newId)
+                const np = createPage(fr.bytes)
+                for (let i = 0; i < leftE.length; i++) p.writeInternalEntry(i, leftE[i].key, leftE[i].childPageId)
+                for (let i = 0; i < rightE.length; i++) np.writeInternalEntry(i, rightE[i].key, rightE[i].childPageId)
+                p.setHeader({ slotCount: leftE.length })
+                np.setHeader({ kind: 'internal', slotCount: rightE.length })
+                unpin(f, true)
+                unpin(fr, true)
+                propagateUp(path, rightE[0].key, newId)
+        }
+        const splitLeaf = (leafId: number, lp: any, lh: any, key: number, rid: Rid, path: number[]): void => {
+                const newId = smgr.extend(relId, forkId)
+                const fr = pin(newId)
+                const np = createPage(fr.bytes)
+                const count = lh.slotCount || 0
+                const mid = (count + 1) >>> 1
+                const entries: Array<{ key: number; rid: Rid }> = []
+                for (let i = 0; i < count; i++) {
+                        const e = lp.readLeafEntry(i)
+                        entries.push({ key: e.key, rid: ridOf(e) })
+                }
+                const at = leafBS(lp, count, key)
+                entries.splice(at, 0, { key, rid })
+                const left = entries.slice(0, mid)
+                const right = entries.slice(mid)
+                for (let i = 0; i < left.length; i++) writeLeaf(lp, i, left[i].key, left[i].rid)
+                for (let i = 0; i < right.length; i++) writeLeaf(np, i, right[i].key, right[i].rid)
+                const oldNext = lh.nextPageId
+                lp.setHeader({ slotCount: left.length, nextPageId: newId })
+                np.setHeader({ kind: 'leaf', slotCount: right.length, prevPageId: leafId, nextPageId: oldNext })
+                unpin(fr, true)
+                notifyFree(newId, right.length, LEAF_CAP)
+                propagateUp(path, right[0].key, newId)
+        }
+        const insert = (key: number, rid: Rid): void => {
+                ensureInit()
+                const path: number[] = []
+                const leafId = descendToLeaf(key, path)
+                const f = pin(leafId)
+                const p = createPage(f.bytes)
+                const h = p.getHeader()
+                const count = h.slotCount || 0
+                if (count < LEAF_CAP) {
+                        const at = leafBS(p, count, key)
+                        for (let i = count; i > at; i--) {
+                                const prev = p.readLeafEntry(i - 1)
+                                writeLeaf(p, i, prev.key, ridOf(prev))
+                        }
+                        writeLeaf(p, at, key, rid)
+                        p.setHeader({ slotCount: count + 1 })
+                        unpin(f, true)
+                        notifyFree(leafId, count + 1, LEAF_CAP)
+                        return
+                }
+                splitLeaf(leafId, p, h, key, rid, path)
+                unpin(f, true)
+                notifyFree(leafId, Math.ceil((count + 1) / 2), LEAF_CAP)
+        }
+        const search = (key: number): Rid | undefined => {
+                if (smgr.nBlocks(relId, forkId) === 0) return undefined
+                const path: number[] = []
+                const leafId = descendToLeaf(key, path)
+                const f = pin(leafId)
+                const p = createPage(f.bytes)
+                const h = p.getHeader()
+                const at = leafBS(p, h.slotCount || 0, key)
+                let out: Rid | undefined
+                if (at < (h.slotCount || 0)) {
+                        const e = p.readLeafEntry(at)
+                        if (cmp(e.key, key) === 0) out = ridOf(e)
+                }
+                unpin(f, false)
+                return out
+        }
+        const walkRange = (start: number, end: number, dir: 1 | -1, emit: (rid: Rid) => boolean | void): void => {
+                if (smgr.nBlocks(relId, forkId) === 0) return
+                const path: number[] = []
+                let cur = descendToLeaf(dir === 1 ? start : end, path)
+                while (cur >= 0) {
+                        const f = pin(cur)
+                        const p = createPage(f.bytes)
+                        const h = p.getHeader()
+                        const count = h.slotCount || 0
+                        let stop = false
+                        const idxs = dir === 1 ? Array.from({ length: count }, (_, i) => i) : Array.from({ length: count }, (_, i) => count - 1 - i)
+                        for (const i of idxs) {
+                                const e = p.readLeafEntry(i)
+                                if (dir === 1 && cmp(e.key, start) < 0) continue
+                                if (dir === 1 && cmp(e.key, end) > 0) {
+                                        stop = true
+                                        break
+                                }
+                                if (dir === -1 && cmp(e.key, end) > 0) continue
+                                if (dir === -1 && cmp(e.key, start) < 0) {
+                                        stop = true
+                                        break
+                                }
+                                const r = emit(ridOf(e))
+                                if (r === false) {
+                                        stop = true
+                                        break
+                                }
+                        }
+                        const next = dir === 1 ? h.nextPageId : h.prevPageId
+                        unpin(f, false)
+                        if (stop) return
+                        cur = next ?? -1
+                }
+        }
+        const forward = (start: number, end: number, emit: (rid: Rid) => boolean | void) => walkRange(start, end, 1, emit)
+        const backward = (start: number, end: number, emit: (rid: Rid) => boolean | void) => walkRange(start, end, -1, emit)
+        const bulkLoad = (sortedEntries: Array<[number, Rid]>): void => {
+                ensureInit()
+                if (sortedEntries.length === 0) return
+                const leafIds: number[] = []
+                const leafFirstKeys: number[] = []
+                let i = 0
+                let prevId = -1
+                while (i < sortedEntries.length) {
+                        const id = smgr.extend(relId, forkId)
+                        leafIds.push(id)
+                        const f = pin(id)
+                        const p = createPage(f.bytes)
+                        const slice = sortedEntries.slice(i, i + LEAF_CAP)
+                        for (let j = 0; j < slice.length; j++) writeLeaf(p, j, slice[j][0], slice[j][1])
+                        p.setHeader({ kind: 'leaf', slotCount: slice.length, prevPageId: prevId, nextPageId: -1 })
+                        leafFirstKeys.push(slice[0][0])
+                        unpin(f, true)
+                        notifyFree(id, slice.length, LEAF_CAP)
+                        if (prevId >= 0) {
+                                const pf = pin(prevId)
+                                const pp = createPage(pf.bytes)
+                                pp.setHeader({ nextPageId: id })
+                                unpin(pf, true)
+                        }
+                        prevId = id
+                        i += LEAF_CAP
+                }
+                let levelIds = leafIds
+                let levelKeys = leafFirstKeys
+                while (levelIds.length > 1) {
+                        const nextIds: number[] = []
+                        const nextKeys: number[] = []
+                        let k = 0
+                        while (k < levelIds.length) {
+                                const id = smgr.extend(relId, forkId)
+                                const f = pin(id)
+                                const p = createPage(f.bytes)
+                                const slice = levelIds.slice(k, k + INTERNAL_CAP)
+                                const sliceK = levelKeys.slice(k, k + INTERNAL_CAP)
+                                for (let j = 0; j < slice.length; j++) p.writeInternalEntry(j, sliceK[j], slice[j])
+                                p.setHeader({ kind: 'internal', slotCount: slice.length })
+                                unpin(f, true)
+                                nextIds.push(id)
+                                nextKeys.push(sliceK[0])
+                                k += INTERNAL_CAP
+                        }
+                        levelIds = nextIds
+                        levelKeys = nextKeys
+                }
+                writeRoot(levelIds[0])
+        }
+        const vacuum = (): number => 0
+        ensureInit()
+        return { insert, search, forward, backward, bulkLoad, vacuum }
+}
+
+export type NBTree = ReturnType<typeof createNBTree>

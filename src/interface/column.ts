@@ -1,44 +1,88 @@
-import { SQL } from './sql'
+import type { SQL } from './sql'
 
-interface Config {
-        mode?: string
-        onDelete?: string
+export interface ColumnConfig {
         primaryKey?: boolean
         unique?: boolean
         notNull?: boolean
-        default?: any
-        defaultFn?: any
+        defaultValue?: any
+        defaultFn?: () => any
+        hasOrder?: boolean
+        orderRange?: [number, number]
+        references?: { fn: () => SQL; onDelete?: string }
 }
 
-export const column = (type: string, id: string, config: Config = {}) => {
-        const ret = {
+export interface ColumnDescriptor extends ColumnConfig {
+        name: string
+        type: string
+        tableName?: string
+}
+
+export interface Column {
+        kind: 'sql'
+        node: any
+        $col: ColumnDescriptor
+        primaryKey: () => Column
+        unique: () => Column
+        notNull: () => Column
+        default: (value: any) => Column
+        $defaultFn: (fn: () => any) => Column
+        defaultFn: (fn: () => any) => Column
+        references: (fn: () => SQL, opts?: { onDelete?: string }) => Column
+        order: (min: number, max: number) => Column
+        at: (index: any) => SQL
+}
+
+const buildNode = (desc: ColumnDescriptor) => ({ type: 'column', name: desc.name, dataType: desc.type, tableName: desc.tableName })
+
+export const column = (type: string, name?: string, config: ColumnConfig = {}): Column => {
+        const desc: ColumnDescriptor = { name: name || '', type, ...config }
+        const self: Column = {
+                kind: 'sql',
+                node: buildNode(desc),
+                $col: desc,
                 primaryKey() {
-                        config.primaryKey = true
-                        return ret
-                },
-                secoundaryKey() {
-                        return ret
+                        desc.primaryKey = true
+                        return self
                 },
                 unique() {
-                        return ret
+                        desc.unique = true
+                        return self
                 },
                 notNull() {
-                        return ret
+                        desc.notNull = true
+                        return self
                 },
                 default(value: any) {
-                        return ret
+                        desc.defaultValue = value
+                        return self
                 },
-                defaultFn(fn: () => string) {
-                        return ret
+                $defaultFn(fn: () => any) {
+                        desc.defaultFn = fn
+                        return self
                 },
-                references(fn: () => SQL, { onDelete }: { onDelete: string }) {
-                        return ret
+                defaultFn(fn: () => any) {
+                        desc.defaultFn = fn
+                        return self
+                },
+                references(fn: () => SQL, opts?: { onDelete?: string }) {
+                        desc.references = { fn, onDelete: opts?.onDelete }
+                        return self
+                },
+                order(min: number, max: number) {
+                        desc.hasOrder = true
+                        desc.orderRange = [min, max]
+                        return self
+                },
+                at(index: any) {
+                        return { kind: 'sql', node: { type: 'func', name: 'at', args: [self, index] } } as SQL
                 },
         }
-        return ret
+        return self
 }
 
-export type Column = ReturnType<typeof column>
 export type Columns = Record<string, Column>
-export const text = column.bind(null, 'text')
-export const integer = column.bind(null, 'int')
+
+export const text = (name?: string, config?: ColumnConfig) => column('text', name, config)
+export const integer = (name?: string, config?: ColumnConfig) => column('i32', name, config)
+export const float = (name?: string, config?: ColumnConfig) => column('f32', name, config)
+export const uint = (name?: string, config?: ColumnConfig) => column('u32', name, config)
