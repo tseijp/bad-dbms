@@ -1,7 +1,17 @@
 import type { SQL, Placeholder } from '../sql'
 import { wrap } from '../sql'
 
-const make = (node: any): SQL => ({ kind: 'sql', node })
+const attach = (sql: SQL): SQL => {
+        sql.toFloat = () => attach({ kind: 'sql', node: { type: 'func', name: 'toFloat', args: [sql] } })
+        sql.toInt = () => attach({ kind: 'sql', node: { type: 'func', name: 'toInt', args: [sql] } })
+        sql.add = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '+', args: [sql, wrap(o)] } })
+        sql.sub = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '-', args: [sql, wrap(o)] } })
+        sql.mul = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '*', args: [sql, wrap(o)] } })
+        sql.div = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '/', args: [sql, wrap(o)] } })
+        return sql
+}
+
+const make = (node: any): SQL => attach({ kind: 'sql', node })
 
 const binop = (op: string, left: any, right: any): SQL => make({ type: 'binop', op, args: [wrap(left), wrap(right)] })
 

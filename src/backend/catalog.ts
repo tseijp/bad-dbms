@@ -6,6 +6,21 @@ export type ColType = 'i32' | 'f32' | 'u32'
 
 const BYTE_SIZE: any = { i32: 4, f32: 4, u32: 4 }
 
+const normalizeType = (t: any): ColType => {
+        if (t === 'i32' || t === 'f32' || t === 'u32') return t
+        if (t === 'integer' || t === 'int') return 'i32'
+        if (t === 'float' || t === 'real') return 'f32'
+        if (t === 'uint' || t === 'unsigned') return 'u32'
+        return 'u32'
+}
+
+const fromColDescriptor = (d: any) => ({
+        type: normalizeType(d.type),
+        isPrimary: !!d.primaryKey,
+        isUnique: !!d.unique,
+        hasOrder: !!d.hasOrder,
+})
+
 const COLUMN_FORK_BASE = 10
 const INDEX_FORK_BASE = 1000
 const STORAGE_STRIDE = 10000
@@ -77,7 +92,28 @@ export const createCatalog = (deps: any) => {
                 relations.set(name, rel)
                 return rel
         }
-        const resolve = (name: string) => relations.get(name)
+        const resolve = (nameOrTable: any) => {
+                if (typeof nameOrTable === 'string') return relations.get(nameOrTable)
+                if (nameOrTable && nameOrTable.$meta) return relations.get(nameOrTable.$meta.name)
+                return undefined
+        }
+        const scanTable = (nameOrTable: any, emit: (rid: any, row: any) => boolean | void) => {
+                const rel = resolve(nameOrTable)
+                if (!rel) return
+                const heaps = rel.heaps
+                const cols = rel.columns
+                let stopped = false
+                heaps[0].scan((rid: any) => {
+                        if (stopped) return false
+                        const row: any = { __rid: rid }
+                        for (let i = 0; i < cols.length; i++) row[cols[i].name] = heaps[i].read(rid)
+                        const r = emit(rid, row)
+                        if (r === false) {
+                                stopped = true
+                                return false
+                        }
+                })
+        }
         const tupleDescriptor = (rel: any) => {
                 const cols = rel.columns.map((c: any, i: number) => {
                         const idxes = rel.indexes.filter((x: any) => x.columnIdx === i)
@@ -105,7 +141,15 @@ export const createCatalog = (deps: any) => {
                 }
                 return rid
         }
-        return { register, resolve, tupleDescriptor, findIndex, list, insertRow }
+        const registerTable = (tableObj: any) => {
+                if (!tableObj || !tableObj.$meta) return null
+                const name = tableObj.$meta.name
+                if (relations.has(name)) return relations.get(name)
+                const def: any = {}
+                for (const col of tableObj.$meta.columns) def[col.$col.name] = fromColDescriptor(col.$col)
+                return register(name, def)
+        }
+        return { register, registerTable, resolve, tupleDescriptor, findIndex, list, insertRow, scanTable }
 }
 
 export type Catalog = ReturnType<typeof createCatalog>

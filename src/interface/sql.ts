@@ -27,6 +27,12 @@ export interface SQL<T = unknown> {
         kind: 'sql'
         node: SqlNode
         _t?: T
+        toFloat?: () => SQL
+        toInt?: () => SQL
+        add?: (other: any) => SQL
+        sub?: (other: any) => SQL
+        mul?: (other: any) => SQL
+        div?: (other: any) => SQL
 }
 
 export interface Placeholder {
@@ -38,7 +44,17 @@ export type SQLChunk = string | number | boolean | null | SQLChunk[] | SQL | Pla
 
 export type Encoder = any
 
-const make = (node: SqlNode): SQL => ({ kind: 'sql', node })
+const attach = (sql: SQL): SQL => {
+        sql.toFloat = () => attach({ kind: 'sql', node: { type: 'func', name: 'toFloat', args: [sql] } })
+        sql.toInt = () => attach({ kind: 'sql', node: { type: 'func', name: 'toInt', args: [sql] } })
+        sql.add = (other: any) => attach({ kind: 'sql', node: { type: 'binop', op: '+', args: [sql, wrap(other)] } })
+        sql.sub = (other: any) => attach({ kind: 'sql', node: { type: 'binop', op: '-', args: [sql, wrap(other)] } })
+        sql.mul = (other: any) => attach({ kind: 'sql', node: { type: 'binop', op: '*', args: [sql, wrap(other)] } })
+        sql.div = (other: any) => attach({ kind: 'sql', node: { type: 'binop', op: '/', args: [sql, wrap(other)] } })
+        return sql
+}
+
+const make = (node: SqlNode): SQL => attach({ kind: 'sql', node })
 
 export const isSQL = (v: any): v is SQL => !!v && typeof v === 'object' && v.kind === 'sql'
 

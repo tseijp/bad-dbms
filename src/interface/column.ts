@@ -17,72 +17,77 @@ export interface ColumnDescriptor extends ColumnConfig {
         tableName?: string
 }
 
-export interface Column {
+export interface Column extends Record<string, any> {
         kind: 'sql'
         node: any
         $col: ColumnDescriptor
-        primaryKey: () => Column
-        unique: () => Column
-        notNull: () => Column
-        default: (value: any) => Column
-        $defaultFn: (fn: () => any) => Column
-        defaultFn: (fn: () => any) => Column
-        references: (fn: () => SQL, opts?: { onDelete?: string }) => Column
-        order: (min: number, max: number) => Column
-        at: (index: any) => SQL
 }
 
-const buildNode = (desc: ColumnDescriptor) => ({ type: 'column', name: desc.name, dataType: desc.type, tableName: desc.tableName })
+const wrapVal = (v: any): any => (v && v.kind === 'sql' ? v : { kind: 'sql', node: { type: 'literal', value: v } })
+const mkBinop = (op: string, l: any, r: any): SQL => ({ kind: 'sql', node: { type: 'binop', op, args: [l, wrapVal(r)] } })
+const mkFunc = (name: string, args: any[]): SQL => ({ kind: 'sql', node: { type: 'func', name, args: args.map(wrapVal) } })
+
+const attachExprMethods = (self: any) => {
+        self.add = (v: any) => attachExprMethods(mkBinop('+', self, v))
+        self.sub = (v: any) => attachExprMethods(mkBinop('-', self, v))
+        self.mul = (v: any) => attachExprMethods(mkBinop('*', self, v))
+        self.div = (v: any) => attachExprMethods(mkBinop('/', self, v))
+        self.mod = (v: any) => attachExprMethods(mkBinop('%', self, v))
+        self.eq = (v: any) => attachExprMethods(mkBinop('=', self, v))
+        self.ne = (v: any) => attachExprMethods(mkBinop('!=', self, v))
+        self.lt = (v: any) => attachExprMethods(mkBinop('<', self, v))
+        self.lte = (v: any) => attachExprMethods(mkBinop('<=', self, v))
+        self.gt = (v: any) => attachExprMethods(mkBinop('>', self, v))
+        self.gte = (v: any) => attachExprMethods(mkBinop('>=', self, v))
+        self.toFloat = () => attachExprMethods(mkFunc('toFloat', [self]))
+        self.toInt = () => attachExprMethods(mkFunc('toInt', [self]))
+        self.toBool = () => attachExprMethods(mkFunc('toBool', [self]))
+        self.at = (i: any) => attachExprMethods(mkFunc('at', [self, i]))
+        return self
+}
+
+export const wrapExpr = (s: SQL): any => attachExprMethods(s)
 
 export const column = (type: string, name?: string, config: ColumnConfig = {}): Column => {
-        const desc: ColumnDescriptor = { name: name || '', type, ...config }
-        const self: Column = {
-                kind: 'sql',
-                node: buildNode(desc),
-                $col: desc,
-                primaryKey() {
-                        desc.primaryKey = true
-                        return self
-                },
-                unique() {
-                        desc.unique = true
-                        return self
-                },
-                notNull() {
-                        desc.notNull = true
-                        return self
-                },
-                default(value: any) {
-                        desc.defaultValue = value
-                        return self
-                },
-                $defaultFn(fn: () => any) {
-                        desc.defaultFn = fn
-                        return self
-                },
-                defaultFn(fn: () => any) {
-                        desc.defaultFn = fn
-                        return self
-                },
-                references(fn: () => SQL, opts?: { onDelete?: string }) {
-                        desc.references = { fn, onDelete: opts?.onDelete }
-                        return self
-                },
-                order(min: number, max: number) {
-                        desc.hasOrder = true
-                        desc.orderRange = [min, max]
-                        return self
-                },
-                at(index: any) {
-                        return { kind: 'sql', node: { type: 'func', name: 'at', args: [self, index] } } as SQL
-                },
+        const desc: ColumnDescriptor = { name: name ?? '', type, ...config }
+        const self: any = { kind: 'sql', node: { type: 'column', name: desc.name, dataType: type }, $col: desc }
+        self.primaryKey = () => {
+                desc.primaryKey = true
+                return self
         }
-        return self
+        self.unique = () => {
+                desc.unique = true
+                return self
+        }
+        self.notNull = () => {
+                desc.notNull = true
+                return self
+        }
+        self.default = (value: any) => {
+                desc.defaultValue = value
+                return self
+        }
+        self.$defaultFn = (fn: () => any) => {
+                desc.defaultFn = fn
+                return self
+        }
+        self.defaultFn = self.$defaultFn
+        self.references = (fn: () => SQL, opts?: { onDelete?: string }) => {
+                desc.references = { fn, onDelete: opts?.onDelete }
+                return self
+        }
+        self.order = (min: number, max: number) => {
+                desc.hasOrder = true
+                desc.orderRange = [min, max]
+                return self
+        }
+        attachExprMethods(self)
+        return self as Column
 }
 
 export type Columns = Record<string, Column>
 
-export const text = (name?: string, config?: ColumnConfig) => column('text', name, config)
+export const text = (name?: string, config?: ColumnConfig) => column('u32', name, { ...config, ...{ tag: 'str' } as any })
 export const integer = (name?: string, config?: ColumnConfig) => column('i32', name, config)
 export const float = (name?: string, config?: ColumnConfig) => column('f32', name, config)
 export const uint = (name?: string, config?: ColumnConfig) => column('u32', name, config)
