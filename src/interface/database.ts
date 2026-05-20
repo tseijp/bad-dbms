@@ -187,9 +187,22 @@ const iterateTable = (backend: any, tableName: string): any[] => {
         return rows
 }
 
-export const database = (config?: DatabaseConfig | Record<string, Table>) => {
-        const isTablesOnly = !!config && !(config as DatabaseConfig).execute && !(config as DatabaseConfig).tables && !(config as DatabaseConfig).pageSize && !(config as DatabaseConfig).fileAdapter
-        const cfg: DatabaseConfig = isTablesOnly ? { tables: config as any } : ((config as DatabaseConfig) ?? {})
+const normalizeArgs = (a?: any, b?: any): DatabaseConfig => {
+        if (!a) return {}
+        if ((a as DatabaseConfig).execute || (a as DatabaseConfig).pageSize || (a as DatabaseConfig).fileAdapter || (a as DatabaseConfig).frameCount || (a as DatabaseConfig).ringCount || (a as DatabaseConfig).tables) {
+                const cfg = a as DatabaseConfig
+                if (b) return { ...cfg, tables: b as Record<string, Table> }
+                return cfg
+        }
+        const tables = a as Record<string, Table>
+        const cfg = (b as DatabaseConfig) ?? {}
+        return { ...cfg, tables }
+}
+
+const usesCurrentTuple = (fn: Function) => fn.length >= 2
+
+export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>, maybeConfig?: DatabaseConfig | Record<string, Table>) => {
+        const cfg: DatabaseConfig = normalizeArgs(schemaOrConfig, maybeConfig)
         const backend = cfg.execute ? null : createBackend({ pageSize: cfg.pageSize, frameCount: cfg.frameCount, ringCount: cfg.ringCount, fileAdapter: cfg.fileAdapter })
         const ctx: EvalCtx = { current: null, params: null }
         const tables = cfg.tables ?? {}
@@ -208,7 +221,8 @@ export const database = (config?: DatabaseConfig | Record<string, Table>) => {
                 update: (t: Table) => makeUpdate(run, t),
                 delete: (t: Table) => makeDelete(run, t),
         })
-        const transaction = (fn: (tx: any, c: any) => Promise<any> | any) => {
+        const transaction = (fn: (tx: any, c?: any) => Promise<any> | any) => {
+                if (!usesCurrentTuple(fn)) return Promise.resolve(fn(buildTx()))
                 const primary = Object.values(tables)[0] as Table | undefined
                 return {
                         async run(extra?: any) {

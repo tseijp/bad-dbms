@@ -324,7 +324,7 @@ const makeInsert = (catalog: any, ast: any) => {
                 const rid = catalog.insertRow(name, row)
                 if (rid) rids.push(rid)
         }
-        const out = ast.returning ? rows : [{ inserted: rids.length }]
+        const out = ast.returning ? [{ rowCount: rids.length, rids }] : [{ rowCount: rids.length }]
         let i = 0
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
