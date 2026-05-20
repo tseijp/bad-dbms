@@ -43,7 +43,7 @@ const column = <T = number>(type: ColumnType, name?: string, config: ColumnConfi
 }
 export const wrapExpr = (s: SQL): SQL => wrap(s)
 export { column, exprNode }
-export const text = (name?: string, config?: ColumnConfig): Column<number> => column<number>('u32', name, { ...config, tag: 'str' })
+export const text = (name?: string, config?: ColumnConfig): Column<string> => column<string>('u32', name, { ...config, tag: 'str' })
 export const integer = (name?: string, config?: ColumnConfig): Column<number> => column<number>('i32', name, config)
 export const float = (name?: string, config?: ColumnConfig): Column<number> => column<number>('f32', name, config)
 export const uint = (name?: string, config?: ColumnConfig): Column<number> => column<number>('u32', name, config)

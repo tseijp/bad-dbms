@@ -1,6 +1,6 @@
 import type { SQL, SqlNode, SqlValue, ExprMethods, ColumnDescriptor, InitAllAst, FileAdapter } from '../shared/types'
 export type { SQL, SqlNode, SqlValue, Placeholder, SQLChunk, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, InitAllAst } from '../shared/types'
-export interface Column<T = number> extends SQL<T>, ExprMethods {
+export interface Column<T = number | string | boolean> extends SQL<T>, ExprMethods {
         $col: ColumnDescriptor
         primaryKey(): Column<T>
         unique(): Column<T>
