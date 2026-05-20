@@ -4,7 +4,6 @@ import type { Columns } from './column'
 import { createDatabase as createBackend } from '../backend/index'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect, tableNameOf } from './plan'
-
 export interface DatabaseConfig {
         execute?: (ast: any) => any
         tables?: Record<string, Table>
@@ -13,14 +12,12 @@ export interface DatabaseConfig {
         ringCount?: number
         fileAdapter?: any
 }
-
 const projectionOf = (fields?: Columns | Record<string, SQL>) => {
         if (!fields) return undefined
         const out: Array<{ alias: string; expr: any }> = []
         for (const k in fields) out.push({ alias: k, expr: (fields as any)[k] })
         return out
 }
-
 const registerTables = (backend: any, tables: Record<string, Table>) => {
         if (!backend?.catalog?.register) return
         for (const key in tables) {
@@ -32,7 +29,6 @@ const registerTables = (backend: any, tables: Record<string, Table>) => {
                 backend.catalog.register(meta.name, def)
         }
 }
-
 const generateInitRows = (table: any, count: number): any[] => {
         const meta = table.$meta
         const orderCols = meta.columns.filter((c: any) => c.$col.hasOrder)
@@ -47,7 +43,7 @@ const generateInitRows = (table: any, count: number): any[] => {
                         const row: any = { [cx.$col.name]: x, [cy.$col.name]: y }
                         for (const c of meta.columns) {
                                 if (c.$col.hasOrder) continue
-                                row[c.$col.name] = c.$col.defaultFn ? c.$col.defaultFn() : c.$col.defaultValue ?? 0
+                                row[c.$col.name] = c.$col.defaultFn ? c.$col.defaultFn() : (c.$col.defaultValue ?? 0)
                         }
                         rows.push(row)
                 }
@@ -57,13 +53,12 @@ const generateInitRows = (table: any, count: number): any[] => {
                 const row: any = {}
                 for (const c of meta.columns) {
                         if (c.$col.hasOrder) row[c.$col.name] = i % (c.$col.orderRange?.[1] ?? count)
-                        else row[c.$col.name] = c.$col.defaultFn ? c.$col.defaultFn() : c.$col.defaultValue ?? 0
+                        else row[c.$col.name] = c.$col.defaultFn ? c.$col.defaultFn() : (c.$col.defaultValue ?? 0)
                 }
                 rows.push(row)
         }
         return rows
 }
-
 const initAll = (backend: any, tables: Record<string, Table>, count: number) => {
         registerTables(backend, tables)
         for (const key in tables) {
@@ -72,7 +67,6 @@ const initAll = (backend: any, tables: Record<string, Table>, count: number) => 
                 for (const row of rows) backend.catalog.insertRow(tableNameOf(t), row)
         }
 }
-
 const runSelect = async (backend: any, cfg: DatabaseConfig, ast: any, ctx: EvalCtx) => {
         const { plan, proj } = planSelect(ast, ctx)
         const rows = await Promise.resolve(cfg.execute ? cfg.execute(plan) : backend.execute(plan))
@@ -81,14 +75,12 @@ const runSelect = async (backend: any, cfg: DatabaseConfig, ast: any, ctx: EvalC
         if (ast.limit !== undefined) return arr.slice(0, ast.limit)
         return arr
 }
-
 const runInsert = (backend: any, ast: any) => {
         const rows = ast.values ?? []
         const rids: any[] = []
         for (const row of rows) rids.push(backend.catalog.insertRow(tableNameOf(ast.table), row))
         return ast.returning ? rids : { rowCount: rids.length }
 }
-
 const runUpdate = (backend: any, cfg: DatabaseConfig, ast: any, ctx: EvalCtx) => {
         const predicate = ast.where ? compilePredicate(ast.where, ctx) : () => true
         const setters: Record<string, (row: any) => any> = {}
@@ -100,68 +92,119 @@ const runUpdate = (backend: any, cfg: DatabaseConfig, ast: any, ctx: EvalCtx) =>
         const plan = { op: 'Update', table: tableNameOf(ast.table), predicate, setters }
         return cfg.execute ? cfg.execute(plan) : backend.execute(plan)
 }
-
 const runDelete = (backend: any, cfg: DatabaseConfig, ast: any, ctx: EvalCtx) => {
         const predicate = ast.where ? compilePredicate(ast.where, ctx) : () => true
         const plan = { op: 'Delete', table: tableNameOf(ast.table), predicate }
         return cfg.execute ? cfg.execute(plan) : backend.execute(plan)
 }
-
 const makeSelect = (run: (ast: any) => any, ast: any) => {
         const b: any = {
-                from(t: Table) { ast.table = t; return b },
-                where(c?: SQL) { if (c) ast.where = c; return b },
-                groupBy(...cols: any[]) { ast.groupBy = cols; return b },
-                orderBy(...cols: any[]) { ast.orderBy = cols; return b },
-                limit(n: number) { ast.limit = n; return b },
-                offset(n: number) { ast.offset = n; return b },
-                toAST() { return ast },
-                then(r: any, j: any) { return Promise.resolve(run(ast)).then(r, j) },
+                from(t: Table) {
+                        ast.table = t
+                        return b
+                },
+                where(c?: SQL) {
+                        if (c) ast.where = c
+                        return b
+                },
+                groupBy(...cols: any[]) {
+                        ast.groupBy = cols
+                        return b
+                },
+                orderBy(...cols: any[]) {
+                        ast.orderBy = cols
+                        return b
+                },
+                limit(n: number) {
+                        ast.limit = n
+                        return b
+                },
+                offset(n: number) {
+                        ast.offset = n
+                        return b
+                },
+                toAST() {
+                        return ast
+                },
+                then(r: any, j: any) {
+                        return Promise.resolve(run(ast)).then(r, j)
+                },
         }
         return b
 }
-
 const makeInsert = (run: (ast: any) => any, t: Table) => {
         const ast: any = { op: 'Insert', table: t }
         const b: any = {
-                values(rows: any) { ast.values = Array.isArray(rows) ? rows : [rows]; return b },
-                returning(f?: any) { ast.returning = f ?? true; return b },
-                then(r: any, j: any) { return Promise.resolve(run(ast)).then(r, j) },
+                values(rows: any) {
+                        ast.values = Array.isArray(rows) ? rows : [rows]
+                        return b
+                },
+                returning(f?: any) {
+                        ast.returning = f ?? true
+                        return b
+                },
+                then(r: any, j: any) {
+                        return Promise.resolve(run(ast)).then(r, j)
+                },
         }
         return b
 }
-
 const makeUpdate = (run: (ast: any) => any, t: Table) => {
         const ast: any = { op: 'Update', table: t }
         const b: any = {
-                set(v: Record<string, any>) { ast.set = v; return b },
-                from(o: Table) { ast.from = o; return b },
-                where(c?: SQL) { if (c) ast.where = c; return b },
-                then(r: any, j: any) { return Promise.resolve(run(ast)).then(r, j) },
+                set(v: Record<string, any>) {
+                        ast.set = v
+                        return b
+                },
+                from(o: Table) {
+                        ast.from = o
+                        return b
+                },
+                where(c?: SQL) {
+                        if (c) ast.where = c
+                        return b
+                },
+                then(r: any, j: any) {
+                        return Promise.resolve(run(ast)).then(r, j)
+                },
         }
         return b
 }
-
 const makeDelete = (run: (ast: any) => any, t: Table) => {
         const ast: any = { op: 'Delete', table: t }
         const b: any = {
-                where(c?: SQL) { if (c) ast.where = c; return b },
-                then(r: any, j: any) { return Promise.resolve(run(ast)).then(r, j) },
+                where(c?: SQL) {
+                        if (c) ast.where = c
+                        return b
+                },
+                then(r: any, j: any) {
+                        return Promise.resolve(run(ast)).then(r, j)
+                },
         }
         return b
 }
-
 const attachExpr = (node: any): any => {
         const self: any = { kind: 'sql', node }
         const wrapVal = (v: any) => (v && v.kind === 'sql' ? v : { kind: 'sql', node: { type: 'literal', value: v } })
         const mk = (n: any) => attachExpr(n)
-        const ops: Array<[string, string]> = [['add', '+'], ['sub', '-'], ['mul', '*'], ['div', '/'], ['mod', '%'], ['eq', '='], ['ne', '!='], ['lt', '<'], ['lte', '<='], ['gt', '>'], ['gte', '>=']]
+        const ops: Array<[string, string]> = [
+                ['add', '+'],
+                ['sub', '-'],
+                ['mul', '*'],
+                ['div', '/'],
+                ['mod', '%'],
+                ['eq', '='],
+                ['ne', '!='],
+                ['lt', '<'],
+                ['lte', '<='],
+                ['gt', '>'],
+                ['gte', '>='],
+        ]
         for (const [m, op] of ops) self[m] = (v: any) => mk({ type: 'binop', op, args: [self, wrapVal(v)] })
         for (const f of ['toFloat', 'toInt', 'toBool']) self[f] = () => mk({ type: 'func', name: f, args: [self] })
         self.at = (i: any) => mk({ type: 'func', name: 'at', args: [self, wrapVal(i)] })
         return self
 }
-
 const currentTupleProxy = (table: Table) => {
         const meta = (table as any).$meta
         const handler: ProxyHandler<any> = {
@@ -173,7 +216,6 @@ const currentTupleProxy = (table: Table) => {
         }
         return new Proxy({}, handler)
 }
-
 const iterateTable = (backend: any, tableName: string): any[] => {
         const rel = backend.catalog.resolve(tableName)
         if (!rel) return []
@@ -186,7 +228,6 @@ const iterateTable = (backend: any, tableName: string): any[] => {
         })
         return rows
 }
-
 const normalizeArgs = (a?: any, b?: any): DatabaseConfig => {
         if (!a) return {}
         if ((a as DatabaseConfig).execute || (a as DatabaseConfig).pageSize || (a as DatabaseConfig).fileAdapter || (a as DatabaseConfig).frameCount || (a as DatabaseConfig).ringCount || (a as DatabaseConfig).tables) {
@@ -198,60 +239,60 @@ const normalizeArgs = (a?: any, b?: any): DatabaseConfig => {
         const cfg = (b as DatabaseConfig) ?? {}
         return { ...cfg, tables }
 }
-
 const usesCurrentTuple = (fn: Function) => fn.length >= 2
-
 export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>, maybeConfig?: DatabaseConfig | Record<string, Table>) => {
-        const cfg: DatabaseConfig = normalizeArgs(schemaOrConfig, maybeConfig)
-        const backend = cfg.execute ? null : createBackend({ pageSize: cfg.pageSize, frameCount: cfg.frameCount, ringCount: cfg.ringCount, fileAdapter: cfg.fileAdapter })
-        const ctx: EvalCtx = { current: null, params: null }
-        const tables = cfg.tables ?? {}
+        const _cfg: DatabaseConfig = normalizeArgs(schemaOrConfig, maybeConfig)
+        const backend = _cfg.execute ? null : createBackend({ pageSize: _cfg.pageSize, frameCount: _cfg.frameCount, ringCount: _cfg.ringCount, fileAdapter: _cfg.fileAdapter })
+        const _ctx: EvalCtx = { current: null, params: null }
+        const tables = _cfg.tables ?? {}
         if (backend) registerTables(backend, tables)
         const adapters: any[] = []
-        const run = (ast: any): any => {
-                if (ast.op === 'Select') return runSelect(backend, cfg, ast, ctx)
+        const _run = (ast: any): any => {
+                if (ast.op === 'Select') return runSelect(backend, _cfg, ast, _ctx)
                 if (ast.op === 'Insert') return runInsert(backend, ast)
-                if (ast.op === 'Update') return runUpdate(backend, cfg, ast, ctx)
-                if (ast.op === 'Delete') return runDelete(backend, cfg, ast, ctx)
-                return cfg.execute ? cfg.execute(ast) : backend.execute(ast)
+                if (ast.op === 'Update') return runUpdate(backend, _cfg, ast, _ctx)
+                if (ast.op === 'Delete') return runDelete(backend, _cfg, ast, _ctx)
+                return _cfg.execute ? _cfg.execute(ast) : backend?.execute(ast)
         }
-        const buildTx = () => ({
-                select: (fields?: Columns | Record<string, SQL>) => makeSelect(run, { op: 'Select', projection: projectionOf(fields) }),
-                insert: (t: Table) => makeInsert(run, t),
-                update: (t: Table) => makeUpdate(run, t),
-                delete: (t: Table) => makeDelete(run, t),
+        const _buildTx = () => ({
+                select: (fields?: Columns | Record<string, SQL>) => makeSelect(_run, { op: 'Select', projection: projectionOf(fields) }),
+                insert: (t: Table) => makeInsert(_run, t),
+                update: (t: Table) => makeUpdate(_run, t),
+                delete: (t: Table) => makeDelete(_run, t),
         })
-        const transaction = (fn: (tx: any, c?: any) => Promise<any> | any) => {
-                if (!usesCurrentTuple(fn)) return Promise.resolve(fn(buildTx()))
-                const primary = Object.values(tables)[0] as Table | undefined
-                return {
-                        async run(extra?: any) {
-                                if (!primary || !backend) return extra
-                                const proxy = currentTupleProxy(primary)
-                                const rows = iterateTable(backend, tableNameOf(primary))
-                                for (const row of rows) {
-                                        ctx.current = row
-                                        await Promise.resolve(fn(buildTx(), proxy))
-                                }
-                                ctx.current = null
-                                return extra
-                        },
-                }
-        }
         const api: any = {
-                ...buildTx(),
-                transaction,
-                use(adapter: any) { adapters.push(adapter); return api },
-                async all(n: number) {
-                        if (backend) initAll(backend, tables, n)
+                ..._buildTx(),
+                transaction(fn: (tx: any, c?: any) => Promise<any> | any) {
+                        if (!usesCurrentTuple(fn)) return Promise.resolve(fn(_buildTx()))
+                        const primary = Object.values(tables)[0] as Table | undefined
+                        return {
+                                async run(extra?: any) {
+                                        if (!primary || !backend) return extra
+                                        const proxy = currentTupleProxy(primary)
+                                        const rows = iterateTable(backend, tableNameOf(primary))
+                                        for (const row of rows) {
+                                                _ctx.current = row
+                                                await Promise.resolve(fn(_buildTx(), proxy))
+                                        }
+                                        _ctx.current = null
+                                        return extra
+                                },
+                        }
+                },
+                use(adapter: any) {
+                        adapters.push(adapter)
                         return api
                 },
-                then(resolve: any) { return Promise.resolve(api).then(resolve) },
+                all(n: number) {
+                        return Promise.resolve().then(() => {
+                                if (backend) initAll(backend, tables, n)
+                                return api
+                        })
+                },
                 backend,
                 tables,
                 adapters,
         }
         return api
 }
-
 export type Database = ReturnType<typeof database>

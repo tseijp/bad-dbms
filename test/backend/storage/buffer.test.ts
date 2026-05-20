@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createBufferPool } from '../../../src/backend/storage/buffer'
 import { makeFakeSmgr, PAGE } from './_helpers'
-
 describe('buffer', () => {
         it('reads from smgr on first pin of a (relId, forkId, blockNo) tuple', () => {
                 const smgr = makeFakeSmgr()
@@ -9,7 +8,6 @@ describe('buffer', () => {
                 buffer.pin(1, 0, 0)
                 expect(smgr.read).toHaveBeenCalledTimes(1)
         })
-
         it('returns the same frame on cache hit without calling smgr.read again', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 4, ringCount: 2, pageSize: PAGE })
@@ -17,7 +15,6 @@ describe('buffer', () => {
                 const f2 = buffer.pin(1, 0, 0)
                 expect(f2).toBe(f1)
         })
-
         it('does not call smgr.read again when the same block is pinned twice', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 4, ringCount: 2, pageSize: PAGE })
@@ -25,7 +22,6 @@ describe('buffer', () => {
                 buffer.pin(1, 0, 0)
                 expect(smgr.read).toHaveBeenCalledTimes(1)
         })
-
         it('increments pinCount by the number of pin minus unpin calls', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 4, ringCount: 2, pageSize: PAGE })
@@ -35,7 +31,6 @@ describe('buffer', () => {
                 buffer.unpin(f)
                 expect(f.pinCount).toBe(2)
         })
-
         it('writes through smgr.write on flush when the frame was unpinned dirty', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 4, ringCount: 2, pageSize: PAGE })
@@ -44,7 +39,6 @@ describe('buffer', () => {
                 buffer.flush(f)
                 expect(smgr.write).toHaveBeenCalledTimes(1)
         })
-
         it('does not write through smgr.write on flush when the frame was unpinned clean', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 4, ringCount: 2, pageSize: PAGE })
@@ -53,7 +47,6 @@ describe('buffer', () => {
                 buffer.flush(f)
                 expect(smgr.write).not.toHaveBeenCalled()
         })
-
         it('reuses one of the existing frames as victim via clock-sweep when normal pool is full', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 2, ringCount: 1, pageSize: PAGE })
@@ -64,7 +57,6 @@ describe('buffer', () => {
                 const c = buffer.pin(1, 0, 2)
                 expect([a, b]).toContain(c)
         })
-
         it('rewrites the victim frame to hold the newly pinned blockNo', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 2, ringCount: 1, pageSize: PAGE })
@@ -75,7 +67,6 @@ describe('buffer', () => {
                 const c = buffer.pin(1, 0, 2)
                 expect(c.blockNo).toBe(2)
         })
-
         it('issues a fresh smgr.read on cache miss after clock-sweep eviction', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 2, ringCount: 1, pageSize: PAGE })
@@ -86,7 +77,6 @@ describe('buffer', () => {
                 buffer.pin(1, 0, 2)
                 expect(smgr.read).toHaveBeenCalledTimes(3)
         })
-
         it('writes a dirty victim through smgr.write during clock-sweep eviction', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 2, ringCount: 1, pageSize: PAGE })
@@ -97,7 +87,6 @@ describe('buffer', () => {
                 buffer.pin(1, 0, 2)
                 expect(smgr.write).toHaveBeenCalled()
         })
-
         it('does not evict a normal pool frame when a bulk hint pin is issued', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 2, ringCount: 2, pageSize: PAGE })
@@ -108,7 +97,6 @@ describe('buffer', () => {
                 buffer.pin(1, 0, 4, 'vacuum')
                 expect(buffer.pin(1, 0, 0)).toBe(a)
         })
-
         it('writes every dirty frame through smgr.write on flushAll', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 4, ringCount: 2, pageSize: PAGE })
@@ -121,7 +109,6 @@ describe('buffer', () => {
                 buffer.flushAll()
                 expect(smgr.write).toHaveBeenCalledTimes(3)
         })
-
         it('exposes a bytes buffer of length pageSize on each pinned frame', () => {
                 const smgr = makeFakeSmgr()
                 const buffer = createBufferPool({ smgr, frameCount: 4, ringCount: 2, pageSize: PAGE })
