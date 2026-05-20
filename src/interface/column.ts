@@ -21,8 +21,8 @@ export interface Column extends Record<string, any> {
         $col: ColumnDescriptor
 }
 const wrapVal = (v: any): any => (v && v.kind === 'sql' ? v : { kind: 'sql', node: { type: 'literal', value: v } })
-const mkBinop = (op: string, l: any, r: any): SQL => ({ kind: 'sql', node: { type: 'binop', op, args: [l, wrapVal(r)] } })
-const mkFunc = (name: string, args: any[]): SQL => ({ kind: 'sql', node: { type: 'func', name, args: args.map(wrapVal) } })
+const mkBinop = (op: string, l: any, r: any): SQL => ({ kind: 'sql', node: { type: 'binop', op, args: [l, wrapVal(r)] } }) as unknown as SQL
+const mkFunc = (name: string, args: any[]): SQL => ({ kind: 'sql', node: { type: 'func', name, args: args.map(wrapVal) } }) as unknown as SQL
 const attachExprMethods = (self: any) => {
         self.add = (v: any) => attachExprMethods(mkBinop('+', self, v))
         self.sub = (v: any) => attachExprMethods(mkBinop('-', self, v))

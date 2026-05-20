@@ -14,6 +14,12 @@ export const createStorageManager = (opts: any) => {
                 _handles.set(k, h)
                 return h
         }
+        const prepare = async (relId: any, forkId: any) => {
+                const fid = fileIdOf(relId, forkId)
+                if (_file.open) await _file.open(fid)
+                _handles.delete(handleKey(relId, forkId))
+                return getHandle(relId, forkId)
+        }
         return {
                 read(relId: any, forkId: any, blockNo: number): Uint8Array {
                         const h = getHandle(relId, forkId)
@@ -45,5 +51,6 @@ export const createStorageManager = (opts: any) => {
                         if (_file.sync) _file.sync(h.fid)
                 },
                 getHandle,
+                prepare,
         }
 }
