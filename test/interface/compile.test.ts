@@ -3,10 +3,10 @@ import { evalNode, compilePredicate, compileExpr } from '../../src/interface/com
 import { lit, col, bin, un, fn, ctx0 } from './_helpers'
 describe('evalNode primitives', () => {
         it('literal returns its value', () => {
-                expect(evalNode({ type: 'literal', value: 5 }, {}, ctx0())).toBe(5)
+                expect(evalNode(lit(5).node, {}, ctx0())).toBe(5)
         })
         it('column reads row by name', () => {
-                expect(evalNode({ type: 'column', name: 'a', tableName: 't' }, { a: 7 }, ctx0())).toBe(7)
+                expect(evalNode(col('a', 't').node, { a: 7 }, ctx0())).toBe(7)
         })
 })
 describe('evalNode arithmetic binops', () => {

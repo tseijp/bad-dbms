@@ -6,7 +6,7 @@ import { createLockManager } from './storage/lmgr'
 import { createTransam } from './access/transam'
 import { createCatalog } from './catalog'
 import { createExecutor } from './executor'
-import type { Row, PhysicalOp, InitAllAst } from '../shared/types'
+import type { Row, InitAllAst, ExecuteAst } from '../shared/types'
 import type { FileAdapter, RowIterator } from './types'
 const drain = (iter: RowIterator): Row[] => {
         const out: Row[] = []
@@ -43,7 +43,7 @@ export const createDatabase = (config: DatabaseConfig = {}) => {
         const _executor = createExecutor({ catalog })
         return {
                 catalog,
-                async execute(ast: PhysicalOp | InitAllAst): Promise<Row[]> {
+                async execute(ast: ExecuteAst): Promise<Row[]> {
                         if (!ast || !ast.op) return []
                         if (ast.op === 'InitAll') return handleInitAll(catalog, ast)
                         return drain(_executor.execute(ast))

@@ -3,8 +3,9 @@ import { createFileAdapter, createFile } from '../../src/backend/storage/file'
 import { createStorageManager } from '../../src/backend/storage/smgr'
 import { createBufferPool } from '../../src/backend/storage/buffer'
 import { createFreeSpaceMap } from '../../src/backend/storage/free'
-import { createLockManager } from '../../src/backend/storage/lmng'
+import { createLockManager } from '../../src/backend/storage/lmgr'
 import { createCatalog } from '../../src/backend/catalog'
+import type { ColumnDef } from '../../src/backend/catalog'
 import { createExecutor } from '../../src/backend/executor'
 import { createDatabase } from '../../src/backend/index'
 import { table } from '../../src/interface/table'
@@ -26,7 +27,7 @@ export const makeStorage = (opts: StackOptions = {}) => {
 }
 export const makeCatalog = (opts: StackOptions = {}) => {
         const storage = makeStorage(opts)
-        const catalog = createCatalog({ buffer: storage.buffer, smgr: storage.smgr, fsm: storage.fsm, lock: storage.lock })
+        const catalog = createCatalog({ buffer: storage.buffer, smgr: storage.smgr, fsm: storage.fsm })
         return { ...storage, catalog }
 }
 export const makeExecutor = (opts: StackOptions = {}) => {
@@ -34,9 +35,10 @@ export const makeExecutor = (opts: StackOptions = {}) => {
         const executor = createExecutor({ catalog: stack.catalog })
         return { ...stack, executor }
 }
-export const usersDef = { id: { type: 'i32', isPrimary: true }, name: { type: 'u32' }, score: { type: 'f32' } }
-export const orderDef = { userId: { type: 'i32' }, amount: { type: 'i32' } }
-export const kvDef = { k: { type: 'i32' }, v: { type: 'i32' } }
+type Def = Record<string, Partial<ColumnDef>>
+export const usersDef: Def = { id: { type: 'i32', isPrimary: true }, name: { type: 'u32' }, score: { type: 'f32' } }
+export const orderDef: Def = { userId: { type: 'i32' }, amount: { type: 'i32' } }
+export const kvDef: Def = { k: { type: 'i32' }, v: { type: 'i32' } }
 export const usersTable = () =>
         table('users', {
                 id: integer('id').primaryKey(),

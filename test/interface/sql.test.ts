@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { sql, raw, identifier, placeholder, param, isSQL, wrap, join } from '../../src/interface/sql'
+import type { ListNode, BinopNode } from '../../src/shared/types'
 const wrappedLit = (value: any) => ({ kind: 'sql', node: { type: 'literal', value } })
 describe('sql template tag', () => {
         it('packs string parts and values into a list node with raw + wrapped literal items', () => {
                 const s = sql`a ${1} b`
                 expect(s.kind).toBe('sql')
                 expect(s.node.type).toBe('list')
-                const items = s.node.items
+                const items = (s.node as ListNode).items
                 expect(items.length).toBe(3)
                 expect(items[0].node).toEqual({ type: 'raw', value: 'a ' })
                 expect(items[1].node).toEqual({ type: 'literal', value: 1 })
@@ -48,7 +49,7 @@ describe('join', () => {
         it('interleaves separator between every adjacent chunk and wraps both', () => {
                 const s = join([1, 2, 3], ',')
                 expect(s.node.type).toBe('list')
-                const items = s.node.items.map((it: any) => it.node)
+                const items = (s.node as ListNode).items.map((it: any) => it.node)
                 expect(items).toEqual([
                         { type: 'literal', value: 1 },
                         { type: 'literal', value: ',' },
@@ -63,14 +64,14 @@ describe('chain methods on SQL wrapper', () => {
                 const recv = wrap(10)
                 const s = recv.add!(2)
                 expect(s.node.type).toBe('binop')
-                expect(s.node.op).toBe('+')
-                expect(s.node.args[0]).toBe(recv)
-                expect(s.node.args[1].kind).toBe('sql')
-                expect(s.node.args[1].node).toEqual({ type: 'literal', value: 2 })
+                expect((s.node as BinopNode).op).toBe('+')
+                expect((s.node as BinopNode).args[0]).toBe(recv)
+                expect((s.node as BinopNode).args[1].kind).toBe('sql')
+                expect((s.node as BinopNode).args[1].node).toEqual({ type: 'literal', value: 2 })
         })
         it('returned wrapper from a chain step also exposes chain methods (chainability)', () => {
                 const s = wrap(1).add!(2).sub!(1)
-                expect(s.node.op).toBe('-')
+                expect((s.node as BinopNode).op).toBe('-')
                 expect(typeof s.add).toBe('function')
                 expect(typeof s.sub).toBe('function')
         })

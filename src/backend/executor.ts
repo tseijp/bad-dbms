@@ -1,4 +1,5 @@
 import type { Row, RowPredicate, RowSetter, AggSpec, SortKey, PhysicalOp, TableRef, SqlNode, SQL } from '../shared/types'
+import type { SeqScanOp, IndexScanOp, UpdateOp, DeleteOp, InsertOp, SelectOp } from '../shared/types'
 import type { Catalog } from './catalog'
 import type { TupleDescriptor, RowIterator, Rid } from './types'
 const tableNameOf = (t: TableRef): string => {
@@ -102,9 +103,8 @@ const compileSetter = (expr: SetterInput): RowSetter => {
         if (expr && typeof expr === 'object' && 'type' in expr) return (row: Row) => evalNode(expr, row)
         return () => expr
 }
-const makeSeqScan = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'SeqScan' }>): RowIterator => {
+const makeSeqScan = (catalog: Catalog, ast: SeqScanOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
-        if (!rel) return EMPTY_ITER
         const desc = catalog.tupleDescriptor(rel)
         const rids = collectRids(rel.heaps[0])
         let i = 0
@@ -114,9 +114,8 @@ const makeSeqScan = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'SeqScan' 
         }
         return { next, close: () => {} }
 }
-const makeIndexScan = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'IndexScan' }>): RowIterator => {
+const makeIndexScan = (catalog: Catalog, ast: IndexScanOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
-        if (!rel) return EMPTY_ITER
         const desc = catalog.tupleDescriptor(rel)
         const idx = catalog.findIndex(rel, ast.indexName)
         if (!idx) return EMPTY_ITER
@@ -278,9 +277,8 @@ const makeSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
         const next = () => (i < buf.length ? buf[i++] : null)
         return { next, close: () => {} }
 }
-const makeUpdate = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'Update' }>): RowIterator => {
+const makeUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
-        if (!rel) return EMPTY_ITER
         const desc = catalog.tupleDescriptor(rel)
         const pred = compilePredicate(ast.predicate)
         const setters: Record<string, SetterInput> = ast.setters ?? {}
@@ -304,9 +302,8 @@ const makeUpdate = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'Update' }>
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
 }
-const makeDelete = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'Delete' }>): RowIterator => {
+const makeDelete = (catalog: Catalog, ast: DeleteOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
-        if (!rel) return EMPTY_ITER
         const desc = catalog.tupleDescriptor(rel)
         const pred = compilePredicate(ast.predicate)
         const rids = collectRids(rel.heaps[0])
@@ -322,14 +319,11 @@ const makeDelete = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'Delete' }>
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
 }
-const makeInsert = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'Insert' }>): RowIterator => {
+const makeInsert = (catalog: Catalog, ast: InsertOp): RowIterator => {
         const name = tableNameOf(ast.table)
         const rows: Row[] = ast.values || []
         const rids: Rid[] = []
-        for (const row of rows) {
-                const rid = catalog.insertRow(name, row)
-                if (rid) rids.push(rid)
-        }
+        for (const row of rows) rids.push(catalog.insertRow(name, row))
         const out: Row[] = ast.returning ? [{ rowCount: rids.length, rids }] : [{ rowCount: rids.length }]
         let i = 0
         const next = () => (i < out.length ? out[i++] : null)
@@ -355,9 +349,10 @@ interface Rename {
         from: string
         to: string
 }
-const makeSelectLogical = (catalog: Catalog, ast: Extract<PhysicalOp, { op: 'Select' }>): RowIterator => {
+const makeSelectLogical = (catalog: Catalog, ast: SelectOp): RowIterator => {
+        const hasTable = !!tableNameOf(ast.table ?? '')
         const seq: PhysicalOp = { op: 'SeqScan', table: ast.table ?? '' }
-        let cur: RowIterator = build(catalog, seq)
+        let cur: RowIterator = hasTable ? build(catalog, seq) : EMPTY_ITER
         if (ast.where) cur = makeFilter(cur, ast.where)
         const proj = ast.projection
         const aggs: AggSpec[] = []

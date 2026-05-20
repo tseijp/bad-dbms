@@ -275,9 +275,15 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
         })
         type Tx = ReturnType<typeof buildTx>
         type TickRunner = { run(extra?: unknown): Promise<unknown> }
-        const transaction = (fn: (tx: Tx, c?: unknown) => Promise<unknown> | unknown): TickRunner => ({
+        const runCallback = async (fn: (tx: Tx) => unknown) => fn(buildTx())
+        function transaction<R>(fn: (tx: Tx) => Promise<R> | R): Promise<R>
+        function transaction(fn: (tx: Tx, c: unknown) => Promise<unknown> | unknown): TickRunner
+        function transaction(fn: (tx: Tx, c?: unknown) => Promise<unknown> | unknown): Promise<unknown> | TickRunner {
+                if (!usesCurrentTuple(fn as (...args: unknown[]) => unknown)) return runCallback(fn as (tx: Tx) => unknown)
+                return tickRunner(fn)
+        }
+        const tickRunner = (fn: (tx: Tx, c?: unknown) => Promise<unknown> | unknown): TickRunner => ({
                 async run(extra?: unknown) {
-                        if (!usesCurrentTuple(fn as (...args: unknown[]) => unknown)) return fn(buildTx())
                         const primary = Object.values(tables)[0] as Table | undefined
                         if (!primary || !backend) return extra
                         const proxy = currentTupleProxy(primary)

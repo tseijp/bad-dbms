@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { pageCapacity } from '../../../src/backend/storage/page'
 import { makeHeap, collectScan } from './_helpers'
+import type { Rid } from '../../../src/shared/types'
 describe('heap', () => {
         it('insert(value) returns a [pageId, offset] shaped rid', () => {
                 const { heap } = makeHeap()
@@ -57,7 +58,7 @@ describe('heap', () => {
                 heap.insert(2)
                 heap.insert(3)
                 const seen: any[] = []
-                heap.scan((_rid: [number, number], v: any) => {
+                heap.scan((_rid: Rid, v: any) => {
                         seen.push(v)
                         return false
                 })
@@ -66,7 +67,7 @@ describe('heap', () => {
         it('switches pageId when inserts exceed a single page capacity', () => {
                 const { heap } = makeHeap()
                 const cap = pageCapacity(4)
-                const rids: Array<[number, number]> = []
+                const rids: Rid[] = []
                 for (let i = 0; i < cap + 1; i++) rids.push(heap.insert(i))
                 const firstPage = rids[0][0]
                 const overflow = rids.find((r) => r[0] !== firstPage)
@@ -97,7 +98,7 @@ describe('heap', () => {
         it('bulkLoad onto a full-but-tombstoned page does not extend one block per row', () => {
                 const { heap, smgr, relId } = makeHeap()
                 const cap = pageCapacity(4)
-                const filled: Array<[number, number]> = []
+                const filled: Rid[] = []
                 for (let i = 0; i < cap; i++) filled.push(heap.insert(i))
                 for (let i = 0; i < 5; i++) heap.delete(filled[i])
                 const before = smgr.nBlocks(relId, 0)

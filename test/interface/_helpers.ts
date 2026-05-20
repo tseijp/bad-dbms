@@ -1,31 +1,14 @@
 import { database } from '../../src/interface/database'
 import { table } from '../../src/interface/table'
 import { integer, float, text, uint } from '../../src/interface/column'
-export const lit = (value: any) => ({ kind: 'sql', node: { type: 'literal', value } })
-export const col = (name: string, tableName?: string) => ({
-        kind: 'sql',
-        node: { type: 'column', name, dataType: 'i32', tableName },
-})
-export const bin = (op: string, ...args: any[]) => ({
-        kind: 'sql',
-        node: { type: 'binop', op, args },
-})
-export const un = (op: string, arg: any) => ({
-        kind: 'sql',
-        node: { type: 'unop', op, args: [arg] },
-})
-export const fn = (name: string, ...args: any[]) => ({
-        kind: 'sql',
-        node: { type: 'func', name, args },
-})
-export const agg = (name: string, distinct: boolean, ...args: any[]) => ({
-        kind: 'sql',
-        node: { type: 'aggregate', name, distinct, args },
-})
-export const order = (dir: 'asc' | 'desc', c: any) => ({
-        kind: 'sql',
-        node: { type: 'order', dir, col: c },
-})
+import type { SQL, SqlNode, BinOp, UnOp, AggKind } from '../../src/shared/types'
+export const lit = (value: unknown): SQL => ({ kind: 'sql', node: { type: 'literal', value } }) as SQL
+export const col = (name: string, tableName?: string): SQL => ({ kind: 'sql', node: { type: 'column', name, dataType: 'i32', tableName } }) as SQL
+export const bin = (op: BinOp, ...args: SQL[]): SQL => ({ kind: 'sql', node: { type: 'binop', op, args } }) as SQL
+export const un = (op: UnOp, arg: SQL): SQL => ({ kind: 'sql', node: { type: 'unop', op, args: [arg] } }) as SQL
+export const fn = (name: string, ...args: SQL[]): SQL => ({ kind: 'sql', node: { type: 'func', name, args } }) as SQL
+export const agg = (name: AggKind, distinct: boolean, ...args: SQL[]): SQL => ({ kind: 'sql', node: { type: 'aggregate', name, distinct, args } }) as SQL
+export const order = (dir: 'asc' | 'desc', c: SQL): SQL => ({ kind: 'sql', node: { type: 'order', dir, col: c } }) as SQL
 export const ctx0 = () => ({ current: null, params: null })
 export const makeUsersTable = () =>
         table('users', {
