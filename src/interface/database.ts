@@ -1,35 +1,35 @@
-import type { SQL, SqlValue, Row, Rid, PhysicalOp } from '../shared/types'
+import type { SQL, SqlValue, Row, Rid, PhysicalOp, ColumnType } from '../shared/types'
 import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst } from './types'
 import { createDatabase as createBackend } from '../backend/index'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect, tableNameOf } from './plan'
-
 export type { DatabaseConfig } from './types'
-
 type Backend = ReturnType<typeof createBackend>
 type ProjItem = { alias: string; expr: SQL }
 type RunFn = (ast: SelectAst | InsertAst | UpdateAst | DeleteAst) => unknown
-
 const isSqlValue = (v: unknown): v is SQL => !!v && typeof v === 'object' && (v as { kind?: string }).kind === 'sql'
-
 const projectionOf = (fields?: Columns | Record<string, SQL>): ProjItem[] | undefined => {
         if (!fields) return undefined
         const out: ProjItem[] = []
         for (const k in fields) out.push({ alias: k, expr: (fields as Record<string, SQL>)[k] })
         return out
 }
-
+interface ColDef {
+        type: ColumnType
+        isPrimary: boolean
+        isUnique: boolean
+        hasOrder: boolean
+}
 const registerTables = (backend: Backend, tables: Record<string, Table>) => {
         if (!backend?.catalog?.register) return
         for (const key in tables) {
                 const meta = tables[key].$meta
                 if (!meta) continue
-                const def: Record<string, unknown> = {}
+                const def: Record<string, ColDef> = {}
                 for (const col of meta.columns) def[col.$col.name] = { type: col.$col.type, isPrimary: !!col.$col.primaryKey, isUnique: !!col.$col.unique, hasOrder: !!col.$col.hasOrder }
                 backend.catalog.register(meta.name, def)
         }
 }
-
 const generateInitRows = (table: Table, count: number): Row[] => {
         const meta = table.$meta
         const orderCols = meta.columns.filter((c) => c.$col.hasOrder)
@@ -60,7 +60,6 @@ const generateInitRows = (table: Table, count: number): Row[] => {
         }
         return rows
 }
-
 const initAll = (backend: Backend, tables: Record<string, Table>, count: number) => {
         registerTables(backend, tables)
         for (const key in tables) {
@@ -68,20 +67,16 @@ const initAll = (backend: Backend, tables: Record<string, Table>, count: number)
                 for (const row of rows) backend.catalog.insertRow(tableNameOf(tables[key]), row)
         }
 }
-
 export interface DispatchError {
         error: 'no-backend'
         op: string
 }
-
 const dispatch = (backend: Backend | null, cfg: DatabaseConfig, plan: PhysicalOp): unknown => {
         if (cfg.execute) return cfg.execute(plan)
         if (backend) return backend.execute(plan)
         return { error: 'no-backend', op: plan.op } as DispatchError
 }
-
 const isDispatchError = (v: unknown): v is DispatchError => !!v && typeof v === 'object' && (v as DispatchError).error === 'no-backend'
-
 const runSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: SelectAst, ctx: EvalCtx): Promise<unknown> => {
         const { plan, proj } = planSelect(ast, ctx)
         const rows = await Promise.resolve(dispatch(backend, cfg, plan))
@@ -91,7 +86,6 @@ const runSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: Sele
         if (ast.limit !== undefined) return arr.slice(0, ast.limit)
         return arr
 }
-
 const runInsert = (backend: Backend | null, cfg: DatabaseConfig, ast: InsertAst): unknown => {
         const rows = ast.values ?? []
         const plan: PhysicalOp = { op: 'Insert', table: tableNameOf(ast.table), values: rows, returning: !!ast.returning }
@@ -104,7 +98,6 @@ const runInsert = (backend: Backend | null, cfg: DatabaseConfig, ast: InsertAst)
         }
         return ast.returning ? rids : { rowCount: rids.length }
 }
-
 const runUpdate = (backend: Backend | null, cfg: DatabaseConfig, ast: UpdateAst, ctx: EvalCtx): unknown => {
         const predicate = ast.where ? compilePredicate(ast.where, ctx) : () => true
         const setters: Record<string, (row: Row) => unknown> = {}
@@ -115,12 +108,10 @@ const runUpdate = (backend: Backend | null, cfg: DatabaseConfig, ast: UpdateAst,
         }
         return dispatch(backend, cfg, { op: 'Update', table: tableNameOf(ast.table), predicate, setters })
 }
-
 const runDelete = (backend: Backend | null, cfg: DatabaseConfig, ast: DeleteAst, ctx: EvalCtx): unknown => {
         const predicate = ast.where ? compilePredicate(ast.where, ctx) : () => true
         return dispatch(backend, cfg, { op: 'Delete', table: tableNameOf(ast.table), predicate })
 }
-
 const makeSelect = (run: RunFn, ast: SelectAst) => {
         const b = {
                 from(t: Table) {
@@ -156,7 +147,6 @@ const makeSelect = (run: RunFn, ast: SelectAst) => {
         }
         return b
 }
-
 const makeInsert = (run: RunFn, t: Table) => {
         const ast: InsertAst = { op: 'Insert', table: t }
         const b = {
@@ -174,7 +164,6 @@ const makeInsert = (run: RunFn, t: Table) => {
         }
         return b
 }
-
 const makeUpdate = (run: RunFn, t: Table) => {
         const ast: UpdateAst = { op: 'Update', table: t }
         const b = {
@@ -196,7 +185,6 @@ const makeUpdate = (run: RunFn, t: Table) => {
         }
         return b
 }
-
 const makeDelete = (run: RunFn, t: Table) => {
         const ast: DeleteAst = { op: 'Delete', table: t }
         const b = {
@@ -210,9 +198,7 @@ const makeDelete = (run: RunFn, t: Table) => {
         }
         return b
 }
-
 const wrapVal = (v: SqlValue): SQL => (v && (v as SQL).kind === 'sql' ? (v as SQL) : ({ kind: 'sql', node: { type: 'literal', value: v } } as SQL))
-
 const attachExpr = (node: SQL['node']): SQL => {
         const self = { kind: 'sql' as const, node } as SQL
         const mk = (n: SQL['node']) => attachExpr(n)
@@ -233,7 +219,6 @@ const attachExpr = (node: SQL['node']): SQL => {
         self.at = (i) => mk({ type: 'func', name: 'at', args: [self, wrapVal(i)] })
         return self
 }
-
 const currentTupleProxy = (table: Table) => {
         const meta = table.$meta
         const handler: ProxyHandler<Record<string, unknown>> = {
@@ -244,7 +229,6 @@ const currentTupleProxy = (table: Table) => {
         }
         return new Proxy({}, handler)
 }
-
 const iterateTable = (backend: Backend, tableName: string): Row[] => {
         const rel = backend.catalog.resolve(tableName)
         if (!rel) return []
@@ -257,22 +241,18 @@ const iterateTable = (backend: Backend, tableName: string): Row[] => {
         })
         return rows
 }
-
 const isConfig = (v: unknown): v is DatabaseConfig => {
         if (!v || typeof v !== 'object') return false
         const c = v as DatabaseConfig
         return !!(c.execute || c.pageSize || c.fileAdapter || c.frameCount || c.ringCount || c.tables)
 }
-
 const normalizeArgs = (a?: unknown, b?: unknown): DatabaseConfig => {
         if (!a) return {}
         if (isConfig(a)) return b ? { ...a, tables: b as Record<string, Table> } : a
         const cfg = isConfig(b) ? b : {}
         return { ...cfg, tables: a as Record<string, Table> }
 }
-
 const usesCurrentTuple = (fn: (...args: unknown[]) => unknown) => fn.length >= 2
-
 export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>, maybeConfig?: DatabaseConfig | Record<string, Table>) => {
         const cfg = normalizeArgs(schemaOrConfig, maybeConfig)
         const backend: Backend | null = cfg.execute ? null : createBackend({ pageSize: cfg.pageSize, frameCount: cfg.frameCount, ringCount: cfg.ringCount, fileAdapter: cfg.fileAdapter })
@@ -330,5 +310,4 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
         }
         return api
 }
-
 export type Database = ReturnType<typeof database>

@@ -75,7 +75,7 @@ export const createOPFSAdapter = (opts: OPFSAdapterOptions = {}): FileAdapter =>
         }
         const acquire = async (id: string, create: boolean) => {
                 const cached = _lru.get(id)
-                if (cached) return touch(id, cached), cached
+                if (cached) return (touch(id, cached), cached)
                 const dir = await rootDir()
                 const fh = await dir.getFileHandle(sanitizeId(id), { create })
                 const access = await fh.createSyncAccessHandle()

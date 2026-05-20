@@ -2,17 +2,7 @@ import { createHeap } from './access/heap'
 import { createNBTree } from './access/nbtree'
 import { createHashIndex } from './access/hash'
 import type { ColumnType, ColumnDescriptor, Rid, Row } from '../shared/types'
-import type {
-        BufferPool,
-        StorageManager,
-        FreeSpaceMap,
-        ColumnMeta,
-        IndexDescriptor,
-        RelationDescriptor,
-        TupleDescriptor,
-        HeapHandle,
-        AccessIndex,
-} from './types'
+import type { BufferPool, StorageManager, FreeSpaceMap, ColumnMeta, IndexDescriptor, RelationDescriptor, TupleDescriptor, HeapHandle, AccessIndex } from './types'
 export type { ColumnType } from '../shared/types'
 const BYTE_SIZE: Record<ColumnType, number> = { i32: 4, f32: 4, u32: 4 }
 const normalizeType = (t: string): ColumnType => {

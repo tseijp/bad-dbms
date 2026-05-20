@@ -1,8 +1,6 @@
 import type { SQL, AggKind } from '../../shared/types'
 import { wrap, make } from '../sql'
-
-const agg = (name: AggKind, distinct: boolean, args: SQL[]): SQL => make({ type: 'aggregate', name, distinct, args })
-
+const agg = <R = unknown>(name: AggKind, distinct: boolean, args: SQL[]): SQL<R> => make<R>({ type: 'aggregate', name, distinct, args })
 export const count = (expression?: SQL): SQL<number> => agg('count', false, expression ? [wrap(expression)] : [])
 export const countDistinct = (expression: SQL): SQL<number> => agg('count', true, [wrap(expression)])
 export const avg = (expression: SQL): SQL<number> => agg('avg', false, [wrap(expression)])

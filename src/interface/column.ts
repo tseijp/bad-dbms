@@ -1,12 +1,9 @@
 import type { SQL, SqlNode, ColumnType, ColumnConfig, ColumnDescriptor } from '../shared/types'
 import type { Column } from './types'
 import { wrap, make } from './sql'
-
 export type { ColumnConfig, ColumnDescriptor } from '../shared/types'
 export type { Column, Columns } from './types'
-
 const exprNode = (self: SQL): SqlNode => self.node
-
 const column = <T = number>(type: ColumnType, name?: string, config: ColumnConfig = {}): Column<T> => {
         const desc: ColumnDescriptor = { name: name ?? '', type, ...config }
         const base = make({ type: 'column', name: desc.name, dataType: type })
@@ -44,11 +41,8 @@ const column = <T = number>(type: ColumnType, name?: string, config: ColumnConfi
         }
         return self
 }
-
 export const wrapExpr = (s: SQL): SQL => wrap(s)
-
 export { column, exprNode }
-
 export const text = (name?: string, config?: ColumnConfig): Column<number> => column<number>('u32', name, { ...config, tag: 'str' })
 export const integer = (name?: string, config?: ColumnConfig): Column<number> => column<number>('i32', name, config)
 export const float = (name?: string, config?: ColumnConfig): Column<number> => column<number>('f32', name, config)

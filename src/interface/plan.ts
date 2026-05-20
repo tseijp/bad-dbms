@@ -1,7 +1,6 @@
 import type { SQL, SqlNode, PhysicalOp, AggSpec, SortKey } from '../shared/types'
 import type { SelectAst, ProjItem } from './types'
 import { colNameOf, compilePredicate, EvalCtx } from './compile'
-
 const tableNameOf = (t: unknown): string => {
         if (typeof t === 'string') return t
         const v = t as { $meta?: { name: string }; node?: { name?: string } }
@@ -9,15 +8,12 @@ const tableNameOf = (t: unknown): string => {
         if (v?.node?.name) return v.node.name
         return ''
 }
-
 export interface ProjInfo {
         fields: Array<{ alias: string; field: string }>
         aggs: AggSpec[]
         hasAgg: boolean
 }
-
 const nodeOf = (expr: SQL | SqlNode): SqlNode => ((expr as SQL).kind === 'sql' ? (expr as SQL).node : (expr as SqlNode))
-
 export const buildProjection = (projection?: ProjItem[]): ProjInfo => {
         const fields: Array<{ alias: string; field: string }> = []
         const aggs: AggSpec[] = []
@@ -38,7 +34,6 @@ export const buildProjection = (projection?: ProjItem[]): ProjInfo => {
         }
         return { fields, aggs, hasAgg: aggs.length > 0 }
 }
-
 export const planSelect = (ast: SelectAst, ctx: EvalCtx): { plan: PhysicalOp; proj: ProjInfo; tableName: string } => {
         const tableName = tableNameOf(ast.table)
         let plan: PhysicalOp = { op: 'SeqScan', table: tableName }
@@ -60,5 +55,4 @@ export const planSelect = (ast: SelectAst, ctx: EvalCtx): { plan: PhysicalOp; pr
         }
         return { plan, proj, tableName }
 }
-
 export { tableNameOf }

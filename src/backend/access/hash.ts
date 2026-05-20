@@ -31,17 +31,7 @@ const DEFAULT_CAP = 64
 const ENTRY_BYTES = 12
 const defaultHash: HashFn = (key) => Math.imul(key | 0, 2654435761) >>> 0
 const defaultEq: EqFn = (a, b) => a === b
-export const createHashIndex = ({
-        buffer,
-        smgr,
-        fsm,
-        relId,
-        forkId,
-        hash = defaultHash,
-        equal = defaultEq,
-        initialBuckets = DEFAULT_BUCKETS,
-        bucketCapacity = DEFAULT_CAP,
-}: HashIndexOptions): HashIndexHandle => {
+export const createHashIndex = ({ buffer, smgr, fsm, relId, forkId, hash = defaultHash, equal = defaultEq, initialBuckets = DEFAULT_BUCKETS, bucketCapacity = DEFAULT_CAP }: HashIndexOptions): HashIndexHandle => {
         const _pin = (b: number) => buffer.pin(relId, forkId, b)
         const _unpin = (f: Frame, d?: boolean) => buffer.unpin(f, d)
         const _ridOf = (e: { ridPageId: number; ridOffset: number }): Rid => [e.ridPageId, e.ridOffset]
