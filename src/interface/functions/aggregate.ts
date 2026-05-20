@@ -1,14 +1,11 @@
-import type { SQL } from '../sql'
-import { wrap } from '../sql'
-const agg = (name: string, distinct: boolean, args: any[]): SQL => ({
-        kind: 'sql',
-        node: { type: 'aggregate', name, distinct, args: args.map(wrap) },
-})
-export const count = (expression?: SQL): SQL => agg('count', false, expression ? [expression] : [])
-export const countDistinct = (expression: SQL): SQL => agg('count', true, [expression])
-export const avg = (expression: SQL): SQL => agg('avg', false, [expression])
-export const avgDistinct = (expression: SQL): SQL => agg('avg', true, [expression])
-export const sum = (expression: SQL): SQL => agg('sum', false, [expression])
-export const sumDistinct = (expression: SQL): SQL => agg('sum', true, [expression])
-export const max = <T extends SQL>(expression: T): SQL => agg('max', false, [expression])
-export const min = <T extends SQL>(expression: T): SQL => agg('min', false, [expression])
+import type { SQL, AggKind } from '../../shared/types'
+import { wrap, make } from '../sql'
+const agg = <R = unknown>(name: AggKind, distinct: boolean, args: SQL[]): SQL<R> => make<R>({ type: 'aggregate', name, distinct, args })
+export const count = (expression?: SQL): SQL<number> => agg('count', false, expression ? [wrap(expression)] : [])
+export const countDistinct = (expression: SQL): SQL<number> => agg('count', true, [wrap(expression)])
+export const avg = (expression: SQL): SQL<number> => agg('avg', false, [wrap(expression)])
+export const avgDistinct = (expression: SQL): SQL<number> => agg('avg', true, [wrap(expression)])
+export const sum = (expression: SQL): SQL<number> => agg('sum', false, [wrap(expression)])
+export const sumDistinct = (expression: SQL): SQL<number> => agg('sum', true, [wrap(expression)])
+export const max = <T>(expression: SQL<T>): SQL<T> => agg('max', false, [wrap(expression)])
+export const min = <T>(expression: SQL<T>): SQL<T> => agg('min', false, [wrap(expression)])

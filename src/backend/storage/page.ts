@@ -1,18 +1,19 @@
+import type { ColumnType, PageKind, PageHeader, PageHeaderPatch, Page } from '../types'
 export const PAGE_SIZE = 4096
 export const HEADER_SIZE = 64
-export type PageKind = 'data' | 'leaf' | 'internal' | 'meta'
-export type ValueType = 'i32' | 'f32' | 'u32'
-const KIND_CODE: any = { data: 1, leaf: 2, internal: 3, meta: 4 }
-const CODE_KIND: any = { 1: 'data', 2: 'leaf', 3: 'internal', 4: 'meta' }
+export type { PageKind } from '../types'
+export type ValueType = ColumnType
+const KIND_CODE: Record<PageKind, number> = { data: 1, leaf: 2, internal: 3, meta: 4 }
+const CODE_KIND: Record<number, PageKind> = { 1: 'data', 2: 'leaf', 3: 'internal', 4: 'meta' }
 const tombstoneBytesFor = (capacity: number) => Math.ceil(capacity / 8)
 export const pageCapacity = (valueSize: number) => {
         return Math.floor(((PAGE_SIZE - HEADER_SIZE) * 8) / (valueSize * 8 + 1))
 }
-export const createPage = (bytes?: Uint8Array) => {
+export const createPage = (bytes?: Uint8Array): Page => {
         const buf = bytes ?? new Uint8Array(PAGE_SIZE)
         const _view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
-        const getHeader = () => ({
-                kind: (CODE_KIND[_view.getUint8(0)] ?? 'data') as PageKind,
+        const getHeader = (): PageHeader => ({
+                kind: CODE_KIND[_view.getUint8(0)] ?? 'data',
                 level: _view.getUint8(1),
                 flags: _view.getUint16(2, true),
                 prevPageId: _view.getInt32(4, true),
@@ -47,7 +48,7 @@ export const createPage = (bytes?: Uint8Array) => {
         return {
                 bytes: buf,
                 getHeader,
-                setHeader(h: any) {
+                setHeader(h: PageHeaderPatch) {
                         if (h.kind !== undefined) _view.setUint8(0, KIND_CODE[h.kind] ?? 1)
                         if (h.level !== undefined) _view.setUint8(1, h.level)
                         if (h.flags !== undefined) _view.setUint16(2, h.flags, true)
@@ -59,7 +60,7 @@ export const createPage = (bytes?: Uint8Array) => {
                         if (h.valueOffset !== undefined) _view.setUint16(20, h.valueOffset, true)
                         if (h.valueSize !== undefined) _view.setUint16(22, h.valueSize, true)
                 },
-                readValue(slot: number, type: ValueType) {
+                readValue(slot: number, type: ValueType): number {
                         const off = _slotByteOffset(slot)
                         if (type === 'i32') return _view.getInt32(off, true)
                         if (type === 'f32') return _view.getFloat32(off, true)

@@ -1,7 +1,13 @@
+import type { FreeSpaceMap, StorageManager } from '../types'
 const GRAN = 16
-const forkKey = (relId: any, forkId: any) => `${relId}/${forkId}`
-const makeStore = (): any => ({ leaf: new Uint8Array(0), upper: new Uint8Array(0), nBlocks: 0 })
-const ensureCapacity = (s: any, n: number) => {
+const forkKey = (relId: number, forkId: number) => `${relId}/${forkId}`
+interface FsmStore {
+        leaf: Uint8Array
+        upper: Uint8Array
+        nBlocks: number
+}
+const makeStore = (): FsmStore => ({ leaf: new Uint8Array(0), upper: new Uint8Array(0), nBlocks: 0 })
+const ensureCapacity = (s: FsmStore, n: number) => {
         if (s.leaf.length >= n) return
         const leaf = new Uint8Array(Math.max(n, s.leaf.length * 2 + 8))
         leaf.set(s.leaf)
@@ -11,7 +17,7 @@ const ensureCapacity = (s: any, n: number) => {
         upper.set(s.upper)
         s.upper = upper
 }
-const recomputeUpper = (s: any, idx: number) => {
+const recomputeUpper = (s: FsmStore, idx: number) => {
         const group = idx >> 3
         let m = 0
         const base = group << 3
@@ -19,19 +25,22 @@ const recomputeUpper = (s: any, idx: number) => {
         for (let i = base; i < end; i++) if (s.leaf[i] > m) m = s.leaf[i]
         s.upper[group] = m
 }
-export const createFreeSpaceMap = (opts: any) => {
+export interface FreeSpaceMapOptions {
+        smgr: StorageManager
+}
+export const createFreeSpaceMap = (opts: FreeSpaceMapOptions): FreeSpaceMap => {
         const _smgr = opts.smgr
-        const _stores = new Map<string, any>()
-        const _getStore = (relId: any, forkId: any) => {
+        const _stores = new Map<string, FsmStore>()
+        const _getStore = (relId: number, forkId: number): FsmStore => {
                 const k = forkKey(relId, forkId)
-                let s = _stores.get(k)
-                if (s) return s
-                s = makeStore()
+                const cached = _stores.get(k)
+                if (cached) return cached
+                const s = makeStore()
                 _stores.set(k, s)
                 return s
         }
         return {
-                findPage(relId: any, forkId: any, neededBytes: number) {
+                findPage(relId: number, forkId: number, neededBytes: number) {
                         const s = _getStore(relId, forkId)
                         const need = Math.ceil(neededBytes / GRAN)
                         const groups = Math.ceil(s.nBlocks / 8)
@@ -43,7 +52,7 @@ export const createFreeSpaceMap = (opts: any) => {
                         }
                         return -1
                 },
-                update(relId: any, forkId: any, blockNo: number, freeBytes: number) {
+                update(relId: number, forkId: number, blockNo: number, freeBytes: number) {
                         const s = _getStore(relId, forkId)
                         if (blockNo >= s.nBlocks) s.nBlocks = blockNo + 1
                         ensureCapacity(s, s.nBlocks)
@@ -51,7 +60,7 @@ export const createFreeSpaceMap = (opts: any) => {
                         s.leaf[blockNo] = v
                         recomputeUpper(s, blockNo)
                 },
-                extend(relId: any, forkId: any) {
+                extend(relId: number, forkId: number) {
                         const s = _getStore(relId, forkId)
                         const blockNo = _smgr.extend(relId, forkId)
                         if (blockNo >= s.nBlocks) s.nBlocks = blockNo + 1

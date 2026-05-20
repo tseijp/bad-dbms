@@ -1,23 +1,27 @@
+import type { SQL, SqlNode, PhysicalOp, AggSpec, SortKey } from '../shared/types'
+import type { SelectAst, ProjItem } from './types'
 import { colNameOf, compilePredicate, EvalCtx } from './compile'
-const tableNameOf = (t: any): string => {
+const tableNameOf = (t: unknown): string => {
         if (typeof t === 'string') return t
-        if (t?.$meta) return t.$meta.name
-        if (t?.node?.name) return t.node.name
+        const v = t as { $meta?: { name: string }; node?: { name?: string } }
+        if (v?.$meta) return v.$meta.name
+        if (v?.node?.name) return v.node.name
         return ''
 }
 export interface ProjInfo {
         fields: Array<{ alias: string; field: string }>
-        aggs: any[]
+        aggs: AggSpec[]
         hasAgg: boolean
 }
-export const buildProjection = (projection: any): ProjInfo => {
+const nodeOf = (expr: SQL | SqlNode): SqlNode => ((expr as SQL).kind === 'sql' ? (expr as SQL).node : (expr as SqlNode))
+export const buildProjection = (projection?: ProjItem[]): ProjInfo => {
         const fields: Array<{ alias: string; field: string }> = []
-        const aggs: any[] = []
+        const aggs: AggSpec[] = []
         if (!projection) return { fields, aggs, hasAgg: false }
         for (const p of projection) {
-                const node = p.expr?.node ?? p.expr
+                const node = nodeOf(p.expr)
                 if (node?.type === 'aggregate') {
-                        const arg = node.args[0]?.node ?? node.args[0]
+                        const arg = node.args[0] ? nodeOf(node.args[0]) : undefined
                         const field = arg && arg.type === 'column' ? arg.name : ''
                         aggs.push({ name: p.alias, kind: node.name, field })
                         continue
@@ -30,20 +34,20 @@ export const buildProjection = (projection: any): ProjInfo => {
         }
         return { fields, aggs, hasAgg: aggs.length > 0 }
 }
-export const planSelect = (ast: any, ctx: EvalCtx) => {
+export const planSelect = (ast: SelectAst, ctx: EvalCtx): { plan: PhysicalOp; proj: ProjInfo; tableName: string } => {
         const tableName = tableNameOf(ast.table)
-        let plan: any = { op: 'SeqScan', table: tableName }
+        let plan: PhysicalOp = { op: 'SeqScan', table: tableName }
         if (ast.where) plan = { op: 'Filter', child: plan, predicate: compilePredicate(ast.where, ctx) }
         const proj = buildProjection(ast.projection)
         if (proj.hasAgg) {
                 const groupBy = (ast.groupBy ?? []).map(colNameOf)
                 plan = { op: 'Aggregate', child: plan, groupBy, aggs: proj.aggs }
-                const out = [...groupBy, ...proj.aggs.map((a: any) => a.name)]
+                const out = [...groupBy, ...proj.aggs.map((a) => a.name)]
                 if (out.length > 0) plan = { op: 'Projection', child: plan, fields: out }
         } else if (proj.fields.length > 0) plan = { op: 'Projection', child: plan, fields: proj.fields.map((f) => f.field) }
-        if (ast.orderBy?.length > 0) {
-                const keys = ast.orderBy.map((o: any) => {
-                        const node = o?.node ?? o
+        if (ast.orderBy && ast.orderBy.length > 0) {
+                const keys: SortKey[] = ast.orderBy.map((o) => {
+                        const node = nodeOf(o)
                         if (node?.type === 'order') return { field: colNameOf(node.col), dir: node.dir }
                         return { field: colNameOf(o), dir: 'asc' }
                 })

@@ -1,21 +1,35 @@
-export type LockMode = 'shared' | 'exclusive'
-export type LatchMode = 'read' | 'write'
-const isCompatible = (mode: LockMode, holders: Set<any>) => {
+import type { LockMode, LatchMode } from '../types'
+export type { LockMode, LatchMode } from '../types'
+interface Holder {
+        xid: number
+        mode: LockMode
+}
+interface Waiter {
+        xid: number
+        mode: LockMode
+        resolve: () => void
+        reject: (err: Error) => void
+}
+interface LatchState {
+        readers: number
+        writer: number
+}
+const isCompatible = (mode: LockMode, holders: Set<Holder>) => {
         if (mode === 'exclusive') return holders.size === 0
         for (const h of holders) if (h.mode === 'exclusive') return false
         return true
 }
 export const createLockManager = () => {
-        const _granted = new Map<string, Set<any>>()
-        const _waiters = new Map<string, any[]>()
-        const _latches = new Map<string, { readers: number; writer: number }>()
+        const _granted = new Map<string, Set<Holder>>()
+        const _waiters = new Map<string, Waiter[]>()
+        const _latches = new Map<string, LatchState>()
         const _heldByXid = new Map<number, Set<string>>()
         const _addHeld = (xid: number, tag: string) => {
                 let s = _heldByXid.get(xid)
                 if (!s) ((s = new Set()), _heldByXid.set(xid, s))
                 s.add(tag)
         }
-        const _buildWaitsFor = () => {
+        const _buildWaitsFor = (): Map<number, Set<number>> => {
                 const wf = new Map<number, Set<number>>()
                 for (const [tag, ws] of _waiters) {
                         const holders = _granted.get(tag)
@@ -28,7 +42,7 @@ export const createLockManager = () => {
                 }
                 return wf
         }
-        const _findCycle = (wf: Map<number, Set<number>>, start: number) => {
+        const _findCycle = (wf: Map<number, Set<number>>, start: number): number[] | null => {
                 const path: number[] = []
                 const seen = new Set<number>()
                 const dfs = (node: number): number[] | null => {
@@ -47,7 +61,7 @@ export const createLockManager = () => {
                 }
                 return dfs(start)
         }
-        const _detectDeadlock = () => {
+        const _detectDeadlock = (): number[] | null => {
                 const wf = _buildWaitsFor()
                 for (const xid of wf.keys()) {
                         const cycle = _findCycle(wf, xid)
@@ -58,7 +72,7 @@ export const createLockManager = () => {
         const _tryGrant = (tag: string) => {
                 const ws = _waiters.get(tag)
                 if (!ws || ws.length === 0) return
-                const holders = _granted.get(tag) ?? new Set()
+                const holders = _granted.get(tag) ?? new Set<Holder>()
                 while (ws.length > 0) {
                         const head = ws[0]
                         if (!isCompatible(head.mode, holders)) return
@@ -80,15 +94,15 @@ export const createLockManager = () => {
         }
         return {
                 acquireLock(tag: string, mode: LockMode, xid: number): Promise<void> {
-                        const holders = _granted.get(tag) ?? new Set()
+                        const holders = _granted.get(tag) ?? new Set<Holder>()
                         if (isCompatible(mode, holders) && !_waiters.get(tag)?.length) {
                                 holders.add({ xid, mode })
                                 _granted.set(tag, holders)
                                 _addHeld(xid, tag)
                                 return Promise.resolve()
                         }
-                        return new Promise((resolve, reject) => {
-                                const entry = { xid, mode, resolve, reject }
+                        return new Promise<void>((resolve, reject) => {
+                                const entry: Waiter = { xid, mode, resolve, reject }
                                 const ws = _waiters.get(tag) ?? []
                                 ws.push(entry)
                                 _waiters.set(tag, ws)
@@ -105,7 +119,7 @@ export const createLockManager = () => {
                         })
                 },
                 releaseLock,
-                acquireLatch(tag: string, mode: LatchMode) {
+                acquireLatch(tag: string, mode: LatchMode): boolean {
                         const l = _latches.get(tag) ?? { readers: 0, writer: 0 }
                         if (mode === 'read') {
                                 if (l.writer > 0) return false

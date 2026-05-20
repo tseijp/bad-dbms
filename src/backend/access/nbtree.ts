@@ -1,25 +1,31 @@
 import { createPage } from '../storage/page'
-export type Rid = [number, number]
+import type { Rid } from '../../shared/types'
+import type { Page, PageHeader, InternalEntry, Frame, BufferPool, StorageManager, FreeSpaceMap, NBTreeHandle } from '../types'
+export type { Rid } from '../../shared/types'
 export type Cmp = (a: number, b: number) => number
 export interface NBTreeOptions {
-        buffer: any
-        smgr: any
-        fsm: any
+        buffer: BufferPool
+        smgr: StorageManager
+        fsm: FreeSpaceMap
         relId: number
         forkId: number
         cmp?: Cmp
-        keyOf?: (entry: any) => number
+        keyOf?: (entry: unknown) => number
+}
+interface LeafKV {
+        key: number
+        rid: Rid
 }
 const META_BLOCK = 0
 const LEAF_CAP = 64
 const INTERNAL_CAP = 64
 const ENTRY_BYTES = 12
 const defaultCmp: Cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0)
-export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCmp }: NBTreeOptions) => {
+export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCmp }: NBTreeOptions): NBTreeHandle => {
         const _pin = (b: number) => buffer.pin(relId, forkId, b)
-        const _unpin = (f: any, d?: boolean) => buffer.unpin(f, d)
-        const _ridOf = (e: any): Rid => [e.ridPageId, e.ridOffset]
-        const _writeLeaf = (p: any, slot: number, key: number, rid: Rid) => p.writeLeafEntry(slot, key, { pageId: rid[0], offset: rid[1] })
+        const _unpin = (f: Frame, d?: boolean) => buffer.unpin(f, d)
+        const _ridOf = (e: { ridPageId: number; ridOffset: number }): Rid => [e.ridPageId, e.ridOffset]
+        const _writeLeaf = (p: Page, slot: number, key: number, rid: Rid) => p.writeLeafEntry(slot, key, { pageId: rid[0], offset: rid[1] })
         const _notifyFree = (block: number, used: number, cap: number) => fsm.update(relId, forkId, block, (cap - used) * ENTRY_BYTES)
         const _readRoot = (): number => {
                 const f = _pin(META_BLOCK)
@@ -49,7 +55,7 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                 _unpin(fl, true)
                 return leaf
         }
-        const _leafBS = (lp: any, count: number, key: number): number => {
+        const _leafBS = (lp: Page, count: number, key: number): number => {
                 let lo = 0
                 let hi = count
                 while (lo < hi) {
@@ -60,7 +66,7 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                 }
                 return lo
         }
-        const _intBS = (ip: any, count: number, key: number): number => {
+        const _intBS = (ip: Page, count: number, key: number): number => {
                 let lo = 0
                 let hi = count
                 while (lo < hi) {
@@ -106,7 +112,7 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                 const p = createPage(f.bytes)
                 const h = p.getHeader()
                 const count = h.slotCount || 0
-                const entries: any[] = []
+                const entries: InternalEntry[] = []
                 for (let i = 0; i < count; i++) entries.push(p.readInternalEntry(i))
                 let at = 0
                 while (at < entries.length && cmp(entries[at].key, sepKey) <= 0) at++
@@ -131,13 +137,13 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                 _unpin(fr, true)
                 _propagateUp(path, rightE[0].key, newId)
         }
-        const _splitLeaf = (leafId: number, lp: any, lh: any, key: number, rid: Rid, path: number[]): void => {
+        const _splitLeaf = (leafId: number, lp: Page, lh: PageHeader, key: number, rid: Rid, path: number[]): void => {
                 const newId = smgr.extend(relId, forkId)
                 const fr = _pin(newId)
                 const np = createPage(fr.bytes)
                 const count = lh.slotCount || 0
                 const mid = (count + 1) >>> 1
-                const entries: Array<{ key: number; rid: Rid }> = []
+                const entries: LeafKV[] = []
                 for (let i = 0; i < count; i++) {
                         const e = lp.readLeafEntry(i)
                         entries.push({ key: e.key, rid: _ridOf(e) })
@@ -294,4 +300,4 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                 },
         }
 }
-export type NBTree = ReturnType<typeof createNBTree>
+export type NBTree = NBTreeHandle
