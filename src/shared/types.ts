@@ -81,7 +81,7 @@ export type JoinPredicate = (left: Row, right: Row) => boolean
 export type TableRef = string | { $meta: { name: string } } | { node: { name: string } }
 export type SqlExpr = SQL | SqlNode
 export type AggSpec = { name: string; kind: AggKind; field: string }
-export type SortKey = { field: string; dir: 'asc' | 'desc' }
+export type SortKey = { field: string; dir: 'asc' | 'desc'; eval?: (row: Row) => unknown }
 export type Projection = Array<{ alias: string; expr: SqlExpr }>
 export interface SeqScanOp { op: 'SeqScan'; table: TableRef }
 export interface IndexScanOp { op: 'IndexScan'; table: TableRef; indexName: string; range?: { start?: number; end?: number } }

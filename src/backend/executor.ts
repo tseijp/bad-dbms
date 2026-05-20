@@ -266,8 +266,8 @@ const makeSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
         child.close()
         buf.sort((a, b) => {
                 for (const k of keys) {
-                        const av = a[k.field] as number
-                        const bv = b[k.field] as number
+                        const av = (k.eval ? k.eval(a) : a[k.field]) as number
+                        const bv = (k.eval ? k.eval(b) : b[k.field]) as number
                         if (av < bv) return k.dir === 'desc' ? 1 : -1
                         if (av > bv) return k.dir === 'desc' ? -1 : 1
                 }

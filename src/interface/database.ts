@@ -78,12 +78,15 @@ const dispatch = (backend: Backend | null, cfg: DatabaseConfig, plan: PhysicalOp
 }
 const isDispatchError = (v: unknown): v is DispatchError => !!v && typeof v === 'object' && (v as DispatchError).error === 'no-backend'
 const runSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: SelectAst, ctx: EvalCtx): Promise<unknown> => {
-        const { plan, proj } = planSelect(ast, ctx)
+        const { plan } = planSelect(ast, ctx)
         const rows = await Promise.resolve(dispatch(backend, cfg, plan))
         if (isDispatchError(rows)) return rows
         const arr = Array.isArray(rows) ? (rows as Row[]) : []
-        if (proj.hasAgg && (!ast.groupBy || ast.groupBy.length === 0)) return arr[0] ?? {}
-        if (ast.limit !== undefined) return arr.slice(0, ast.limit)
+        const offset = ast.offset ?? 0
+        if (ast.offset !== undefined || ast.limit !== undefined) {
+                const end = ast.limit !== undefined ? offset + ast.limit : arr.length
+                return arr.slice(offset, end)
+        }
         return arr
 }
 const runInsert = (backend: Backend | null, cfg: DatabaseConfig, ast: InsertAst): unknown => {

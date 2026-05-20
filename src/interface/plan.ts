@@ -1,6 +1,6 @@
 import type { SQL, SqlNode, PhysicalOp, AggSpec, SortKey } from '../shared/types'
 import type { SelectAst, ProjItem } from './types'
-import { colNameOf, compilePredicate, EvalCtx } from './compile'
+import { colNameOf, compileExpr, compilePredicate, EvalCtx } from './compile'
 const tableNameOf = (t: unknown): string => {
         if (typeof t === 'string') return t
         const v = t as { $meta?: { name: string }; node?: { name?: string } }
@@ -46,10 +46,16 @@ export const planSelect = (ast: SelectAst, ctx: EvalCtx): { plan: PhysicalOp; pr
                 if (out.length > 0) plan = { op: 'Projection', child: plan, fields: out }
         } else if (proj.fields.length > 0) plan = { op: 'Projection', child: plan, fields: proj.fields.map((f) => f.field) }
         if (ast.orderBy && ast.orderBy.length > 0) {
+                const sortKey = (col: SQL | SqlNode, dir: 'asc' | 'desc'): SortKey => {
+                        const colNode = nodeOf(col)
+                        if (colNode && colNode.type === 'column') return { field: colNode.name, dir }
+                        if (colNode && (colNode.type === 'currentTuple' || colNode.type === 'identifier')) return { field: colNameOf(col), dir }
+                        return { field: '', dir, eval: compileExpr(col, ctx) }
+                }
                 const keys: SortKey[] = ast.orderBy.map((o) => {
                         const node = nodeOf(o)
-                        if (node?.type === 'order') return { field: colNameOf(node.col), dir: node.dir }
-                        return { field: colNameOf(o), dir: 'asc' }
+                        if (node?.type === 'order') return sortKey(node.col, node.dir)
+                        return sortKey(o, 'asc')
                 })
                 plan = { op: 'Sort', child: plan, keys }
         }
