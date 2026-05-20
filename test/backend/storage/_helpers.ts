@@ -3,7 +3,7 @@ import { createFileAdapter, createFile } from '../../../src/backend/storage/file
 import { createStorageManager } from '../../../src/backend/storage/smgr'
 import { createBufferPool } from '../../../src/backend/storage/buffer'
 import { createFreeSpaceMap } from '../../../src/backend/storage/free'
-import { createLockManager } from '../../../src/backend/storage/lmng'
+import { createLockManager } from '../../../src/backend/storage/lmgr'
 export const PAGE = 4096
 export const makeFile = () => {
         const adapter = createFileAdapter()
@@ -58,7 +58,7 @@ export const makeFsm = (opts: any = {}) => {
         const fsm = createFreeSpaceMap({ smgr })
         return { smgr, fsm }
 }
-export const makeLmng = () => createLockManager()
+export const makeLmgr = () => createLockManager()
 export const fillBytes = (size: number, start = 1) => {
         const out = new Uint8Array(size)
         for (let i = 0; i < size; i++) out[i] = (start + i) & 0xff

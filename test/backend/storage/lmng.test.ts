@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { createLockManager } from '../../../src/backend/storage/lmng'
+import { createLockManager } from '../../../src/backend/storage/lmgr'
 const settle = async () => {
         await Promise.resolve()
         await Promise.resolve()
         await Promise.resolve()
 }
-describe('lmng', () => {
+describe('lmgr', () => {
         it('resolves acquireLock immediately when the tag is not held', async () => {
                 const lm = createLockManager()
                 let resolved = false
