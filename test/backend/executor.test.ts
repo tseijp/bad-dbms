@@ -1,14 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { evalNode } from '../../src/backend/executor'
 import { makeExecutor, usersDef, insertRows, drainIter } from './_helpers'
-
 const seedUsers = (rows: any[]) => {
         const stack = makeExecutor()
         stack.catalog.register('users', usersDef)
         insertRows(stack.catalog, 'users', rows)
         return stack
 }
-
 describe('executor SeqScan', () => {
         it('emits every alive row from the first column heap', () => {
                 const { executor } = seedUsers([
@@ -20,7 +18,6 @@ describe('executor SeqScan', () => {
                 expect(rows.map((r) => r.id)).toEqual([1, 2, 3])
         })
 })
-
 describe('executor Filter', () => {
         it('keeps only rows where predicate returns true', () => {
                 const { executor } = seedUsers([
@@ -33,12 +30,11 @@ describe('executor Filter', () => {
                                 op: 'Filter',
                                 child: { op: 'SeqScan', table: 'users' },
                                 predicate: (r: any) => r.id >= 2,
-                        })
+                        }),
                 )
                 expect(rows.map((r) => r.id)).toEqual([2, 3])
         })
 })
-
 describe('executor Projection', () => {
         it('returns an object with exactly the requested fields and matching values from child', () => {
                 const { executor } = seedUsers([{ id: 1, name: 11, score: 999 }])
@@ -47,12 +43,11 @@ describe('executor Projection', () => {
                                 op: 'Projection',
                                 child: { op: 'SeqScan', table: 'users' },
                                 fields: ['id', 'name'],
-                        })
+                        }),
                 )
                 expect(rows[0]).toEqual({ id: 1, name: 11 })
         })
 })
-
 describe('executor Sort', () => {
         it('orders rows by the configured key direction', () => {
                 const { executor } = seedUsers([
@@ -65,12 +60,11 @@ describe('executor Sort', () => {
                                 op: 'Sort',
                                 child: { op: 'SeqScan', table: 'users' },
                                 keys: [{ field: 'id', dir: 'asc' }],
-                        })
+                        }),
                 )
                 expect(rows.map((r) => r.id)).toEqual([1, 2, 3])
         })
 })
-
 describe('executor Aggregate count', () => {
         it('returns one row with the input row count', () => {
                 const { executor } = seedUsers([
@@ -84,12 +78,11 @@ describe('executor Aggregate count', () => {
                                 child: { op: 'SeqScan', table: 'users' },
                                 groupBy: [],
                                 aggs: [{ name: 'c', kind: 'count', field: '' }],
-                        })
+                        }),
                 )
                 expect(rows).toEqual([{ c: 3 }])
         })
 })
-
 describe('executor Aggregate sum/avg/min/max', () => {
         it('computes sum over the named field', () => {
                 const { executor } = seedUsers([
@@ -103,11 +96,10 @@ describe('executor Aggregate sum/avg/min/max', () => {
                                 child: { op: 'SeqScan', table: 'users' },
                                 groupBy: [],
                                 aggs: [{ name: 's', kind: 'sum', field: 'score' }],
-                        })
+                        }),
                 )
                 expect(rows[0].s).toBe(60)
         })
-
         it('computes avg as sum/count', () => {
                 const { executor } = seedUsers([
                         { id: 1, name: 0, score: 10 },
@@ -120,11 +112,10 @@ describe('executor Aggregate sum/avg/min/max', () => {
                                 child: { op: 'SeqScan', table: 'users' },
                                 groupBy: [],
                                 aggs: [{ name: 'a', kind: 'avg', field: 'score' }],
-                        })
+                        }),
                 )
                 expect(rows[0].a).toBe(20)
         })
-
         it('computes min as the smallest value', () => {
                 const { executor } = seedUsers([
                         { id: 1, name: 0, score: 10 },
@@ -137,11 +128,10 @@ describe('executor Aggregate sum/avg/min/max', () => {
                                 child: { op: 'SeqScan', table: 'users' },
                                 groupBy: [],
                                 aggs: [{ name: 'm', kind: 'min', field: 'score' }],
-                        })
+                        }),
                 )
                 expect(rows[0].m).toBe(5)
         })
-
         it('computes max as the largest value', () => {
                 const { executor } = seedUsers([
                         { id: 1, name: 0, score: 10 },
@@ -154,12 +144,11 @@ describe('executor Aggregate sum/avg/min/max', () => {
                                 child: { op: 'SeqScan', table: 'users' },
                                 groupBy: [],
                                 aggs: [{ name: 'm', kind: 'max', field: 'score' }],
-                        })
+                        }),
                 )
                 expect(rows[0].m).toBe(50)
         })
 })
-
 describe('executor Aggregate groupBy', () => {
         it('emits one row per groupBy key with the group key field set', () => {
                 const stack = makeExecutor()
@@ -175,13 +164,17 @@ describe('executor Aggregate groupBy', () => {
                                 child: { op: 'SeqScan', table: 'orders' },
                                 groupBy: ['userId'],
                                 aggs: [{ name: 'total', kind: 'sum', field: 'amount' }],
-                        })
+                        }),
                 )
                 const byUser = new Map(rows.map((r: any) => [r.userId, r.total]))
-                expect(byUser).toEqual(new Map([[1, 30], [2, 5]]))
+                expect(byUser).toEqual(
+                        new Map([
+                                [1, 30],
+                                [2, 5],
+                        ]),
+                )
         })
 })
-
 describe('executor Aggregate synthetic zero row', () => {
         it('emits 1 row with count=0 when input is empty and groupBy is empty', () => {
                 const stack = makeExecutor()
@@ -192,12 +185,11 @@ describe('executor Aggregate synthetic zero row', () => {
                                 child: { op: 'SeqScan', table: 'users' },
                                 groupBy: [],
                                 aggs: [{ name: 'c', kind: 'count', field: '' }],
-                        })
+                        }),
                 )
                 expect(rows).toEqual([{ c: 0 }])
         })
 })
-
 describe('executor NestedLoopJoin', () => {
         it('emits merged rows where predicate is true across the cross product', () => {
                 const stack = makeExecutor()
@@ -211,12 +203,11 @@ describe('executor NestedLoopJoin', () => {
                                 left: { op: 'SeqScan', table: 'a' },
                                 right: { op: 'SeqScan', table: 'b' },
                                 predicate: (l: any, r: any) => l.x === r.y,
-                        })
+                        }),
                 )
                 expect(rows.map((r: any) => [r.x, r.y])).toEqual([[1, 1]])
         })
 })
-
 describe('executor HashJoin', () => {
         it('joins on leftKey === rightKey emitting merged x and y per match', () => {
                 const stack = makeExecutor()
@@ -231,13 +222,15 @@ describe('executor HashJoin', () => {
                                 right: { op: 'SeqScan', table: 'b' },
                                 leftKey: 'x',
                                 rightKey: 'y',
-                        })
+                        }),
                 )
                 const merged = rows.map((r: any) => [r.x, r.y]).sort((p: any, q: any) => p[0] - q[0])
-                expect(merged).toEqual([[2, 2], [3, 3]])
+                expect(merged).toEqual([
+                        [2, 2],
+                        [3, 3],
+                ])
         })
 })
-
 describe('executor Update', () => {
         it('updates column heaps for predicate-matching rows and reports updated count', () => {
                 const { executor, catalog } = seedUsers([
@@ -251,7 +244,7 @@ describe('executor Update', () => {
                                 table: 'users',
                                 predicate: (r: any) => r.id === 2,
                                 setters: { score: () => 99 },
-                        })
+                        }),
                 )
                 const rel = catalog.resolve('users')
                 const after: number[] = []
@@ -259,7 +252,6 @@ describe('executor Update', () => {
                 expect({ out: out[0], after }).toEqual({ out: { updated: 1 }, after: [1, 99, 3] })
         })
 })
-
 describe('executor Delete', () => {
         it('dispatches delete to every column heap and reports deleted count', () => {
                 const { executor, catalog } = seedUsers([
@@ -272,7 +264,7 @@ describe('executor Delete', () => {
                                 op: 'Delete',
                                 table: 'users',
                                 predicate: (r: any) => r.id === 2,
-                        })
+                        }),
                 )
                 const rel = catalog.resolve('users')
                 const remaining: number[] = []
@@ -280,7 +272,6 @@ describe('executor Delete', () => {
                 expect({ out: out[0], remaining }).toEqual({ out: { deleted: 1 }, remaining: [1, 3] })
         })
 })
-
 describe('executor Insert', () => {
         it('calls catalog.insertRow per value and returns rowCount', () => {
                 const stack = makeExecutor()
@@ -293,11 +284,10 @@ describe('executor Insert', () => {
                                         { id: 1, name: 1, score: 1 },
                                         { id: 2, name: 2, score: 2 },
                                 ],
-                        })
+                        }),
                 )
                 expect(out[0]).toEqual({ rowCount: 2 })
         })
-
         it('exposes rids when returning is true', () => {
                 const stack = makeExecutor()
                 stack.catalog.register('users', usersDef)
@@ -307,21 +297,18 @@ describe('executor Insert', () => {
                                 table: 'users',
                                 values: [{ id: 1, name: 1, score: 1 }],
                                 returning: true,
-                        })
+                        }),
                 )
                 expect(Array.isArray(out[0].rids)).toBe(true)
         })
 })
-
 describe('evalNode primitive nodes', () => {
         it('returns the value of a literal node', () => {
                 expect(evalNode({ type: 'literal', value: 42 }, null)).toBe(42)
         })
-
         it('reads column value from the supplied row', () => {
                 expect(evalNode({ type: 'column', name: 'id' }, { id: 7 })).toBe(7)
         })
-
         it('evaluates binop via args[] when no left/right is given', () => {
                 expect(
                         evalNode(
@@ -333,11 +320,10 @@ describe('evalNode primitive nodes', () => {
                                                 { type: 'literal', value: 3 },
                                         ],
                                 },
-                                null
-                        )
+                                null,
+                        ),
                 ).toBe(5)
         })
-
         it('recurses into nested binop args', () => {
                 expect(
                         evalNode(
@@ -356,19 +342,16 @@ describe('evalNode primitive nodes', () => {
                                                 },
                                         ],
                                 },
-                                null
-                        )
+                                null,
+                        ),
                 ).toBe(10)
         })
-
         it('evaluates unop not via args[0]', () => {
                 expect(evalNode({ type: 'unop', op: 'not', args: [{ type: 'literal', value: false }] }, null)).toBe(true)
         })
-
         it('evaluates func toFloat via the args array', () => {
                 expect(evalNode({ type: 'func', name: 'toFloat', args: [{ type: 'literal', value: '3.5' }] }, null)).toBe(3.5)
         })
-
         it('returns list as an array of evaluated items', () => {
                 expect(
                         evalNode(
@@ -379,19 +362,14 @@ describe('evalNode primitive nodes', () => {
                                                 { type: 'literal', value: 2 },
                                         ],
                                 },
-                                null
-                        )
+                                null,
+                        ),
                 ).toEqual([1, 2])
         })
-
         it('reads raw and identifier nodes as their value/name', () => {
-                expect([
-                        evalNode({ type: 'raw', value: 'r' }, null),
-                        evalNode({ type: 'identifier', name: 'col' }, null),
-                ]).toEqual(['r', 'col'])
+                expect([evalNode({ type: 'raw', value: 'r' }, null), evalNode({ type: 'identifier', name: 'col' }, null)]).toEqual(['r', 'col'])
         })
 })
-
 describe('evalNode variadic and/or', () => {
         it('uses every() for and over 3+ args', () => {
                 expect(
@@ -405,11 +383,10 @@ describe('evalNode variadic and/or', () => {
                                                 { type: 'literal', value: true },
                                         ],
                                 },
-                                null
-                        )
+                                null,
+                        ),
                 ).toBe(true)
         })
-
         it('uses some() for or over 3+ args', () => {
                 expect(
                         evalNode(
@@ -422,22 +399,19 @@ describe('evalNode variadic and/or', () => {
                                                 { type: 'literal', value: true },
                                         ],
                                 },
-                                null
-                        )
+                                null,
+                        ),
                 ).toBe(true)
         })
 })
-
 describe('evalNode currentTuple', () => {
         it('reads ctx[col] when ctx is provided', () => {
                 expect(evalNode({ type: 'currentTuple', col: 'id', tableName: 'users' }, null, { id: 9 })).toBe(9)
         })
-
         it('returns undefined when ctx is not provided', () => {
                 expect(evalNode({ type: 'currentTuple', col: 'id', tableName: 'users' }, null)).toBe(undefined)
         })
 })
-
 describe('executor drain on empty', () => {
         it('returns [] for an Insert with zero values', () => {
                 const stack = makeExecutor()
@@ -446,7 +420,6 @@ describe('executor drain on empty', () => {
                 expect(out).toEqual([{ rowCount: 0 }])
         })
 })
-
 // Roadmap (backend.md):
 //   partial index — IndexScan が WHERE 述語付きで filter する経路、未実装
 //   column pruning に基づく projection — Projection が child の field を制限する経路、未実装

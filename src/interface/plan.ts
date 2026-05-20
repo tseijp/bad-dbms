@@ -1,13 +1,15 @@
 import { colNameOf, compilePredicate, EvalCtx } from './compile'
-
-const tableNameOf = (t: any): string => (t?.$meta ? t.$meta.name : t?.node?.name ?? '')
-
+const tableNameOf = (t: any): string => {
+        if (typeof t === 'string') return t
+        if (t?.$meta) return t.$meta.name
+        if (t?.node?.name) return t.node.name
+        return ''
+}
 export interface ProjInfo {
         fields: Array<{ alias: string; field: string }>
         aggs: any[]
         hasAgg: boolean
 }
-
 export const buildProjection = (projection: any): ProjInfo => {
         const fields: Array<{ alias: string; field: string }> = []
         const aggs: any[] = []
@@ -28,7 +30,6 @@ export const buildProjection = (projection: any): ProjInfo => {
         }
         return { fields, aggs, hasAgg: aggs.length > 0 }
 }
-
 export const planSelect = (ast: any, ctx: EvalCtx) => {
         const tableName = tableNameOf(ast.table)
         let plan: any = { op: 'SeqScan', table: tableName }
@@ -50,5 +51,4 @@ export const planSelect = (ast: any, ctx: EvalCtx) => {
         }
         return { plan, proj, tableName }
 }
-
 export { tableNameOf }

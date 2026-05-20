@@ -20,9 +20,9 @@ export const setup = async () => {
                         .from(cells)
                         .where(
                                 and(
-                                        between(cells.x, c.x.sub(1), c.x.add(1)),
-                                        between(cells.y, c.y.sub(1), c.y.add(1))
-                                )
+                                        between(cells.x, c.x.sub(1), c.x.add(1)), //
+                                        between(cells.y, c.y.sub(1), c.y.add(1)),
+                                ),
                         )
                 const s = (result as any).s ?? 0
                 await tx

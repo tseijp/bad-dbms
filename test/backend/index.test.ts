@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
 import { makeDb, usersTable, spyAdapter } from './_helpers'
-
 describe('createDatabase surface', () => {
         it('returns an object with catalog/execute/transaction/stats/flush', () => {
                 const db = makeDb()
@@ -20,7 +19,6 @@ describe('createDatabase surface', () => {
                 })
         })
 })
-
 describe('execute is async', () => {
         it('returns a Promise that resolves to an array', async () => {
                 const db = makeDb()
@@ -29,7 +27,6 @@ describe('execute is async', () => {
                 expect(await result).toEqual([])
         })
 })
-
 describe('execute InitAll', () => {
         it('invokes catalog.registerTable for each table in the InitAll payload', async () => {
                 const db = makeDb()
@@ -37,14 +34,12 @@ describe('execute InitAll', () => {
                 await db.execute({ op: 'InitAll', count: 0, tables: { users: usersTable() } })
                 expect(spy).toHaveBeenCalledTimes(1)
         })
-
         it('makes the registered table resolvable via catalog.resolve', async () => {
                 const db = makeDb()
                 await db.execute({ op: 'InitAll', count: 0, tables: { users: usersTable() } })
                 expect(db.catalog.resolve('users')).toBeTruthy()
         })
 })
-
 describe('execute Select', () => {
         it('returns row array via planSelect-lowered physical AST', async () => {
                 const db = makeDb()
@@ -61,7 +56,6 @@ describe('execute Select', () => {
                 expect(rows.map((r: any) => r.id).sort()).toEqual([1, 2])
         })
 })
-
 describe('execute Insert', () => {
         it('inserts every value row and returns rowCount in the result envelope', async () => {
                 const db = makeDb()
@@ -78,7 +72,6 @@ describe('execute Insert', () => {
                 expect(out[0]).toEqual({ rowCount: 3 })
         })
 })
-
 describe('execute Update', () => {
         it('mutates the matching column heap value via setter return', async () => {
                 const db = makeDb()
@@ -102,7 +95,6 @@ describe('execute Update', () => {
                 expect(byId.get(1)).toBe(77)
         })
 })
-
 describe('execute Delete', () => {
         it('marks every column heap slot dead for matching predicate', async () => {
                 const db = makeDb()
@@ -124,7 +116,6 @@ describe('execute Delete', () => {
                 expect(rows.map((r: any) => r.id)).toEqual([2])
         })
 })
-
 describe('transaction', () => {
         it('invokes transam.begin then transam.commit on resolve', async () => {
                 const db = makeDb()
@@ -133,16 +124,18 @@ describe('transaction', () => {
                 await db.transaction(async () => 42)
                 expect({ b: beginSpy.mock.calls.length, c: commitSpy.mock.calls.length }).toEqual({ b: 1, c: 1 })
         })
-
         it('invokes transam.abort on reject and rethrows the error', async () => {
                 const db = makeDb()
                 const abortSpy = vi.spyOn(db.transam, 'abort')
                 const boom = new Error('boom')
-                await expect(db.transaction(async () => { throw boom })).rejects.toBe(boom)
+                await expect(
+                        db.transaction(async () => {
+                                throw boom
+                        }),
+                ).rejects.toBe(boom)
                 expect(abortSpy).toHaveBeenCalledTimes(1)
         })
 })
-
 describe('stats()', () => {
         it('returns relations summary aggregating column blocks and indexCount', async () => {
                 const db = makeDb()
@@ -157,7 +150,6 @@ describe('stats()', () => {
                 expect({ name: rel.name, indexCount: rel.indexCount }).toEqual({ name: 'users', indexCount: 1 })
         })
 })
-
 describe('flush()', () => {
         it('invokes buffer.flushAll', () => {
                 const db = makeDb()
@@ -166,20 +158,17 @@ describe('flush()', () => {
                 expect(spy).toHaveBeenCalledTimes(1)
         })
 })
-
 describe('createDatabase defaults', () => {
         it('uses frameCount=64 / ringCount=8 when config is empty', () => {
                 const db = makeDb()
                 expect(db.buffer.stats()).toMatchObject({ frameCount: 64, ringCount: 8 })
         })
 })
-
 describe('createDatabase config overrides', () => {
         it('honors frameCount/ringCount overrides in buffer.stats()', () => {
                 const db = makeDb({ frameCount: 16, ringCount: 4 })
                 expect(db.buffer.stats()).toMatchObject({ frameCount: 16, ringCount: 4 })
         })
-
         it('writes through the supplied fileAdapter when flushed after Insert', async () => {
                 const adapter = spyAdapter()
                 const db = makeDb({ fileAdapter: adapter })
@@ -188,7 +177,6 @@ describe('createDatabase config overrides', () => {
                 db.flush()
                 expect(adapter.write.mock.calls.length).toBeGreaterThan(0)
         })
-
         it('honors pageSize override so smgr.extend writes a block of the configured size', async () => {
                 const db = makeDb({ pageSize: 8192 })
                 db.catalog.registerTable(usersTable())
@@ -198,7 +186,6 @@ describe('createDatabase config overrides', () => {
                 expect(bytes.byteLength).toBe(8192)
         })
 })
-
 // Roadmap (backend.md):
 //   InitAll の count > 0 (auto-seed 経路) — interface 側 (database({}).all(n)) の責務、backend test 対象外
 //   stats() の index 深さ集計 — 現状 backend.index.ts では indexCount のみ集計、tree depth は未集計

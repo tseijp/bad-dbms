@@ -2,7 +2,6 @@ export interface EvalCtx {
         current: any
         params: any
 }
-
 export const evalNode = (node: any, row: any, ctx: EvalCtx): any => {
         if (!node) return undefined
         if (node.kind === 'sql') return evalNode(node.node, row, ctx)
@@ -17,7 +16,6 @@ export const evalNode = (node: any, row: any, ctx: EvalCtx): any => {
         if (node.type === 'list') return node.items.map((a: any) => evalNode(a, row, ctx))
         return undefined
 }
-
 const evalUnop = (node: any, row: any, ctx: EvalCtx): any => {
         const v = evalNode(node.args[0], row, ctx)
         if (node.op === 'not') return !v
@@ -25,7 +23,6 @@ const evalUnop = (node: any, row: any, ctx: EvalCtx): any => {
         if (node.op === 'isNotNull') return v !== null && v !== undefined
         return undefined
 }
-
 const evalBinop = (node: any, row: any, ctx: EvalCtx): any => {
         if (node.op === 'and') return node.args.every((a: any) => !!evalNode(a, row, ctx))
         if (node.op === 'or') return node.args.some((a: any) => !!evalNode(a, row, ctx))
@@ -45,7 +42,6 @@ const evalBinop = (node: any, row: any, ctx: EvalCtx): any => {
         if (node.op === 'in') return Array.isArray(r) && r.indexOf(l) >= 0
         return undefined
 }
-
 const evalFunc = (node: any, row: any, ctx: EvalCtx): any => {
         const args = node.args.map((a: any) => evalNode(a, row, ctx))
         if (node.name === 'between') return args[0] >= args[1] && args[0] <= args[2]
@@ -55,11 +51,8 @@ const evalFunc = (node: any, row: any, ctx: EvalCtx): any => {
         if (node.name === 'at') return args[0]?.[args[1]]
         return undefined
 }
-
 export const compilePredicate = (node: any, ctx: EvalCtx) => (row: any) => !!evalNode(node, row, ctx)
-
 export const compileExpr = (node: any, ctx: EvalCtx) => (row: any) => evalNode(node, row, ctx)
-
 export const colNameOf = (c: any): string => {
         if (!c) return ''
         if (c.$col) return c.$col.name

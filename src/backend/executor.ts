@@ -1,17 +1,14 @@
 const tableNameOf = (t: any) => (typeof t === 'string' ? t : t && t.$meta ? t.$meta.name : t && t.name ? t.name : String(t))
-
 const buildRow = (desc: any, rid: any) => {
         const row: any = { __rid: rid }
         for (const col of desc.columns) row[col.name] = col.heap.read(rid)
         return row
 }
-
 const collectRids = (firstHeap: any) => {
         const rids: any[] = []
         firstHeap.scan((rid: any) => void rids.push(rid))
         return rids
 }
-
 const evalBinop = (op: string, a: any, b: any): any => {
         if (op === '+') return a + b
         if (op === '-') return a - b
@@ -29,14 +26,12 @@ const evalBinop = (op: string, a: any, b: any): any => {
         if (op === 'in') return Array.isArray(b) ? b.includes(a) : false
         return undefined
 }
-
 const evalUnop = (op: string, v: any): any => {
         if (op === 'not') return !v
         if (op === 'isNull') return v === null || v === undefined
         if (op === 'isNotNull') return v !== null && v !== undefined
         return v
 }
-
 const evalFunc = (name: string, args: any[]): any => {
         if (name === 'toFloat') return Number(args[0])
         if (name === 'toInt') return args[0] | 0
@@ -45,7 +40,6 @@ const evalFunc = (name: string, args: any[]): any => {
         if (name === 'at') return args[0]
         return undefined
 }
-
 export const evalNode = (node: any, row: any, ctx?: any): any => {
         if (node === null || node === undefined) return node
         if (typeof node !== 'object') return node
@@ -68,26 +62,27 @@ export const evalNode = (node: any, row: any, ctx?: any): any => {
                 const arg = n.arg !== undefined ? evalNode(n.arg, row, ctx) : evalNode((n.args || [])[0], row, ctx)
                 return evalUnop(n.op, arg)
         }
-        if (t === 'func') return evalFunc(n.name, (n.args || []).map((a: any) => evalNode(a, row, ctx)))
+        if (t === 'func')
+                return evalFunc(
+                        n.name,
+                        (n.args || []).map((a: any) => evalNode(a, row, ctx)),
+                )
         if (t === 'list') return (n.items || []).map((a: any) => evalNode(a, row, ctx))
         if (t === 'order') return evalNode(n.col, row, ctx)
         if (t === 'placeholder') return ctx ? ctx[n.name] : undefined
         return undefined
 }
-
 const compilePredicate = (pred: any): ((row: any) => boolean) => {
         if (!pred) return () => true
         if (typeof pred === 'function') return pred
         return (row: any) => !!evalNode(pred, row)
 }
-
 const compileSetter = (expr: any): ((row: any) => any) => {
         if (typeof expr === 'function') return expr
         if (expr && expr.kind === 'sql') return (row: any) => evalNode(expr, row)
         if (expr && expr.type) return (row: any) => evalNode(expr, row)
         return () => expr
 }
-
 const makeSeqScan = (catalog: any, ast: any) => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         if (!rel) return { next: () => null, close: () => {} }
@@ -100,7 +95,6 @@ const makeSeqScan = (catalog: any, ast: any) => {
         }
         return { next, close: () => {} }
 }
-
 const makeIndexScan = (catalog: any, ast: any) => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         if (!rel) return { next: () => null, close: () => {} }
@@ -117,7 +111,6 @@ const makeIndexScan = (catalog: any, ast: any) => {
         const next = () => (i >= rids.length ? null : buildRow(desc, rids[i++]))
         return { next, close: () => {} }
 }
-
 const makeFilter = (child: any, predicate: any) => {
         const fn = compilePredicate(predicate)
         const next = () => {
@@ -129,7 +122,6 @@ const makeFilter = (child: any, predicate: any) => {
         }
         return { next, close: () => child.close() }
 }
-
 const makeProjection = (child: any, fields: string[]) => {
         const next = () => {
                 const r = child.next()
@@ -140,7 +132,6 @@ const makeProjection = (child: any, fields: string[]) => {
         }
         return { next, close: () => child.close() }
 }
-
 const makeNestedLoopJoin = (left: any, right: any, predicate: any) => {
         const fn = typeof predicate === 'function' ? predicate : (l: any, r: any) => !!evalNode(predicate, { ...l, ...r })
         const rightBuf: any[] = []
@@ -168,7 +159,6 @@ const makeNestedLoopJoin = (left: any, right: any, predicate: any) => {
         }
         return { next, close: () => left.close() }
 }
-
 const makeHashJoin = (left: any, right: any, leftKey: string, rightKey: string) => {
         const table = new Map<any, any[]>()
         while (true) {
@@ -193,7 +183,6 @@ const makeHashJoin = (left: any, right: any, leftKey: string, rightKey: string) 
         }
         return { next, close: () => right.close() }
 }
-
 const initAgg = (kind: string) => {
         if (kind === 'count') return { count: 0 }
         if (kind === 'sum' || kind === 'avg') return { sum: 0, count: 0 }
@@ -201,7 +190,6 @@ const initAgg = (kind: string) => {
         if (kind === 'max') return { val: -Infinity }
         return {}
 }
-
 const updateAgg = (state: any, kind: string, v: any) => {
         if (kind === 'count') return void state.count++
         if (kind === 'sum') return void (state.sum += v)
@@ -209,14 +197,12 @@ const updateAgg = (state: any, kind: string, v: any) => {
         if (kind === 'min') return void (state.val = Math.min(state.val, v))
         if (kind === 'max') return void (state.val = Math.max(state.val, v))
 }
-
 const finalAgg = (state: any, kind: string) => {
         if (kind === 'count') return state.count
         if (kind === 'sum') return state.sum
         if (kind === 'avg') return state.count > 0 ? state.sum / state.count : 0
         return state.val
 }
-
 const makeAggregate = (child: any, groupBy: string[], aggs: any[]) => {
         const groups = new Map<string, any>()
         while (true) {
@@ -247,7 +233,6 @@ const makeAggregate = (child: any, groupBy: string[], aggs: any[]) => {
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
 }
-
 const makeSort = (child: any, keys: any[]) => {
         const buf: any[] = []
         while (true) {
@@ -269,7 +254,6 @@ const makeSort = (child: any, keys: any[]) => {
         const next = () => (i < buf.length ? buf[i++] : null)
         return { next, close: () => {} }
 }
-
 const makeUpdate = (catalog: any, ast: any) => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         if (!rel) return { next: () => null, close: () => {} }
@@ -296,7 +280,6 @@ const makeUpdate = (catalog: any, ast: any) => {
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
 }
-
 const makeDelete = (catalog: any, ast: any) => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         if (!rel) return { next: () => null, close: () => {} }
@@ -315,7 +298,6 @@ const makeDelete = (catalog: any, ast: any) => {
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
 }
-
 const makeInsert = (catalog: any, ast: any) => {
         const name = tableNameOf(ast.table)
         const rows = ast.values || []
@@ -329,7 +311,6 @@ const makeInsert = (catalog: any, ast: any) => {
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
 }
-
 const build = (catalog: any, ast: any): any => {
         if (!ast || !ast.op) return { next: () => null, close: () => {} }
         if (ast.op === 'SeqScan') return makeSeqScan(catalog, ast)
@@ -346,7 +327,6 @@ const build = (catalog: any, ast: any): any => {
         if (ast.op === 'Select') return makeSelectLogical(catalog, ast)
         return { next: () => null, close: () => {} }
 }
-
 const makeSelectLogical = (catalog: any, ast: any) => {
         const seq: any = { op: 'SeqScan', table: ast.table }
         let cur: any = build(catalog, seq)
@@ -407,11 +387,12 @@ const makeSelectLogical = (catalog: any, ast: any) => {
         }
         return { next, close: () => inner.close() }
 }
-
 export const createExecutor = (deps: any) => {
-        const { catalog } = deps
-        const execute = (ast: any) => build(catalog, ast)
-        return { execute }
+        const { catalog: _catalog } = deps
+        return {
+                execute(ast: any) {
+                        return build(_catalog, ast)
+                },
+        }
 }
-
 export type Executor = ReturnType<typeof createExecutor>
