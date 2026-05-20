@@ -40,7 +40,8 @@ export const makeFakeSmgr = (pageSize = PAGE) => {
                 nBlocks: vi.fn((relId: any, forkId: any) => _counts.get(_fk(relId, forkId)) ?? 0),
                 truncate: vi.fn(),
                 sync: vi.fn(),
-                getHandle: vi.fn(),
+                getHandle: vi.fn((relId: any, forkId: any) => ({ fid: _fk(relId, forkId), nBlocks: _counts.get(_fk(relId, forkId)) ?? 0 })),
+                prepare: vi.fn(async (relId: any, forkId: any) => ({ fid: _fk(relId, forkId), nBlocks: _counts.get(_fk(relId, forkId)) ?? 0 })),
         }
 }
 export const makeBuffer = (opts: any = {}) => {

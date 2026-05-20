@@ -6,6 +6,7 @@ import { eq } from '../../src/interface/expressions/conditions'
 import { asc } from '../../src/interface/expressions/select'
 import { count, sum } from '../../src/interface/functions/aggregate'
 import { ctx0 } from './_helpers'
+import type { FilterOp, ProjectionOp, AggregateOp, SortOp } from '../../src/shared/types'
 const makeUsers = () =>
         table('users', {
                 id: integer('id').primaryKey(),
@@ -22,12 +23,12 @@ describe('planSelect base shape', () => {
                 const users = makeUsers()
                 const { plan } = planSelect({ op: 'Select', table: users, where: eq((users as any).id, 1) }, ctx0())
                 expect(plan.op).toBe('Filter')
-                expect(plan.child.op).toBe('SeqScan')
+                expect((plan as FilterOp).child.op).toBe('SeqScan')
         })
         it('Filter predicate is a compiled function', () => {
                 const users = makeUsers()
                 const { plan } = planSelect({ op: 'Select', table: users, where: eq((users as any).id, 1) }, ctx0())
-                expect(typeof plan.predicate).toBe('function')
+                expect(typeof (plan as FilterOp).predicate).toBe('function')
         })
 })
 describe('planSelect projection', () => {
@@ -44,7 +45,7 @@ describe('planSelect projection', () => {
                         { alias: 'name', expr: (users as any).name },
                 ]
                 const { plan } = planSelect({ op: 'Select', table: users, projection }, ctx0())
-                expect(plan.fields).toEqual(['id', 'name'])
+                expect((plan as ProjectionOp).fields).toEqual(['id', 'name'])
         })
 })
 describe('planSelect aggregate', () => {
@@ -65,7 +66,7 @@ describe('planSelect aggregate', () => {
                 const users = makeUsers()
                 const projection = [{ alias: 's', expr: sum((users as any).score) }]
                 const { plan } = planSelect({ op: 'Select', table: users, projection }, ctx0())
-                const agg = plan.op === 'Projection' ? plan.child : plan
+                const agg = (plan.op === 'Projection' ? (plan as ProjectionOp).child : plan) as AggregateOp
                 expect(agg.groupBy).toEqual([])
         })
 })
@@ -78,7 +79,7 @@ describe('planSelect orderBy', () => {
         it('Sort.keys contains field and dir', () => {
                 const users = makeUsers()
                 const { plan } = planSelect({ op: 'Select', table: users, orderBy: [asc((users as any).id)] }, ctx0())
-                expect(plan.keys[0]).toEqual({ field: 'id', dir: 'asc' })
+                expect((plan as SortOp).keys[0]).toEqual({ field: 'id', dir: 'asc' })
         })
 })
 describe('buildProjection', () => {

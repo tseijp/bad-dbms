@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createStack, collectLookup, readHashMeta, readPageHeader } from './_helpers'
 import { createHashIndex } from '../../../src/backend/access/hash'
+import type { Rid } from '../../../src/shared/types'
 const makeHashWith = (overrides: any = {}) => {
         const stack = createStack()
         const hash = createHashIndex({
@@ -40,8 +41,8 @@ describe('hash', () => {
                 hash.insert(1, [0, 1])
                 hash.insert(2, [0, 2])
                 hash.insert(3, [0, 3])
-                const seen: Array<[number, number]> = []
-                hash.lookup(1, (rid: [number, number]) => {
+                const seen: Rid[] = []
+                hash.lookup(1, (rid) => {
                         seen.push(rid)
                         return false
                 })

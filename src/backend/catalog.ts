@@ -99,14 +99,21 @@ export const createCatalog = (deps: CatalogDeps) => {
                 _relations.set(name, rel)
                 return rel
         }
-        const resolve = (nameOrTable: TableOrName): RelationDescriptor | undefined => {
-                if (typeof nameOrTable === 'string') return _relations.get(nameOrTable)
-                if (nameOrTable && nameOrTable.$meta) return _relations.get(nameOrTable.$meta.name)
-                return undefined
+        const nameOf = (nameOrTable: TableOrName): string => {
+                if (typeof nameOrTable === 'string') return nameOrTable
+                if (nameOrTable && nameOrTable.$meta) return nameOrTable.$meta.name
+                return ''
+        }
+        const find = (nameOrTable: TableOrName): RelationDescriptor | undefined => _relations.get(nameOf(nameOrTable))
+        const resolve = (nameOrTable: TableOrName): RelationDescriptor => {
+                const rel = find(nameOrTable)
+                if (!rel) throw new Error(`relation not found: ${nameOf(nameOrTable)}`)
+                return rel
         }
         return {
                 register,
                 resolve,
+                find,
                 registerTable(tableObj: TableLike): RelationDescriptor | null {
                         if (!tableObj || !tableObj.$meta) return null
                         const name = tableObj.$meta.name
@@ -132,9 +139,8 @@ export const createCatalog = (deps: CatalogDeps) => {
                 list(): RelationDescriptor[] {
                         return Array.from(_relations.values())
                 },
-                insertRow(relName: string, row: Row): Rid | null {
-                        const rel = _relations.get(relName)
-                        if (!rel) return null
+                insertRow(relName: string, row: Row): Rid {
+                        const rel = resolve(relName)
                         let rid: Rid | null = null
                         for (let i = 0; i < rel.columns.length; i++) {
                                 const col = rel.columns[i]
@@ -142,7 +148,7 @@ export const createCatalog = (deps: CatalogDeps) => {
                                 const r = rel.heaps[i].insert(v)
                                 if (i === 0) rid = r
                         }
-                        if (!rid) return null
+                        if (!rid) throw new Error(`insert produced no rid: ${relName}`)
                         for (const idx of rel.indexes) {
                                 const col = rel.columns[idx.columnIdx]
                                 const key = Number(row[col.name] ?? 0)
@@ -151,7 +157,7 @@ export const createCatalog = (deps: CatalogDeps) => {
                         return rid
                 },
                 scanTable(nameOrTable: TableOrName, emit: (rid: Rid, row: Row) => boolean | void) {
-                        const rel = resolve(nameOrTable)
+                        const rel = find(nameOrTable)
                         if (!rel) return
                         const heaps = rel.heaps
                         const cols = rel.columns

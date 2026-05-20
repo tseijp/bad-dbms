@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { makeNBTree, collectForward, collectBackward, readRootPageId, readPageHeader, LEAF_CAP } from './_helpers'
+import type { Rid } from '../../../src/shared/types'
 describe('nbtree', () => {
         it('reserves meta block (0) and an empty leaf root (1) on creation', () => {
                 const { tree, smgr, relId, forkId, ...stack } = makeNBTree()
@@ -64,8 +65,8 @@ describe('nbtree', () => {
                 const stack = makeNBTree()
                 const { tree } = stack
                 for (let i = 0; i < LEAF_CAP * 2; i++) tree.insert(i, [i, 0])
-                const seen: Array<[number, number]> = []
-                tree.forward(0, 1000, (rid: [number, number]) => {
+                const seen: Rid[] = []
+                tree.forward(0, 1000, (rid) => {
                         seen.push(rid)
                         if (seen.length === 3) return false
                 })

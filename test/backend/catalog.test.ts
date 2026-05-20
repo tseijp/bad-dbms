@@ -162,7 +162,8 @@ describe('catalog auto index population', () => {
                 catalog.register('users', { id: { type: 'i32', isPrimary: true } })
                 const rid = catalog.insertRow('users', { id: 99 })
                 const rel = catalog.resolve('users')
-                const found = rel.indexes[0].handle.search(99)
+                const handle = rel.indexes[0].handle
+                const found = 'search' in handle ? handle.search(99) : undefined
                 expect(found).toEqual(rid)
         })
 })

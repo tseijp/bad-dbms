@@ -52,7 +52,7 @@ describe('execute Select', () => {
                                 { id: 2, name: 22, score: 2 },
                         ],
                 })
-                const rows = await db.execute({ op: 'Select', table: 'users', projection: null })
+                const rows = await db.execute({ op: 'Select', table: 'users' })
                 expect(rows.map((r: any) => r.id).sort()).toEqual([1, 2])
         })
 })
@@ -90,7 +90,7 @@ describe('execute Update', () => {
                         predicate: (r: any) => r.id === 1,
                         setters: { score: () => 77 },
                 })
-                const rows = await db.execute({ op: 'Select', table: 'users', projection: null })
+                const rows = await db.execute({ op: 'Select', table: 'users' })
                 const byId = new Map(rows.map((r: any) => [r.id, r.score]))
                 expect(byId.get(1)).toBe(77)
         })
@@ -112,7 +112,7 @@ describe('execute Delete', () => {
                         table: 'users',
                         predicate: (r: any) => r.id === 1,
                 })
-                const rows = await db.execute({ op: 'Select', table: 'users', projection: null })
+                const rows = await db.execute({ op: 'Select', table: 'users' })
                 expect(rows.map((r: any) => r.id)).toEqual([2])
         })
 })
