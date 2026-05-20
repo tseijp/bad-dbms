@@ -1,4 +1,5 @@
-export const createFileAdapter = () => {
+import type { FileAdapter, FileHandle } from '../types'
+export const createFileAdapter = (): FileAdapter => {
         const _store = new Map<string, Uint8Array>()
         return {
                 read(id: string, offset: number, length: number) {
@@ -39,10 +40,24 @@ export const createFileAdapter = () => {
         }
 }
 const sanitizeId = (id: string) => id.replace(/[^A-Za-z0-9._-]/g, '_')
-export const createOPFSAdapter = (opts: any = {}) => {
+export interface OPFSAdapterOptions {
+        dir?: string
+        maxHandles?: number
+}
+interface OPFSEntry {
+        fh: unknown
+        access: {
+                read(buf: Uint8Array, opts: { at: number }): number
+                write(buf: Uint8Array, opts: { at: number }): number
+                flush(): void
+                close(): void
+                getSize(): number
+        }
+}
+export const createOPFSAdapter = (opts: OPFSAdapterOptions = {}): FileAdapter => {
         const _dirName = opts.dir ?? 'bad-dbms'
         const _max = opts.maxHandles ?? 16
-        const _lru = new Map<string, any>()
+        const _lru = new Map<string, OPFSEntry>()
         let _root: any = null
         const rootDir = async () => {
                 if (_root) return _root
@@ -50,7 +65,7 @@ export const createOPFSAdapter = (opts: any = {}) => {
                 _root = await base.getDirectoryHandle(_dirName, { create: true })
                 return _root
         }
-        const touch = (id: string, h: any) => {
+        const touch = (id: string, h: OPFSEntry) => {
                 _lru.delete(id)
                 _lru.set(id, h)
                 if (_lru.size <= _max) return
@@ -64,7 +79,7 @@ export const createOPFSAdapter = (opts: any = {}) => {
                 const dir = await rootDir()
                 const fh = await dir.getFileHandle(sanitizeId(id), { create })
                 const access = await fh.createSyncAccessHandle()
-                const h = { fh, access }
+                const h: OPFSEntry = { fh, access }
                 touch(id, h)
                 return h
         }
@@ -104,7 +119,7 @@ export const createOPFSAdapter = (opts: any = {}) => {
                 },
         }
 }
-export const createFile = (adapter: any) => {
+export const createFile = (adapter: FileAdapter): FileHandle => {
         const _adapter = adapter
         return {
                 read(id: string, offset: number, length: number): Uint8Array {

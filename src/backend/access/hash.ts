@@ -1,11 +1,13 @@
 import { createPage } from '../storage/page'
-export type Rid = [number, number]
+import type { Rid } from '../../shared/types'
+import type { Page, Frame, BufferPool, StorageManager, FreeSpaceMap, HashIndexHandle } from '../types'
+export type { Rid } from '../../shared/types'
 export type HashFn = (key: number) => number
 export type EqFn = (a: number, b: number) => boolean
 export interface HashIndexOptions {
-        buffer: any
-        smgr: any
-        fsm: any
+        buffer: BufferPool
+        smgr: StorageManager
+        fsm: FreeSpaceMap
         relId: number
         forkId: number
         hash?: HashFn
@@ -13,19 +15,39 @@ export interface HashIndexOptions {
         initialBuckets?: number
         bucketCapacity?: number
 }
+interface HashMeta {
+        nBuckets: number
+        splitPointer: number
+        level: number
+        tuples: number
+}
+interface BucketKV {
+        key: number
+        rid: Rid
+}
 const META_BLOCK = 0
 const DEFAULT_BUCKETS = 2
 const DEFAULT_CAP = 64
 const ENTRY_BYTES = 12
 const defaultHash: HashFn = (key) => Math.imul(key | 0, 2654435761) >>> 0
 const defaultEq: EqFn = (a, b) => a === b
-export const createHashIndex = ({ buffer, smgr, fsm, relId, forkId, hash = defaultHash, equal = defaultEq, initialBuckets = DEFAULT_BUCKETS, bucketCapacity = DEFAULT_CAP }: HashIndexOptions) => {
+export const createHashIndex = ({
+        buffer,
+        smgr,
+        fsm,
+        relId,
+        forkId,
+        hash = defaultHash,
+        equal = defaultEq,
+        initialBuckets = DEFAULT_BUCKETS,
+        bucketCapacity = DEFAULT_CAP,
+}: HashIndexOptions): HashIndexHandle => {
         const _pin = (b: number) => buffer.pin(relId, forkId, b)
-        const _unpin = (f: any, d?: boolean) => buffer.unpin(f, d)
-        const _ridOf = (e: any): Rid => [e.ridPageId, e.ridOffset]
-        const _writeLeaf = (p: any, slot: number, key: number, rid: Rid) => p.writeLeafEntry(slot, key, { pageId: rid[0], offset: rid[1] })
+        const _unpin = (f: Frame, d?: boolean) => buffer.unpin(f, d)
+        const _ridOf = (e: { ridPageId: number; ridOffset: number }): Rid => [e.ridPageId, e.ridOffset]
+        const _writeLeaf = (p: Page, slot: number, key: number, rid: Rid) => p.writeLeafEntry(slot, key, { pageId: rid[0], offset: rid[1] })
         const _notifyFree = (block: number, used: number) => fsm.update(relId, forkId, block, (bucketCapacity - used) * ENTRY_BYTES)
-        const _readMeta = () => {
+        const _readMeta = (): HashMeta => {
                 const f = _pin(META_BLOCK)
                 const p = createPage(f.bytes)
                 const nBuckets = p.readValue(0, 'i32')
@@ -35,7 +57,7 @@ export const createHashIndex = ({ buffer, smgr, fsm, relId, forkId, hash = defau
                 _unpin(f, false)
                 return { nBuckets, splitPointer, level, tuples }
         }
-        const _writeMeta = (m: any) => {
+        const _writeMeta = (m: HashMeta) => {
                 const f = _pin(META_BLOCK)
                 const p = createPage(f.bytes)
                 p.writeValue(0, 'i32', m.nBuckets)
@@ -66,14 +88,14 @@ export const createHashIndex = ({ buffer, smgr, fsm, relId, forkId, hash = defau
                         _notifyFree(b, 0)
                 }
         }
-        const _bucketOf = (key: number, m: any): number => {
+        const _bucketOf = (key: number, m: HashMeta): number => {
                 const h = hash(key) >>> 0
                 let b = h % (1 << m.level)
                 if (b < m.splitPointer) b = h % (1 << (m.level + 1))
                 return b
         }
         const _bucketBlock = (bucketIdx: number) => 1 + bucketIdx
-        const _findDeadSlot = (p: any, count: number) => {
+        const _findDeadSlot = (p: Page, count: number) => {
                 for (let i = 0; i < count; i++) if (!p.isAlive(i)) return i
                 return -1
         }
@@ -119,8 +141,8 @@ export const createHashIndex = ({ buffer, smgr, fsm, relId, forkId, hash = defau
                         return
                 }
         }
-        const _collectBucketEntries = (firstBlock: number): Array<{ key: number; rid: Rid }> => {
-                const out: Array<{ key: number; rid: Rid }> = []
+        const _collectBucketEntries = (firstBlock: number): BucketKV[] => {
+                const out: BucketKV[] = []
                 let cur = firstBlock
                 while (cur >= 0) {
                         const f = _pin(cur)
@@ -145,7 +167,7 @@ export const createHashIndex = ({ buffer, smgr, fsm, relId, forkId, hash = defau
                 _unpin(f, true)
                 _notifyFree(firstBlock, 0)
         }
-        const _splitOneBucket = (m: any): void => {
+        const _splitOneBucket = (m: HashMeta): void => {
                 const oldIdx = m.splitPointer
                 const newBlock = smgr.extend(relId, forkId)
                 const nf = _pin(newBlock)
@@ -247,4 +269,4 @@ export const createHashIndex = ({ buffer, smgr, fsm, relId, forkId, hash = defau
                 },
         }
 }
-export type HashIndex = ReturnType<typeof createHashIndex>
+export type HashIndex = HashIndexHandle

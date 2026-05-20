@@ -1,53 +1,59 @@
-import type { SQL, Placeholder } from '../sql'
-import { wrap } from '../sql'
-const attach = (sql: SQL): SQL => {
-        sql.toFloat = () => attach({ kind: 'sql', node: { type: 'func', name: 'toFloat', args: [sql] } })
-        sql.toInt = () => attach({ kind: 'sql', node: { type: 'func', name: 'toInt', args: [sql] } })
-        sql.add = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '+', args: [sql, wrap(o)] } })
-        sql.sub = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '-', args: [sql, wrap(o)] } })
-        sql.mul = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '*', args: [sql, wrap(o)] } })
-        sql.div = (o: any) => attach({ kind: 'sql', node: { type: 'binop', op: '/', args: [sql, wrap(o)] } })
-        return sql
-}
-const make = (node: any): SQL => attach({ kind: 'sql', node })
-const binop = (op: string, left: any, right: any): SQL => make({ type: 'binop', op, args: [wrap(left), wrap(right)] })
-const unop = (op: string, arg: any): SQL => make({ type: 'unop', op, args: [wrap(arg)] })
-const func = (name: string, args: any[]): SQL => make({ type: 'func', name, args: args.map(wrap) })
+import type { SQL, Placeholder, BinOp, UnOp, SqlValue, Operand } from '../../shared/types'
+import { wrap, make } from '../sql'
+
+type Bool = SQL<boolean>
+
+const binop = (op: BinOp, left: SqlValue, right: SqlValue): Bool => make({ type: 'binop', op, args: [wrap(left), wrap(right)] })
+const unop = (op: UnOp, arg: SqlValue): Bool => make({ type: 'unop', op, args: [wrap(arg)] })
+const func = (name: string, args: SqlValue[]): Bool => make({ type: 'func', name, args: args.map(wrap) })
+
 export const bindIfParam = (value: unknown, _column: SQL): SQL => wrap(value)
-export const eq = (left: any, right: unknown): SQL => binop('=', left, right)
-export const ne = (left: any, right: unknown): SQL => binop('!=', left, right)
-export const gt = (left: any, right: unknown): SQL => binop('>', left, right)
-export const gte = (left: any, right: unknown): SQL => binop('>=', left, right)
-export const lt = (left: any, right: unknown): SQL => binop('<', left, right)
-export const lte = (left: any, right: unknown): SQL => binop('<=', left, right)
-export const and = (...conditions: (SQL | undefined)[]): SQL | undefined => {
-        const xs = conditions.filter((c): c is SQL => !!c)
+
+export const eq = <T>(left: Operand<T>, right: Operand<T>): Bool => binop('=', left as SqlValue, right as SqlValue)
+export const ne = <T>(left: Operand<T>, right: Operand<T>): Bool => binop('!=', left as SqlValue, right as SqlValue)
+export const gt = <T>(left: Operand<T>, right: Operand<T>): Bool => binop('>', left as SqlValue, right as SqlValue)
+export const gte = <T>(left: Operand<T>, right: Operand<T>): Bool => binop('>=', left as SqlValue, right as SqlValue)
+export const lt = <T>(left: Operand<T>, right: Operand<T>): Bool => binop('<', left as SqlValue, right as SqlValue)
+export const lte = <T>(left: Operand<T>, right: Operand<T>): Bool => binop('<=', left as SqlValue, right as SqlValue)
+
+export const and = (...conditions: (Bool | undefined)[]): Bool | undefined => {
+        const xs = conditions.filter((c): c is Bool => !!c)
         if (xs.length === 0) return undefined
         if (xs.length === 1) return xs[0]
         return make({ type: 'binop', op: 'and', args: xs })
 }
-export const or = (...conditions: (SQL | undefined)[]): SQL | undefined => {
-        const xs = conditions.filter((c): c is SQL => !!c)
+
+export const or = (...conditions: (Bool | undefined)[]): Bool | undefined => {
+        const xs = conditions.filter((c): c is Bool => !!c)
         if (xs.length === 0) return undefined
         if (xs.length === 1) return xs[0]
         return make({ type: 'binop', op: 'or', args: xs })
 }
-export const not = (condition: SQL): SQL => unop('not', condition)
-export const inArray = (col: SQL, values: ReadonlyArray<unknown | Placeholder> | SQL): SQL => {
-        if ((values as any).kind === 'sql') return make({ type: 'binop', op: 'in', args: [col, values] })
-        return make({ type: 'binop', op: 'in', args: [col, { kind: 'sql', node: { type: 'list', items: (values as any[]).map(wrap) } }] })
+
+export const not = (condition: Bool): Bool => unop('not', condition)
+
+export const inArray = <T>(col: SQL<T>, values: ReadonlyArray<Operand<T> | Placeholder> | SQL): Bool => {
+        if ((values as { kind?: string }).kind === 'sql') return make({ type: 'binop', op: 'in', args: [col, values as SQL] })
+        const items = (values as SqlValue[]).map(wrap)
+        return make({ type: 'binop', op: 'in', args: [col, make({ type: 'list', items })] })
 }
-export const notInArray = (col: SQL, values: (unknown | Placeholder)[] | SQL): SQL => not(inArray(col, values as any))
-export const isNull = (value: SQL): SQL => unop('isNull', value)
-export const isNotNull = (value: SQL): SQL => unop('isNotNull', value)
-export const exists = (subquery: SQL): SQL => unop('exists', subquery)
-export const notExists = (subquery: SQL): SQL => unop('notExists', subquery)
-export const between = (col: SQL, min: unknown, max: unknown): SQL => func('between', [col, min, max])
-export const notBetween = (col: SQL, min: unknown, max: unknown): SQL => not(between(col, min, max))
-export const like = (col: any, value: any): SQL => binop('like', col, value)
-export const notLike = (col: any, value: any): SQL => not(like(col, value))
-export const ilike = (col: any, value: any): SQL => binop('ilike', col, value)
-export const notIlike = (col: any, value: any): SQL => not(ilike(col, value))
-export const arrayContains = (col: SQL, values: any): SQL => func('arrayContains', [col, values])
-export const arrayContained = (col: SQL, values: any): SQL => func('arrayContained', [col, values])
-export const arrayOverlaps = (col: SQL, values: any): SQL => func('arrayOverlaps', [col, values])
+
+export const notInArray = <T>(col: SQL<T>, values: ReadonlyArray<Operand<T> | Placeholder> | SQL): Bool => not(inArray(col, values))
+
+export const isNull = (value: SQL): Bool => unop('isNull', value)
+export const isNotNull = (value: SQL): Bool => unop('isNotNull', value)
+
+export const exists = (subquery: SQL): Bool => unop('exists', subquery)
+export const notExists = (subquery: SQL): Bool => unop('notExists', subquery)
+
+export const between = <T>(col: SQL<T>, min: Operand<T>, max: Operand<T>): Bool => func('between', [col, min as SqlValue, max as SqlValue])
+export const notBetween = <T>(col: SQL<T>, min: Operand<T>, max: Operand<T>): Bool => not(between(col, min, max))
+
+export const like = (col: SQL, value: Operand<string>): Bool => binop('like', col, value as SqlValue)
+export const notLike = (col: SQL, value: Operand<string>): Bool => not(like(col, value))
+export const ilike = (col: SQL, value: Operand<string>): Bool => binop('ilike', col, value as SqlValue)
+export const notIlike = (col: SQL, value: Operand<string>): Bool => not(ilike(col, value))
+
+export const arrayContains = <T>(col: SQL<T>, values: Operand<T>): Bool => func('arrayContains', [col, values as SqlValue])
+export const arrayContained = <T>(col: SQL<T>, values: Operand<T>): Bool => func('arrayContained', [col, values as SqlValue])
+export const arrayOverlaps = <T>(col: SQL<T>, values: Operand<T>): Bool => func('arrayOverlaps', [col, values as SqlValue])

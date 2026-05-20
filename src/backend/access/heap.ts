@@ -1,20 +1,22 @@
 import { createPage } from '../storage/page'
-export type Rid = [number, number]
-export type ValueType = 'i32' | 'f32' | 'u32'
+import type { Rid } from '../../shared/types'
+import type { ColumnType, Page, Frame, BufferPool, StorageManager, FreeSpaceMap, HeapHandle } from '../types'
+export type { Rid } from '../../shared/types'
+export type ValueType = ColumnType
 export interface HeapOptions {
-        buffer: any
-        smgr: any
-        fsm: any
+        buffer: BufferPool
+        smgr: StorageManager
+        fsm: FreeSpaceMap
         relId: number
         valueSize: number
         valueType: ValueType
 }
 const HEAP_FORK = 0
-export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: HeapOptions) => {
-        const _pinPage = (blockNo: number, hint?: string) => buffer.pin(relId, HEAP_FORK, blockNo, hint)
-        const _unpin = (frame: any, dirty?: boolean) => buffer.unpin(frame, dirty)
-        const _computeFree = (page: any) => (page.capacity(valueSize) - page.liveCount()) * valueSize
-        const _findOrAllocPage = (): { frame: any; page: any; isNew: boolean } => {
+export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: HeapOptions): HeapHandle => {
+        const _pinPage = (blockNo: number, hint?: 'normal' | 'bulk_read' | 'bulk_write' | 'vacuum') => buffer.pin(relId, HEAP_FORK, blockNo, hint)
+        const _unpin = (frame: Frame, dirty?: boolean) => buffer.unpin(frame, dirty)
+        const _computeFree = (page: Page) => (page.capacity(valueSize) - page.liveCount()) * valueSize
+        const _findOrAllocPage = (): { frame: Frame; page: Page; isNew: boolean } => {
                 let blockNo = fsm.findPage(relId, HEAP_FORK, valueSize)
                 let isNew = false
                 if (blockNo < 0) {
@@ -26,12 +28,12 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                 if (isNew) page.setHeader({ kind: 'data', slotCount: 0 })
                 return { frame, page, isNew }
         }
-        const _findDeadSlot = (page: any): number => {
+        const _findDeadSlot = (page: Page): number => {
                 const cap = page.capacity(valueSize)
                 for (let i = 0; i < cap; i++) if (!page.isAlive(i)) return i
                 return -1
         }
-        const _append = (value: any): Rid => {
+        const _append = (value: number): Rid => {
                 let { frame, page } = _findOrAllocPage()
                 let slot = page.getHeader().slotCount || 0
                 if (slot >= page.capacity(valueSize)) {
@@ -53,8 +55,8 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                 return [blockNo, slot]
         }
         return {
-                insert(value: any): Rid {
-                        let { frame, page, isNew } = _findOrAllocPage()
+                insert(value: number): Rid {
+                        let { frame, page } = _findOrAllocPage()
                         let slot = _findDeadSlot(page)
                         if (slot < 0) {
                                 _unpin(frame, false)
@@ -62,7 +64,6 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                                 frame = _pinPage(blockNo)
                                 page = createPage(frame.bytes)
                                 page.setHeader({ kind: 'data', slotCount: 0 })
-                                isNew = true
                                 slot = 0
                         }
                         const blockNo = frame.blockNo
@@ -75,7 +76,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         fsm.update(relId, HEAP_FORK, blockNo, free)
                         return [blockNo, slot]
                 },
-                read(rid: Rid): any {
+                read(rid: Rid): number | undefined {
                         const frame = _pinPage(rid[0])
                         const page = createPage(frame.bytes)
                         if (!page.isAlive(rid[1])) {
@@ -86,7 +87,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         _unpin(frame, false)
                         return v
                 },
-                update(rid: Rid, value: any): Rid {
+                update(rid: Rid, value: number): Rid {
                         const frame = _pinPage(rid[0])
                         const page = createPage(frame.bytes)
                         if (!page.isAlive(rid[1])) {
@@ -105,7 +106,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         _unpin(frame, true)
                         fsm.update(relId, HEAP_FORK, rid[0], free)
                 },
-                scan(emit: (rid: Rid, value: any) => boolean | void): void {
+                scan(emit: (rid: Rid, value: number) => boolean | void): void {
                         const n = smgr.nBlocks(relId, HEAP_FORK)
                         for (let blockNo = 0; blockNo < n; blockNo++) {
                                 const frame = _pinPage(blockNo, 'bulk_read')
@@ -125,9 +126,9 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                                 if (stop) return
                         }
                 },
-                bulkLoad(values: any[]): Rid[] {
+                bulkLoad(values: number[]): Rid[] {
                         return values.map((v) => _append(v))
                 },
         }
 }
-export type Heap = ReturnType<typeof createHeap>
+export type Heap = HeapHandle

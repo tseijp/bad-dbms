@@ -6,8 +6,10 @@ import { createLockManager } from './storage/lmng'
 import { createTransam } from './access/transam'
 import { createCatalog } from './catalog'
 import { createExecutor } from './executor'
-const drain = (iter: any): any[] => {
-        const out: any[] = []
+import type { Row, PhysicalOp, InitAllAst } from '../shared/types'
+import type { FileAdapter, RowIterator } from './types'
+const drain = (iter: RowIterator): Row[] => {
+        const out: Row[] = []
         if (!iter || typeof iter.next !== 'function') return out
         while (true) {
                 const r = iter.next()
@@ -17,12 +19,18 @@ const drain = (iter: any): any[] => {
         if (iter.close) iter.close()
         return out
 }
-const handleInitAll = (catalog: any, ast: any): any[] => {
+const handleInitAll = (catalog: ReturnType<typeof createCatalog>, ast: InitAllAst): Row[] => {
         const tables = ast.tables || {}
-        for (const k of Object.keys(tables)) catalog.registerTable(tables[k])
+        for (const k of Object.keys(tables)) catalog.registerTable(tables[k] as Parameters<typeof catalog.registerTable>[0])
         return []
 }
-export const createDatabase = (config: any = {}) => {
+export interface DatabaseConfig {
+        fileAdapter?: FileAdapter
+        pageSize?: number
+        frameCount?: number
+        ringCount?: number
+}
+export const createDatabase = (config: DatabaseConfig = {}) => {
         const _adapter = config.fileAdapter ?? createFileAdapter()
         const _file = createFile(_adapter)
         const _pageSize = config.pageSize ?? 4096
@@ -31,39 +39,39 @@ export const createDatabase = (config: any = {}) => {
         const fsm = createFreeSpaceMap({ smgr })
         const lock = createLockManager()
         const transam = createTransam()
-        const catalog = createCatalog({ buffer, smgr, fsm, lock })
-        const _executor = createExecutor({ catalog, transam })
+        const catalog = createCatalog({ buffer, smgr, fsm })
+        const _executor = createExecutor({ catalog })
         return {
                 catalog,
-                async execute(ast: any): Promise<any[]> {
+                async execute(ast: PhysicalOp | InitAllAst): Promise<Row[]> {
                         if (!ast || !ast.op) return []
                         if (ast.op === 'InitAll') return handleInitAll(catalog, ast)
                         return drain(_executor.execute(ast))
                 },
-                async transaction(fn: any) {
+                async transaction<T>(fn: (tx: ReturnType<typeof transam.begin>) => T | Promise<T>): Promise<T> {
                         const tx = transam.begin()
-                        const result = (await Promise.resolve(fn(tx)).then(
-                                (r: any) => ({ ok: true, value: r }),
-                                (err: any) => ({ ok: false, error: err }),
-                        )) as any
-                        if (!result.ok) {
+                        type TxResult = { ok: true; value: T } | { ok: false; error: unknown }
+                        const settled: TxResult = await Promise.resolve(fn(tx)).then(
+                                (r: T): TxResult => ({ ok: true, value: r }),
+                                (err: unknown): TxResult => ({ ok: false, error: err }),
+                        )
+                        if (!settled.ok) {
                                 transam.abort()
-                                throw result.error
+                                throw settled.error
                         }
                         transam.commit()
-                        return result.value
+                        return settled.value
                 },
                 stats() {
                         const rels = catalog.list()
-                        const out: any[] = []
-                        for (const rel of rels) {
-                                const cols = rel.columns.map((c: any) => {
+                        const out = rels.map((rel) => {
+                                const cols = rel.columns.map((c) => {
                                         const storageRel = rel.relId * 10000 + c.forkId
                                         const blocks = smgr.nBlocks(storageRel, 0)
                                         return { name: c.name, blocks }
                                 })
-                                out.push({ name: rel.name, relId: rel.relId, columns: cols, indexCount: rel.indexes.length })
-                        }
+                                return { name: rel.name, relId: rel.relId, columns: cols, indexCount: rel.indexes.length }
+                        })
                         return { relations: out, buffer: buffer.stats() }
                 },
                 flush() {
