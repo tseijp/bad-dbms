@@ -44,7 +44,7 @@ const app = new Hono()
         .get('/api/res', (c) => c.text('ok'))
         .get('/api/me', async (c) => {
                 const sub = ''
-                const rows = (await db.select().from(users).where(eq(users.id, sub)).limit(1)) as unknown[]
+                const rows = await db.select().from(users).where(eq(users.id, sub)).limit(1)
                 const user = rows[0]
                 if (!user) return c.json(null, 403)
                 return c.json(user)
