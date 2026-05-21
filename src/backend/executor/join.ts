@@ -1,9 +1,6 @@
-import type { Row } from '../../shared/types'
+import type { Row, JoinPredicate, JoinKind } from '../../shared/types'
 import type { RowIterator } from '../types'
-import { evalNode } from './expr'
-// join operators: nested-loop for arbitrary predicates, hash for equi-joins.
-export const makeNestedLoopJoin = (left: RowIterator, right: RowIterator, predicate: unknown): RowIterator => {
-        const fn = typeof predicate === 'function' ? (predicate as (l: Row, r: Row) => boolean) : (l: Row, r: Row) => !!evalNode(predicate, { ...l, ...r })
+export const makeNestedLoopJoin = (left: RowIterator, right: RowIterator, predicate: JoinPredicate, kind: JoinKind = 'inner'): RowIterator => {
         const rightBuf: Row[] = []
         while (true) {
                 const r = right.next()
@@ -11,23 +8,26 @@ export const makeNestedLoopJoin = (left: RowIterator, right: RowIterator, predic
                 rightBuf.push(r)
         }
         right.close()
-        let curLeft: Row | null = null
-        let j = 0
-        const next = () => {
-                while (true) {
-                        if (curLeft === null) {
-                                curLeft = left.next()
-                                if (curLeft === null) return null
-                                j = 0
-                        }
-                        while (j < rightBuf.length) {
-                                const r = rightBuf[j++]
-                                if (fn(curLeft, r)) return { ...curLeft, ...r }
-                        }
-                        curLeft = null
+        const keepLeft = kind === 'left' || kind === 'full'
+        const keepRight = kind === 'right' || kind === 'full'
+        const rightMatched = new Array<boolean>(rightBuf.length).fill(false)
+        const out: Row[] = []
+        let leftRow: Row | null = left.next()
+        while (leftRow !== null) {
+                let matched = false
+                for (let j = 0; j < rightBuf.length; j++) {
+                        if (!predicate(leftRow, rightBuf[j])) continue
+                        out.push({ ...leftRow, ...rightBuf[j] })
+                        rightMatched[j] = true
+                        matched = true
                 }
+                if (!matched && keepLeft) out.push({ ...leftRow })
+                leftRow = left.next()
         }
-        return { next, close: () => left.close() }
+        left.close()
+        if (keepRight) for (let j = 0; j < rightBuf.length; j++) if (!rightMatched[j]) out.push({ ...rightBuf[j] })
+        let i = 0
+        return { next: () => (i < out.length ? out[i++] : null), close: () => {} }
 }
 export const makeHashJoin = (left: RowIterator, right: RowIterator, leftKey: string, rightKey: string): RowIterator => {
         const table = new Map<unknown, Row[]>()

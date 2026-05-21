@@ -34,7 +34,6 @@ export const buildProjection = (projection?: ProjItem[]): ProjInfo => {
         }
         return { fields, aggs, hasAgg: aggs.length > 0 }
 }
-// signature of an aggregate node, for matching an orderBy expr to its alias.
 const aggSig = (node: SqlNode | undefined): string | undefined => {
         if (!node || node.type !== 'aggregate') return undefined
         const arg = node.args && node.args[0] ? nodeOf(node.args[0]) : undefined
@@ -46,7 +45,6 @@ export const planSelect = (ast: SelectAst, ctx: EvalCtx): { plan: PhysicalOp; pr
         let plan: PhysicalOp = { op: 'SeqScan', table: tableName }
         if (ast.where) plan = { op: 'Filter', child: plan, predicate: compilePredicate(ast.where, ctx) }
         const proj = buildProjection(ast.projection)
-        // alias of the projection item whose expr is the given aggregate, if any.
         const aliasForAgg = (node: SqlNode | undefined): string | undefined => {
                 const sig = aggSig(node)
                 if (!sig) return undefined
@@ -56,7 +54,6 @@ export const planSelect = (ast: SelectAst, ctx: EvalCtx): { plan: PhysicalOp; pr
         if (proj.hasAgg) {
                 const groupBy = (ast.groupBy ?? []).map(colNameOf)
                 plan = { op: 'Aggregate', child: plan, groupBy, aggs: proj.aggs }
-                // rename grouped column (DB name) to its projection alias.
                 const projectors: ProjectorSpec[] = []
                 for (const p of ast.projection ?? []) {
                         const node = nodeOf(p.expr)
@@ -89,7 +86,6 @@ export const planSelect = (ast: SelectAst, ctx: EvalCtx): { plan: PhysicalOp; pr
         }
         return { plan, proj, tableName }
 }
-// projection alias holding a given DB column name (for sorting grouped rows).
 const aliasOfColumn = (ast: SelectAst, dbName: string): string => {
         for (const p of ast.projection ?? []) {
                 const n = (p.expr as SQL).kind === 'sql' ? (p.expr as SQL).node : (p.expr as SqlNode)

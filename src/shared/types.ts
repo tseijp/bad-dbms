@@ -154,11 +154,13 @@ export interface ProjectionOp {
         fields: string[]
         projectors?: ProjectorSpec[]
 }
+export type JoinKind = 'inner' | 'left' | 'right' | 'full'
 export interface NestedLoopJoinOp {
         op: 'NestedLoopJoin'
         left: PhysicalOp
         right: PhysicalOp
         predicate: JoinPredicate
+        kind?: JoinKind
 }
 export interface HashJoinOp {
         op: 'HashJoin'

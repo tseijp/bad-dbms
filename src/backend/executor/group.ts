@@ -1,8 +1,6 @@
 import type { Row, AggSpec, SortKey } from '../../shared/types'
 import type { RowIterator } from '../types'
 import { isNullish } from './expr'
-// aggregate and sort operators: the blocking nodes that consume their whole
-// child before emitting.
 interface AggState {
         count: number
         sum: number
@@ -29,8 +27,6 @@ const updateAgg = (state: AggState, kind: string, v: unknown, distinct: boolean)
         if (kind === 'min') return void (state.val = state.val === undefined ? v : Math.min(state.val as number, v as number))
         if (kind === 'max') return void (state.val = state.val === undefined ? v : Math.max(state.val as number, v as number))
 }
-// Drizzle contract: sum / avg resolve to a string decimal (null over no rows);
-// count stays numeric; min / max keep the column type; empty min / max is null.
 const finalAgg = (state: AggState, kind: string): unknown => {
         if (kind === 'count') return state.count
         if (kind === 'sum') return state.count > 0 ? String(state.sum) : null
@@ -75,9 +71,6 @@ export const makeAggregate = (child: RowIterator, groupBy: string[], aggs: AggSp
         const next = () => (i < out.length ? out[i++] : null)
         return { next, close: () => {} }
 }
-// SQL ordering: NULL sorts before every non-null value. Under an ascending
-// sort NULL comes first; the desc flip in makeSort then places it last.
-// A numeric string (sum / avg are string-typed) sorts by its numeric value.
 const orderKey = (v: unknown): unknown => (typeof v === 'string' && v !== '' && !isNaN(Number(v)) ? Number(v) : v)
 const cmpValue = (a: unknown, b: unknown): number => {
         const an = a === null || a === undefined

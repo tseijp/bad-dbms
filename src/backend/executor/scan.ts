@@ -1,10 +1,7 @@
-import type { SeqScanOp, IndexScanOp, Row } from '../../shared/types'
+import type { SeqScanOp, IndexScanOp, Row, ProjectorSpec } from '../../shared/types'
 import type { Catalog } from '../catalog'
 import type { RowIterator, Rid } from '../types'
 import { tableNameOf, buildRow, collectRids, EMPTY_ITER, compilePredicate, PredInput } from './expr'
-// scan / filter / projection operators: the leaf and row-shaping nodes of the
-// Volcano pull pipeline.
-export type ProjectorSpec = { alias: string; eval: (row: Row) => unknown }
 export const makeSeqScan = (catalog: Catalog, ast: SeqScanOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         const rids = collectRids(rel.heaps[0])
@@ -50,16 +47,6 @@ export const makeProjection = (child: RowIterator, fields: string[], projectors?
                         return out
                 }
                 for (const f of fields) out[f] = r[f]
-                return out
-        }
-        return { next, close: () => child.close() }
-}
-export const makeRowProjection = (child: RowIterator, projectors: ProjectorSpec[]): RowIterator => {
-        const next = () => {
-                const r = child.next()
-                if (r === null) return null
-                const out: Row = {}
-                for (const p of projectors) out[p.alias] = p.eval(r)
                 return out
         }
         return { next, close: () => child.close() }

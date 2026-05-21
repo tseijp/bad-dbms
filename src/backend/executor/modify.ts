@@ -1,37 +1,31 @@
 import type { UpdateOp, DeleteOp, InsertOp, Row, RowSetter } from '../../shared/types'
 import type { Catalog } from '../catalog'
 import type { RelationDescriptor, RowIterator, Rid } from '../types'
-import { tableNameOf, buildRow, collectRids, fromRows, compilePredicate, compileSetter, SetterInput } from './expr'
-// DML operators: update / delete / insert, plus the recursive FK cascade.
+import { tableNameOf, buildRow, collectRids, fromRows, compilePredicate } from './expr'
 const colIndexOf = (rel: RelationDescriptor, name: string): number => rel.columns.findIndex((c) => c.name === name || c.key === name)
 export const makeUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         const pred = compilePredicate(ast.predicate)
-        const setters: Record<string, SetterInput> = ast.setters ?? {}
-        const compiled: Record<string, RowSetter> = {}
-        for (const k of Object.keys(setters)) compiled[k] = compileSetter(setters[k])
+        const setters: Record<string, RowSetter> = ast.setters ?? {}
         const rids = collectRids(rel.heaps[0])
         const changed: Row[] = []
         for (const rid of rids) {
                 const row = buildRow(catalog, rel, rid)
                 if (!pred(row)) continue
-                for (const k of Object.keys(compiled)) {
+                for (const k of Object.keys(setters)) {
                         const colIdx = colIndexOf(rel, k)
                         if (colIdx < 0) continue
-                        catalog.writeCell(rel, colIdx, rid, compiled[k](row))
+                        catalog.writeCell(rel, colIdx, rid, setters[k](row))
                 }
                 changed.push(buildRow(catalog, rel, rid))
         }
         if (ast.returning) return fromRows(changed)
         return fromRows([{ rowCount: changed.length, changes: changed.length, updated: changed.length }])
 }
-// remove a tuple from every column heap and forget its null cells.
 const removeTuple = (catalog: Catalog, rel: RelationDescriptor, rid: Rid) => {
         for (let i = 0; i < rel.heaps.length; i++) rel.heaps[i].delete(rid)
         catalog.clearNull(rel, rid)
 }
-// cascade delete: every FK referencing this relation with onDelete cascade
-// loses its matching child rows, recursively for self-referential trees.
 const cascadeFrom = (catalog: Catalog, parent: RelationDescriptor, parentRows: Row[]) => {
         for (const child of catalog.list()) {
                 for (let ci = 0; ci < child.columns.length; ci++) {

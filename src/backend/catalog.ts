@@ -46,7 +46,6 @@ const buildColumn = (key: string, def: Partial<ColumnMeta>, forkId: number): Col
 })
 const needsIndex = (col: ColumnMeta) => col.isPrimary || col.isUnique || col.hasOrder
 const indexKindOf = (col: ColumnMeta): 'nbtree' | 'hash' => (col.hasOrder || col.isPrimary || col.isUnique ? 'nbtree' : 'hash')
-// encode a JS value into the number the heap stores; text values are interned.
 const encodeCell = (col: ColumnMeta, codec: ColumnCodec, value: unknown): number => {
         if (!col.isText) return Number(value)
         const s = String(value)
@@ -57,16 +56,12 @@ const encodeCell = (col: ColumnMeta, codec: ColumnCodec, value: unknown): number
         codec.intern.set(s, id)
         return id
 }
-// decode the heap number back into the user-facing JS value.
 const decodeCell = (col: ColumnMeta, codec: ColumnCodec, raw: number | undefined): unknown => {
         if (raw === undefined) return undefined
         if (!col.isText) return raw
         if (raw <= 0) return ''
         return codec.strings[raw - 1] ?? ''
 }
-// resolve the value to store for one column on insert. An explicit value
-// (including null) is kept as-is; an omitted column falls back to its default
-// and is otherwise stored as NULL.
 const resolveInsertValue = (col: ColumnMeta, row: Row): { value: unknown; isNull: boolean } => {
         const has = Object.prototype.hasOwnProperty.call(row, col.key)
         const raw = has ? row[col.key] : undefined
@@ -151,7 +146,6 @@ export const createCatalog = (deps: CatalogDeps) => {
                 if (!rel) throw new Error(`relation not found: ${nameOf(nameOrTable)}`)
                 return rel
         }
-        // decode every column of one tuple into a user-facing row keyed by DB name.
         const readRow = (rel: RelationDescriptor, rid: Rid): Row => {
                 const row: Row = { __rid: rid }
                 const rk = ridKey(rid)
@@ -222,7 +216,6 @@ export const createCatalog = (deps: CatalogDeps) => {
                         return Array.from(_relations.values())
                 },
                 insertRow,
-                // mark one cell null / not-null and write the underlying heap value.
                 writeCell(rel: RelationDescriptor, colIdx: number, rid: Rid, value: unknown): void {
                         const col = rel.columns[colIdx]
                         const codec = rel.codecs[colIdx]
@@ -239,7 +232,6 @@ export const createCatalog = (deps: CatalogDeps) => {
                         const rk = ridKey(rid)
                         for (const codec of rel.codecs) codec.nulls.delete(rk)
                 },
-                // capture the logical content of every relation for transaction rollback.
                 snapshot(): Map<string, Row[]> {
                         const snap = new Map<string, Row[]>()
                         for (const rel of _relations.values()) {
@@ -258,7 +250,6 @@ export const createCatalog = (deps: CatalogDeps) => {
                         }
                         return snap
                 },
-                // restore every relation to a previously captured snapshot.
                 restore(snap: Map<string, Row[]>): void {
                         for (const rel of _relations.values()) {
                                 const victims: Rid[] = []

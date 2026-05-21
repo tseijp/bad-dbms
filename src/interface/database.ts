@@ -1,7 +1,7 @@
 import type { SQL, SqlNode, SqlValue, Row, Rid, PhysicalOp, ColumnType } from '../shared/types'
 import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinClause, ProjItem } from './types'
 import { createDatabase as createBackend } from '../backend/index'
-import { compileExpr, compilePredicate, EvalCtx } from './compile'
+import { compileExpr, compilePredicate, compileNode, binopFn, EvalCtx, JoinRow } from './compile'
 import { planSelect, tableNameOf } from './plan'
 export type { DatabaseConfig } from './types'
 type Backend = ReturnType<typeof createBackend>
@@ -26,7 +26,6 @@ interface ColDef {
         defaultFn?: () => unknown
         references?: { table: string; column: string; onDelete?: string }
 }
-// the property key under which a column is exposed on its table object.
 const propertyKeyOf = (table: Table, col: Table['$meta']['columns'][number]): string => {
         const rec = table as unknown as Record<string, unknown>
         for (const k in rec) {
@@ -141,67 +140,14 @@ const nodeOf = (e: unknown): SqlNode | undefined => {
         if ('type' in (e as object)) return e as SqlNode
         return undefined
 }
-// evaluate a SqlNode against a join row keyed by table name -> column DB names.
-const evalJoin = (node: unknown, row: Record<string, Row | null>): unknown => {
-        const n = nodeOf(node)
-        if (!n) return node
-        if (n.type === 'literal' || n.type === 'raw') return (n as { value: unknown }).value
-        if (n.type === 'column') {
-                if (n.tableName && Object.prototype.hasOwnProperty.call(row, n.tableName)) {
-                        const tbl = row[n.tableName]
-                        return tbl ? tbl[n.name] : null
-                }
-                for (const k in row) {
-                        const t = row[k]
-                        if (t && n.name in t) return t[n.name]
-                }
-                return undefined
-        }
-        if (n.type === 'binop') {
-                const args = (n.args || []).map((a) => evalJoin(a, row))
-                if (n.op === 'and') return args.every((x) => !!x)
-                if (n.op === 'or') return args.some((x) => !!x)
-                const [a, b] = args as [any, any]
-                if (n.op === '=') return a === b
-                if (n.op === '!=') return a !== b
-                if (n.op === '<') return a < b
-                if (n.op === '<=') return a <= b
-                if (n.op === '>') return a > b
-                if (n.op === '>=') return a >= b
-                if (n.op === 'in') return Array.isArray(b) ? b.includes(a) : false
-                if (a === null || a === undefined || b === null || b === undefined) return null
-                if (n.op === '+') return a + b
-                if (n.op === '-') return a - b
-                if (n.op === '*') return a * b
-                if (n.op === '/') return b === 0 ? 0 : a / b
-                if (n.op === '%') return b === 0 ? 0 : a % b
-                return undefined
-        }
-        if (n.type === 'unop') {
-                const v = evalJoin((n.args || [])[0], row)
-                if (n.op === 'not') return !v
-                if (n.op === 'isNull') return v === null || v === undefined
-                if (n.op === 'isNotNull') return v !== null && v !== undefined
-                return undefined
-        }
-        if (n.type === 'func') {
-                const args = (n.args || []).map((a) => evalJoin(a, row))
-                if (n.name === 'toFloat') return Number(args[0])
-                if (n.name === 'toInt') return Number(args[0]) | 0
-                if (n.name === 'toBool') return !!args[0]
-                if (n.name === 'between') return (args[0] as number) >= (args[1] as number) && (args[0] as number) <= (args[2] as number)
-                return undefined
-        }
-        if (n.type === 'list') return (n.items || []).map((a) => evalJoin(a, row))
-        return undefined
-}
-// fetch every row of one table through the backend SeqScan.
+const JOIN_CTX: EvalCtx = { current: null, params: null, joinRow: true }
+const FLAT_CTX: EvalCtx = { current: null, params: null }
+const evalJoin = (node: unknown, row: JoinRow): unknown => compileNode(node as SqlNode, JOIN_CTX)(row)
 const readTableRows = async (backend: Backend | null, cfg: DatabaseConfig, table: Table): Promise<Row[]> => {
         const plan: PhysicalOp = { op: 'SeqScan', table: tableNameOf(table) }
         const rows = await Promise.resolve(dispatch(backend, cfg, plan))
         return (Array.isArray(rows) ? (rows as Row[]) : []).map(stripRid)
 }
-// the table names a nested projection spec's columns all reference.
 const nestedTablesOf = (spec: Record<string, SQL>): Set<string> => {
         const tables = new Set<string>()
         for (const fk in spec) {
@@ -210,8 +156,6 @@ const nestedTablesOf = (spec: Record<string, SQL>): Set<string> => {
         }
         return tables
 }
-// project one join row, supporting flat aliases and nested table objects;
-// a nested object whose source table was null-filled collapses to null.
 const projectJoinRow = (joinRow: Record<string, Row | null>, projection: ProjItem[] | undefined): Row => {
         if (!projection) {
                 const out: Row = {}
@@ -238,20 +182,12 @@ const projectJoinRow = (joinRow: Record<string, Row | null>, projection: ProjIte
         }
         return out
 }
-// self-join match: the on clause's two column args resolve to the left and
-// right rows of the same table respectively (no Drizzle alias() in tests).
 const matchSelfJoin = (on: SQL, table: string, left: Row, right: Row): boolean => {
         const n = nodeOf(on)
         if (!n || n.type !== 'binop') return !!evalJoin(on, { [table]: left })
         const a = evalJoin(n.args[0], { [table]: left })
         const b = evalJoin(n.args[1], { [table]: right })
-        if (n.op === '=') return a === b
-        if (n.op === '!=') return a !== b
-        if (n.op === '<') return (a as number) < (b as number)
-        if (n.op === '<=') return (a as number) <= (b as number)
-        if (n.op === '>') return (a as number) > (b as number)
-        if (n.op === '>=') return (a as number) >= (b as number)
-        return false
+        return !!binopFn(n.op)(a, b)
 }
 const runJoinSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: SelectAst): Promise<unknown> => {
         if (!ast.table) return []
@@ -363,44 +299,31 @@ const sortJoinRows = (rows: Row[], ast: SelectAst): Row[] => {
                 return 0
         })
 }
-// signature of an aggregate node: kind + the column it reduces.
 const aggSig = (node: SqlNode | undefined): string | undefined => {
         if (!node || node.type !== 'aggregate') return undefined
         const arg = nodeOf((node.args || [])[0])
         const field = arg && arg.type === 'column' ? arg.name : ''
         return `${node.name}:${node.distinct ? 'd' : ''}:${field}`
 }
-// evaluate a HAVING clause against a collapsed group row; aggregate references
-// resolve to the projected alias holding the same aggregate.
-const havingValue = (node: unknown, row: Row, ast: SelectAst): unknown => {
+const rewriteHaving = (node: unknown, ast: SelectAst): SqlNode | undefined => {
         const n = nodeOf(node)
-        if (!n) return node
-        if (n.type === 'literal' || n.type === 'raw') return (n as { value: unknown }).value
+        if (!n) return undefined
         if (n.type === 'aggregate') {
                 const sig = aggSig(n)
-                for (const p of ast.projection ?? []) if (aggSig(nodeOf(p.expr)) === sig) return row[p.alias]
-                return undefined
+                for (const p of ast.projection ?? []) {
+                        if (aggSig(nodeOf(p.expr)) !== sig) continue
+                        const col: SqlNode = { type: 'column', name: p.alias, dataType: 'f32' }
+                        return { type: 'func', name: 'toFloat', args: [{ kind: 'sql', node: col } as SQL] }
+                }
+                return { type: 'literal', value: undefined }
         }
-        if (n.type === 'column') return row[n.name]
-        if (n.type === 'binop') {
-                const a = havingValue(n.args[0], row, ast)
-                const b = havingValue(n.args[1], row, ast)
-                const an = typeof a === 'string' && a !== '' && !isNaN(Number(a)) ? Number(a) : a
-                const bn = typeof b === 'string' && b !== '' && !isNaN(Number(b)) ? Number(b) : b
-                if (n.op === 'and') return n.args.every((x) => !!havingValue(x, row, ast))
-                if (n.op === 'or') return n.args.some((x) => !!havingValue(x, row, ast))
-                if (n.op === '=') return an === bn
-                if (n.op === '!=') return an !== bn
-                if (n.op === '<') return (an as number) < (bn as number)
-                if (n.op === '<=') return (an as number) <= (bn as number)
-                if (n.op === '>') return (an as number) > (bn as number)
-                if (n.op === '>=') return (an as number) >= (bn as number)
-                return undefined
+        if (n.type === 'binop' || n.type === 'unop' || n.type === 'func') {
+                const args = (n.args ?? []).map((a) => ({ kind: 'sql', node: rewriteHaving(a, ast) }) as SQL)
+                return { ...n, args }
         }
-        if (n.type === 'unop') return n.op === 'not' ? !havingValue(n.args[0], row, ast) : undefined
-        return undefined
+        return n
 }
-const havingPass = (ast: SelectAst, row: Row): boolean => !!havingValue(ast.having, row, ast)
+const havingPass = (ast: SelectAst, row: Row): boolean => !!compileNode(rewriteHaving(ast.having, ast), FLAT_CTX)(row)
 const runSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: SelectAst, ctx: EvalCtx): Promise<unknown> => {
         if (ast.joins && ast.joins.length > 0) return runJoinSelect(backend, cfg, ast)
         const { plan } = planSelect(ast, ctx)
@@ -416,7 +339,6 @@ const runSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: Sele
         }
         return arr
 }
-// all currently stored values of one DB-named column.
 const columnValues = (backend: Backend, table: Table, dbName: string): unknown[] => {
         const rel = backend.catalog.find(tableNameOf(table))
         if (!rel) return []
@@ -426,7 +348,6 @@ const columnValues = (backend: Backend, table: Table, dbName: string): unknown[]
         rel.heaps[0].scan((rid) => void out.push(backend.catalog.readRow(rel, rid)[dbName]))
         return out
 }
-// reject inserts that omit a notNull column or collide on a unique column.
 const assertInsert = (backend: Backend, table: Table, rows: Record<string, unknown>[]): void => {
         for (const col of table.$meta.columns) {
                 const c = col.$col
@@ -450,7 +371,6 @@ const assertInsert = (backend: Backend, table: Table, rows: Record<string, unkno
                 }
         }
 }
-// reject updates that null a notNull column or collide on a unique column.
 const assertConstraints = (backend: Backend, table: Table, set: Record<string, SqlValue> | undefined, predicate: (row: Row) => boolean, _mode: string): void => {
         if (!set) return
         const rel = backend.catalog.find(tableNameOf(table))
@@ -634,8 +554,6 @@ const makeDelete = (run: RunFn, t: Table) => {
         }
         return b
 }
-// per-row tick proxy: c.col reads the current row's scalar value live, while
-// $meta keeps table introspection available.
 const currentTupleProxy = (table: Table, ctx: EvalCtx) => {
         const meta = table.$meta
         const handler: ProxyHandler<Record<string, unknown>> = {
@@ -695,8 +613,6 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
         type TickRunner = { run(extra?: unknown): Promise<unknown> }
         const ROLLBACK = Symbol('rollback')
         const isRollback = (e: unknown): boolean => !!e && typeof e === 'object' && (e as { __rollback?: symbol }).__rollback === ROLLBACK
-        // run one transaction scope: snapshot, run, commit on success, restore on
-        // throw; an explicit rollback resolves normally, other errors propagate.
         const runScope = async <T>(fn: (tx: Tx) => Promise<T> | T): Promise<T> => {
                 const snap = backend ? backend.catalog.snapshot() : null
                 const tx = buildTxHandle()
@@ -744,7 +660,6 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
                         return extra
                 },
         })
-        // Drizzle $count shortcut: resolves directly to a row count.
         const $count = async (table: Table, predicate?: SQL): Promise<number> => {
                 if (!backend) return 0
                 const rel = backend.catalog.find(tableNameOf(table))
