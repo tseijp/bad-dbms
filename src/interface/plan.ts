@@ -78,16 +78,33 @@ const sortKeysOf = (orderBy: unknown[], resolve: (n: SqlNode) => string | undefi
                 return one(o as SQL, 'asc')
         })
 }
+const relabel = (node: SqlNode, from: string, to: string): SqlNode => {
+        if (node.type === 'column') return node.tableName === from ? { ...node, tableName: to } : node
+        if (node.type === 'binop' || node.type === 'unop' || node.type === 'func')
+                return { ...node, args: (node.args ?? []).map((a) => ({ kind: 'sql', node: relabel(nodeOf(a), from, to) }) as SQL) }
+        return node
+}
 const planSource = (ast: SelectAst, ctx: EvalCtx): { source: PhysicalOp; ctx: EvalCtx; isJoin: boolean } => {
         if (!ast.joins || ast.joins.length === 0) return { source: { op: 'SeqScan', table: tableNameOf(ast.table) }, ctx, isJoin: false }
         const jctx: EvalCtx = { ...ctx, joinRow: true }
         const base = tableNameOf(ast.table)
+        const seen = new Set([base])
         let source: PhysicalOp = { op: 'NamedScan', table: base, name: base }
         for (const j of ast.joins) {
-                const name = tableNameOf(j.table)
-                source = { op: 'NestedLoopJoin', left: source, right: { op: 'NamedScan', table: name, name }, rightName: name, predicate: compilePredicate(j.on, jctx), kind: j.kind }
+                const table = tableNameOf(j.table)
+                const self = seen.has(table)
+                const name = self ? `${table}#${seen.size}` : table
+                seen.add(name)
+                const on = self ? selfJoinOn(j.on, table, name) : j.on
+                source = { op: 'NestedLoopJoin', left: source, right: { op: 'NamedScan', table, name }, rightName: name, predicate: compilePredicate(on, jctx), kind: j.kind }
         }
         return { source, ctx: jctx, isJoin: true }
+}
+const selfJoinOn = (on: SQL, table: string, rightName: string): SQL => {
+        const n = nodeOf(on)
+        if (n.type !== 'binop' || n.args.length !== 2) return on
+        const right = relabel(nodeOf(n.args[1]), table, rightName)
+        return { kind: 'sql', node: { ...n, args: [n.args[0], { kind: 'sql', node: right } as SQL] } } as SQL
 }
 const planAggregate = (plan: PhysicalOp, ast: SelectAst, aggs: AggSpec[], ctx: EvalCtx, isJoin: boolean): PhysicalOp => {
         const groupBy = (ast.groupBy ?? []).map((g) => colNameOf(g))
