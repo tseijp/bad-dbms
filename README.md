@@ -50,7 +50,7 @@ src/interface/          user 向け drizzle-like API + AST 構築
 src/backend/            catalog + executor + entry
   catalog.ts            relation / column / index の schema 管理
   executor.ts           Volcano operator iterator + evalNode
-  index.ts              createDatabase: 全層を wire する entry
+  index.ts              createBackend: 全層を wire する entry
 ─────────────────────────────────────────────────────────────────
 src/backend/access/     rid を介した tuple アクセス層
   heap.ts               固定長 record の置き場、rid 採番
