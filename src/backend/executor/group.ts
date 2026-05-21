@@ -103,3 +103,41 @@ export const makeSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
         const next = () => (i < buf.length ? buf[i++] : null)
         return { next, close: () => {} }
 }
+const rowKey = (row: Row): string => {
+        const keys = Object.keys(row).sort()
+        let s = ''
+        for (const k of keys) s += k + ' ' + String(row[k]) + ' '
+        return s
+}
+export const makeDistinct = (child: RowIterator): RowIterator => {
+        const seen = new Set<string>()
+        const next = () => {
+                while (true) {
+                        const r = child.next()
+                        if (r === null) return null
+                        const k = rowKey(r)
+                        if (seen.has(k)) continue
+                        seen.add(k)
+                        return r
+                }
+        }
+        return { next, close: () => child.close() }
+}
+export const makeLimit = (child: RowIterator, limit?: number, offset = 0): RowIterator => {
+        let skipped = 0
+        let produced = 0
+        const next = () => {
+                while (true) {
+                        if (limit !== undefined && produced >= limit) return null
+                        const r = child.next()
+                        if (r === null) return null
+                        if (skipped < offset) {
+                                skipped++
+                                continue
+                        }
+                        produced++
+                        return r
+                }
+        }
+        return { next, close: () => child.close() }
+}

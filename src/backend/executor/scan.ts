@@ -1,4 +1,4 @@
-import type { SeqScanOp, IndexScanOp, Row, ProjectorSpec } from '../../shared/types'
+import type { SeqScanOp, NamedScanOp, IndexScanOp, Row, ProjectorSpec } from '../../shared/types'
 import type { Catalog } from '../catalog'
 import type { RowIterator, Rid } from '../types'
 import { tableNameOf, buildRow, collectRids, EMPTY_ITER, compilePredicate, PredInput } from './expr'
@@ -9,6 +9,22 @@ export const makeSeqScan = (catalog: Catalog, ast: SeqScanOp): RowIterator => {
         const next = () => {
                 if (i >= rids.length) return null
                 return buildRow(catalog, rel, rids[i++])
+        }
+        return { next, close: () => {} }
+}
+const stripRid = (row: Row): Row => {
+        if (!('__rid' in row)) return row
+        const out: Row = {}
+        for (const k in row) if (k !== '__rid') out[k] = row[k]
+        return out
+}
+export const makeNamedScan = (catalog: Catalog, ast: NamedScanOp): RowIterator => {
+        const rel = catalog.resolve(tableNameOf(ast.table))
+        const rids = collectRids(rel.heaps[0])
+        let i = 0
+        const next = () => {
+                if (i >= rids.length) return null
+                return { [ast.name]: stripRid(buildRow(catalog, rel, rids[i++])) } as Row
         }
         return { next, close: () => {} }
 }

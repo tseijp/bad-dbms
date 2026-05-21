@@ -124,11 +124,14 @@ export const compileNode = (input: NodeInput, ctx: EvalCtx): Compiled => {
         }
         return () => undefined
 }
-export const compilePredicate = (node: NodeInput, ctx: EvalCtx): ((row: Row | JoinRow | null) => boolean) => {
+export const compilePredicate = (node: NodeInput, ctx: EvalCtx): ((row: Row) => boolean) => {
         const fn = compileNode(node, ctx)
         return (row) => !!fn(row)
 }
-export const compileExpr = (node: NodeInput, ctx: EvalCtx): Compiled => compileNode(node, ctx)
+export const compileExpr = (node: NodeInput, ctx: EvalCtx): ((row: Row) => unknown) => {
+        const fn = compileNode(node, ctx)
+        return (row) => fn(row)
+}
 export const colNameOf = (c: unknown): string => {
         if (!c) return ''
         const col = c as { $col?: { name: string }; node?: SqlNode }
