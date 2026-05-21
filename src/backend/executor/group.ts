@@ -39,37 +39,41 @@ interface AggGroup {
         states: AggState[]
 }
 export const createAggregate = (child: RowIterator, groupBy: string[], aggs: AggSpec[]): RowIterator => {
-        const groups = new Map<string, AggGroup>()
-        const order: string[] = []
+        const _groups = new Map<string, AggGroup>()
+        const _order: string[] = []
         while (true) {
                 const r = child.next()
                 if (r === null) break
                 const k = groupBy.map((g) => r[g]).join('|')
-                let g = groups.get(k)
+                let g = _groups.get(k)
                 if (!g) {
                         g = { key: groupBy.map((gb) => r[gb]), states: aggs.map((a) => initAgg(a.kind)) }
-                        groups.set(k, g)
-                        order.push(k)
+                        _groups.set(k, g)
+                        _order.push(k)
                 }
                 for (let i = 0; i < aggs.length; i++) updateAgg(g.states[i], aggs[i].kind, r[aggs[i].field], !!aggs[i].distinct)
         }
         child.close()
-        const out: Row[] = []
-        for (const k of order) {
-                const g = groups.get(k) as AggGroup
+        const _out: Row[] = []
+        for (const k of _order) {
+                const g = _groups.get(k) as AggGroup
                 const row: Row = {}
                 for (let i = 0; i < groupBy.length; i++) row[groupBy[i]] = g.key[i]
                 for (let i = 0; i < aggs.length; i++) row[aggs[i].name] = finalAgg(g.states[i], aggs[i].kind)
-                out.push(row)
+                _out.push(row)
         }
-        if (groupBy.length === 0 && out.length === 0 && aggs.length > 0) {
+        if (groupBy.length === 0 && _out.length === 0 && aggs.length > 0) {
                 const row: Row = {}
                 for (let i = 0; i < aggs.length; i++) row[aggs[i].name] = finalAgg(initAgg(aggs[i].kind), aggs[i].kind)
-                out.push(row)
+                _out.push(row)
         }
-        let i = 0
-        const next = () => (i < out.length ? out[i++] : null)
-        return { next, close: () => {} }
+        let _i = 0
+        return {
+                next() {
+                        return _i < _out.length ? _out[_i++] : null
+                },
+                close() {},
+        }
 }
 const orderKey = (v: unknown): unknown => (typeof v === 'string' && v !== '' && !isNaN(Number(v)) ? Number(v) : v)
 const cmpValue = (a: unknown, b: unknown): number => {
@@ -83,14 +87,14 @@ const cmpValue = (a: unknown, b: unknown): number => {
         return 0
 }
 export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
-        const buf: Row[] = []
+        const _buf: Row[] = []
         while (true) {
                 const r = child.next()
                 if (r === null) break
-                buf.push(r)
+                _buf.push(r)
         }
         child.close()
-        buf.sort((a, b) => {
+        _buf.sort((a, b) => {
                 for (const k of keys) {
                         const av = k.eval ? k.eval(a) : a[k.field]
                         const bv = k.eval ? k.eval(b) : b[k.field]
@@ -99,9 +103,13 @@ export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => 
                 }
                 return 0
         })
-        let i = 0
-        const next = () => (i < buf.length ? buf[i++] : null)
-        return { next, close: () => {} }
+        let _i = 0
+        return {
+                next() {
+                        return _i < _buf.length ? _buf[_i++] : null
+                },
+                close() {},
+        }
 }
 const rowKey = (row: Row): string => {
         const keys = Object.keys(row).sort()
@@ -110,34 +118,42 @@ const rowKey = (row: Row): string => {
         return s
 }
 export const createDistinct = (child: RowIterator): RowIterator => {
-        const seen = new Set<string>()
-        const next = () => {
-                while (true) {
-                        const r = child.next()
-                        if (r === null) return null
-                        const k = rowKey(r)
-                        if (seen.has(k)) continue
-                        seen.add(k)
-                        return r
-                }
+        const _seen = new Set<string>()
+        return {
+                next() {
+                        while (true) {
+                                const r = child.next()
+                                if (r === null) return null
+                                const k = rowKey(r)
+                                if (_seen.has(k)) continue
+                                _seen.add(k)
+                                return r
+                        }
+                },
+                close() {
+                        child.close()
+                },
         }
-        return { next, close: () => child.close() }
 }
 export const createLimit = (child: RowIterator, limit?: number, offset = 0): RowIterator => {
-        let skipped = 0
-        let produced = 0
-        const next = () => {
-                while (true) {
-                        if (limit !== undefined && produced >= limit) return null
-                        const r = child.next()
-                        if (r === null) return null
-                        if (skipped < offset) {
-                                skipped++
-                                continue
+        let _skipped = 0
+        let _produced = 0
+        return {
+                next() {
+                        while (true) {
+                                if (limit !== undefined && _produced >= limit) return null
+                                const r = child.next()
+                                if (r === null) return null
+                                if (_skipped < offset) {
+                                        _skipped++
+                                        continue
+                                }
+                                _produced++
+                                return r
                         }
-                        produced++
-                        return r
-                }
+                },
+                close() {
+                        child.close()
+                },
         }
-        return { next, close: () => child.close() }
 }

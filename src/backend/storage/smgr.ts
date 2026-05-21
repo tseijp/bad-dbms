@@ -19,13 +19,6 @@ export const createStorageManager = (opts: StorageManagerOptions): StorageManage
                 _handles.set(k, h)
                 return h
         }
-        const prepare = async (relId: number, forkId: number): Promise<SmgrHandle> => {
-                const fid = fileIdOf(relId, forkId)
-                const opener = _file as FileHandle & { open?: (id: string) => Promise<void> }
-                if (opener.open) await opener.open(fid)
-                _handles.delete(handleKey(relId, forkId))
-                return getHandle(relId, forkId)
-        }
         return {
                 read(relId: number, forkId: number, blockNo: number): Uint8Array {
                         const h = getHandle(relId, forkId)
@@ -57,6 +50,12 @@ export const createStorageManager = (opts: StorageManagerOptions): StorageManage
                         if (_file.sync) _file.sync(h.fid)
                 },
                 getHandle,
-                prepare,
+                async prepare(relId: number, forkId: number): Promise<SmgrHandle> {
+                        const fid = fileIdOf(relId, forkId)
+                        const opener = _file as FileHandle & { open?: (id: string) => Promise<void> }
+                        if (opener.open) await opener.open(fid)
+                        _handles.delete(handleKey(relId, forkId))
+                        return getHandle(relId, forkId)
+                },
         }
 }

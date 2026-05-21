@@ -10,8 +10,8 @@ export const pageCapacity = (valueSize: number) => {
         return Math.floor(((PAGE_SIZE - HEADER_SIZE) * 8) / (valueSize * 8 + 1))
 }
 export const createPage = (bytes?: Uint8Array): Page => {
-        const buf = bytes ?? new Uint8Array(PAGE_SIZE)
-        const _view = new DataView(buf.buffer, buf.byteOffset, buf.byteLength)
+        const _buf = bytes ?? new Uint8Array(PAGE_SIZE)
+        const _view = new DataView(_buf.buffer, _buf.byteOffset, _buf.byteLength)
         const getHeader = (): PageHeader => ({
                 kind: CODE_KIND[_view.getUint8(0)] ?? 'data',
                 level: _view.getUint8(1),
@@ -39,14 +39,14 @@ export const createPage = (bytes?: Uint8Array): Page => {
         const isAlive = (slot: number) => {
                 const off = _tombOff() + (slot >> 3)
                 const bit = slot & 7
-                return ((buf[off] >> bit) & 1) === 1
+                return ((_buf[off] >> bit) & 1) === 1
         }
         const _slotByteOffset = (slot: number) => {
                 const h = getHeader()
                 return _valOff() + slot * (h.valueSize || 4)
         }
         return {
-                bytes: buf,
+                bytes: _buf,
                 getHeader,
                 setHeader(h: PageHeaderPatch) {
                         if (h.kind !== undefined) _view.setUint8(0, KIND_CODE[h.kind] ?? 1)
@@ -76,8 +76,8 @@ export const createPage = (bytes?: Uint8Array): Page => {
                 setAlive(slot: number, alive: boolean) {
                         const off = _tombOff() + (slot >> 3)
                         const bit = slot & 7
-                        if (alive) buf[off] = buf[off] | (1 << bit)
-                        else buf[off] = buf[off] & ~(1 << bit)
+                        if (alive) _buf[off] = _buf[off] | (1 << bit)
+                        else _buf[off] = _buf[off] & ~(1 << bit)
                 },
                 capacity,
                 liveCount() {

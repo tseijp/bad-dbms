@@ -135,15 +135,15 @@ export const createCatalog = (deps: CatalogDeps) => {
                 _relations.set(name, rel)
                 return rel
         }
-        const nameOf = (nameOrTable: TableOrName): string => {
+        const _nameOf = (nameOrTable: TableOrName): string => {
                 if (typeof nameOrTable === 'string') return nameOrTable
                 if (nameOrTable && nameOrTable.$meta) return nameOrTable.$meta.name
                 return ''
         }
-        const find = (nameOrTable: TableOrName): RelationDescriptor | undefined => _relations.get(nameOf(nameOrTable))
+        const find = (nameOrTable: TableOrName): RelationDescriptor | undefined => _relations.get(_nameOf(nameOrTable))
         const resolve = (nameOrTable: TableOrName): RelationDescriptor => {
                 const rel = find(nameOrTable)
-                if (!rel) throw new Error(`relation not found: ${nameOf(nameOrTable)}`)
+                if (!rel) throw new Error(`relation not found: ${_nameOf(nameOrTable)}`)
                 return rel
         }
         const readRow = (rel: RelationDescriptor, rid: Rid): Row => {
@@ -159,7 +159,7 @@ export const createCatalog = (deps: CatalogDeps) => {
                 }
                 return row
         }
-        const columnValues = (rel: RelationDescriptor, colIdx: number): unknown[] => {
+        const _columnValues = (rel: RelationDescriptor, colIdx: number): unknown[] => {
                 const col = rel.columns[colIdx]
                 const codec = rel.codecs[colIdx]
                 const out: unknown[] = []
@@ -170,11 +170,11 @@ export const createCatalog = (deps: CatalogDeps) => {
                 return out
         }
         type Slot = { value: unknown; isNull: boolean }
-        const checkBatch = (rel: RelationDescriptor, batch: Slot[][]): void => {
+        const _checkBatch = (rel: RelationDescriptor, batch: Slot[][]): void => {
                 for (let i = 0; i < rel.columns.length; i++) {
                         const col = rel.columns[i]
                         const unique = col.isUnique || col.isPrimary
-                        const existing = unique ? new Set(columnValues(rel, i)) : null
+                        const existing = unique ? new Set(_columnValues(rel, i)) : null
                         const seen = new Set<unknown>()
                         for (const slots of batch) {
                                 if (col.notNull && slots[i].isNull) throw new Error(`null value in notNull column: ${col.name}`)
@@ -185,7 +185,7 @@ export const createCatalog = (deps: CatalogDeps) => {
                         }
                 }
         }
-        const writeRow = (rel: RelationDescriptor, slots: Slot[]): Rid => {
+        const _writeRow = (rel: RelationDescriptor, slots: Slot[]): Rid => {
                 let rid: Rid | null = null
                 for (let i = 0; i < rel.columns.length; i++) {
                         const r = rel.heaps[i].insert(encodeCell(rel.columns[i], rel.codecs[i], slots[i].value))
@@ -203,8 +203,8 @@ export const createCatalog = (deps: CatalogDeps) => {
         const insertRows = (relName: string, rows: Row[]): Rid[] => {
                 const rel = resolve(relName)
                 const batch = rows.map((row) => rel.columns.map((col) => resolveInsertValue(col, row)))
-                checkBatch(rel, batch)
-                return batch.map((slots) => writeRow(rel, slots))
+                _checkBatch(rel, batch)
+                return batch.map((slots) => _writeRow(rel, slots))
         }
         const insertRow = (relName: string, row: Row): Rid => insertRows(relName, [row])[0]
         return {

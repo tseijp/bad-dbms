@@ -10,8 +10,13 @@ export const collectRids = (firstHeap: { scan(emit: (rid: Rid) => boolean | void
 }
 export const EMPTY_ITER: RowIterator = { next: () => null, close: () => {} }
 export const fromRows = (rows: Row[]): RowIterator => {
-        let i = 0
-        return { next: () => (i < rows.length ? rows[i++] : null), close: () => {} }
+        let _i = 0
+        return {
+                next() {
+                        return _i < rows.length ? rows[_i++] : null
+                },
+                close() {},
+        }
 }
 export const compilePredicate = (pred: RowPredicate | undefined): RowPredicate => pred ?? (() => true)
 export type PredInput = RowPredicate | undefined

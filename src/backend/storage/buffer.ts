@@ -19,20 +19,20 @@ export interface BufferPoolOptions {
 }
 export const createBufferPool = (opts: BufferPoolOptions): BufferPool => {
         const _smgr = opts.smgr
-        const frameCount = opts.frameCount ?? 64
-        const ringCount = opts.ringCount ?? 8
+        const _frameCount = opts.frameCount ?? 64
+        const _ringCount = opts.ringCount ?? 8
         const _pageSize = opts.pageSize ?? 4096
         const _frames: Frame[] = []
-        for (let i = 0; i < frameCount; i++) _frames.push(makeFrame(_pageSize))
+        for (let i = 0; i < _frameCount; i++) _frames.push(makeFrame(_pageSize))
         const _ring: Frame[] = []
-        for (let i = 0; i < ringCount; i++) _ring.push(makeFrame(_pageSize))
+        for (let i = 0; i < _ringCount; i++) _ring.push(makeFrame(_pageSize))
         const _lookup = new Map<string, Frame>()
         let _clockHand = 0
         let _ringHand = 0
         const _evictNormal = (): Frame => {
-                for (let i = 0; i < frameCount * 3; i++) {
+                for (let i = 0; i < _frameCount * 3; i++) {
                         const f = _frames[_clockHand]
-                        _clockHand = (_clockHand + 1) % frameCount
+                        _clockHand = (_clockHand + 1) % _frameCount
                         if (f.pinCount > 0) continue
                         if (!f.valid) return f
                         if (f.usage > 0) {
@@ -47,7 +47,7 @@ export const createBufferPool = (opts: BufferPoolOptions): BufferPool => {
         }
         const _evictRing = (): Frame => {
                 const f = _ring[_ringHand]
-                _ringHand = (_ringHand + 1) % ringCount
+                _ringHand = (_ringHand + 1) % _ringCount
                 if (f.valid && f.dirty) _smgr.write(f.relId, f.forkId, f.blockNo, f.bytes)
                 if (f.valid) _lookup.delete(keyOf(f.relId, f.forkId, f.blockNo))
                 return f
@@ -94,7 +94,7 @@ export const createBufferPool = (opts: BufferPoolOptions): BufferPool => {
                         for (const f of _ring) if (f.valid && f.dirty) flush(f)
                 },
                 stats() {
-                        return { frameCount, ringCount, cached: _lookup.size }
+                        return { frameCount: _frameCount, ringCount: _ringCount, cached: _lookup.size }
                 },
         }
 }
