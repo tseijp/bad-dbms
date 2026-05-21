@@ -12,20 +12,7 @@ const normalizeType = (t: string): ColumnType => {
         if (t === 'uint' || t === 'unsigned') return 'u32'
         return 'u32'
 }
-export interface ColumnDef {
-        key?: string
-        name?: string
-        type: ColumnType
-        isPrimary: boolean
-        isUnique: boolean
-        hasOrder: boolean
-        notNull?: boolean
-        isText?: boolean
-        defaultValue?: unknown
-        defaultFn?: () => unknown
-        references?: { table: string; column: string; onDelete?: string }
-}
-const fromColDescriptor = (d: ColumnDescriptor): ColumnDef => ({
+const fromColDescriptor = (d: ColumnDescriptor): Partial<ColumnMeta> => ({
         key: d.name,
         name: d.name,
         type: normalizeType(d.type),
@@ -42,7 +29,7 @@ const INDEX_FORK_BASE = 1000
 const STORAGE_STRIDE = 10000
 const storageRelOf = (relId: number, forkId: number) => relId * STORAGE_STRIDE + forkId
 const ridKey = (rid: Rid): string => `${rid[0]}:${rid[1]}`
-const buildColumn = (key: string, def: Partial<ColumnDef>, forkId: number): ColumnMeta => ({
+const buildColumn = (key: string, def: Partial<ColumnMeta>, forkId: number): ColumnMeta => ({
         name: def.name ?? key,
         key,
         type: def.type ?? 'i32',
@@ -120,7 +107,7 @@ export const createCatalog = (deps: CatalogDeps) => {
                 if (kind === 'hash') return createHashIndex({ buffer: _buffer, smgr: _smgr, fsm: _fsm, relId: storageRel, forkId: 0 })
                 return createNBTree({ buffer: _buffer, smgr: _smgr, fsm: _fsm, relId: storageRel, forkId: 0 })
         }
-        const register = (name: string, columnsDef: Record<string, Partial<ColumnDef>>): RelationDescriptor => {
+        const register = (name: string, columnsDef: Record<string, Partial<ColumnMeta>>): RelationDescriptor => {
                 const existing = _relations.get(name)
                 if (existing) return existing
                 const relId = _nextRelId++
@@ -214,7 +201,7 @@ export const createCatalog = (deps: CatalogDeps) => {
                         const name = tableObj.$meta.name
                         const existing = _relations.get(name)
                         if (existing) return existing
-                        const def: Record<string, ColumnDef> = {}
+                        const def: Record<string, Partial<ColumnMeta>> = {}
                         for (const col of tableObj.$meta.columns) {
                                 const cd = col.$col
                                 def[cd.name] = fromColDescriptor(cd)

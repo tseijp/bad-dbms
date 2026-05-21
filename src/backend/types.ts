@@ -92,8 +92,8 @@ export interface IndexKind {
         hash: 'hash'
 }
 export interface ColumnMeta {
-        name: string
         key: string
+        name: string
         type: ColumnType
         byteSize: number
         forkId: number
