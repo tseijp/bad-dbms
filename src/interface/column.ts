@@ -4,9 +4,14 @@ import { wrap, make } from './sql'
 export type { ColumnConfig, ColumnDescriptor } from '../shared/types'
 export type { Column, Columns } from './types'
 const exprNode = (self: SQL): SqlNode => self.node
+const dataTypeOf = (type: ColumnType, tag?: 'str'): string => {
+        if (tag === 'str') return 'text'
+        if (type === 'f32') return 'float'
+        return 'integer'
+}
 const column = <T = number>(type: ColumnType, name?: string, config: ColumnConfig = {}): Column<T> => {
         const desc: ColumnDescriptor = { name: name ?? '', type, ...config }
-        const base = make({ type: 'column', name: desc.name, dataType: type })
+        const base = make({ type: 'column', name: desc.name, dataType: dataTypeOf(type, config.tag) })
         const self = base as unknown as Column<T>
         self.$col = desc
         self.primaryKey = () => {
@@ -30,8 +35,8 @@ const column = <T = number>(type: ColumnType, name?: string, config: ColumnConfi
                 return self
         }
         self.defaultFn = self.$defaultFn
-        self.references = (fn: () => SQL, opts?: { onDelete?: string }) => {
-                desc.references = { fn, onDelete: opts?.onDelete }
+        self.references = (fn: () => SQL, opts?: { onDelete?: string; onUpdate?: string }) => {
+                desc.references = { fn, onDelete: opts?.onDelete, onUpdate: opts?.onUpdate }
                 return self
         }
         self.order = (min: number, max: number) => {
@@ -42,7 +47,7 @@ const column = <T = number>(type: ColumnType, name?: string, config: ColumnConfi
         return self
 }
 export const wrapExpr = (s: SQL): SQL => wrap(s)
-export { column, exprNode }
+export { column, exprNode, dataTypeOf }
 export const text = (name?: string, config?: ColumnConfig): Column<string> => column<string>('u32', name, { ...config, tag: 'str' })
 export const integer = (name?: string, config?: ColumnConfig): Column<number> => column<number>('i32', name, config)
 export const float = (name?: string, config?: ColumnConfig): Column<number> => column<number>('f32', name, config)

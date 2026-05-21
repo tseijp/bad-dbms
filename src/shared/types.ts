@@ -55,7 +55,7 @@ export interface ColumnConfig {
         defaultFn?: () => unknown
         hasOrder?: boolean
         orderRange?: [number, number]
-        references?: { fn: () => SQL; onDelete?: string }
+        references?: { fn: () => SQL; onDelete?: string; onUpdate?: string }
         tag?: 'str'
 }
 export interface ColumnDescriptor extends ColumnConfig {
@@ -80,19 +80,20 @@ export type RowSetter = (row: Row) => unknown
 export type JoinPredicate = (left: Row, right: Row) => boolean
 export type TableRef = string | { $meta: { name: string } } | { node: { name: string } }
 export type SqlExpr = SQL | SqlNode
-export type AggSpec = { name: string; kind: AggKind; field: string }
+export type AggSpec = { name: string; kind: AggKind; field: string; distinct?: boolean }
 export type SortKey = { field: string; dir: 'asc' | 'desc'; eval?: (row: Row) => unknown }
 export type Projection = Array<{ alias: string; expr: SqlExpr }>
 export interface SeqScanOp { op: 'SeqScan'; table: TableRef }
 export interface IndexScanOp { op: 'IndexScan'; table: TableRef; indexName: string; range?: { start?: number; end?: number } }
 export interface FilterOp { op: 'Filter'; child: PhysicalOp; predicate: RowPredicate }
-export interface ProjectionOp { op: 'Projection'; child: PhysicalOp; fields: string[] }
+export type ProjectorSpec = { alias: string; eval: RowSetter }
+export interface ProjectionOp { op: 'Projection'; child: PhysicalOp; fields: string[]; projectors?: ProjectorSpec[] }
 export interface NestedLoopJoinOp { op: 'NestedLoopJoin'; left: PhysicalOp; right: PhysicalOp; predicate: JoinPredicate }
 export interface HashJoinOp { op: 'HashJoin'; left: PhysicalOp; right: PhysicalOp; leftKey: string; rightKey: string }
 export interface AggregateOp { op: 'Aggregate'; child: PhysicalOp; groupBy: string[]; aggs: AggSpec[] }
 export interface SortOp { op: 'Sort'; child: PhysicalOp; keys: SortKey[] }
-export interface UpdateOp { op: 'Update'; table: TableRef; predicate?: RowPredicate; setters?: Record<string, RowSetter> }
-export interface DeleteOp { op: 'Delete'; table: TableRef; predicate?: RowPredicate }
+export interface UpdateOp { op: 'Update'; table: TableRef; predicate?: RowPredicate; setters?: Record<string, RowSetter>; returning?: boolean }
+export interface DeleteOp { op: 'Delete'; table: TableRef; predicate?: RowPredicate; returning?: boolean }
 export interface InsertOp { op: 'Insert'; table: TableRef; values: Row[]; returning?: boolean }
 export interface SelectOp { op: 'Select'; table?: TableRef; projection?: Projection; where?: SqlExpr; groupBy?: unknown[]; orderBy?: unknown[]; limit?: number; offset?: number }
 export type PhysicalOp = SeqScanOp | IndexScanOp | FilterOp | ProjectionOp | NestedLoopJoinOp | HashJoinOp | AggregateOp | SortOp | UpdateOp | DeleteOp | InsertOp | SelectOp

@@ -8,7 +8,7 @@ export interface Column<T = number | string | boolean> extends SQL<T>, ExprMetho
         default(value: T): Column<T>
         $defaultFn(fn: () => T): Column<T>
         defaultFn(fn: () => T): Column<T>
-        references(fn: () => SQL, opts?: { onDelete?: string }): Column<T>
+        references(fn: () => SQL, opts?: { onDelete?: string; onUpdate?: string }): Column<T>
         order(min: number, max: number): Column<T>
 }
 export type Columns<Key extends string = string> = Record<Key, Column>
@@ -32,15 +32,24 @@ export interface DatabaseConfig {
         fileAdapter?: FileAdapter
 }
 export type ProjItem = { alias: string; expr: SQL | SqlNode }
+export type JoinKind = 'inner' | 'left' | 'right' | 'full'
+export interface JoinClause {
+        kind: JoinKind
+        table: Table
+        on: SQL
+}
 export interface SelectAst {
         op: 'Select'
         projection?: ProjItem[]
         table?: Table
         where?: SQL
         groupBy?: SQL[]
+        having?: SQL
         orderBy?: SQL[]
         limit?: number
         offset?: number
+        distinct?: boolean
+        joins?: JoinClause[]
 }
 export interface InsertAst {
         op: 'Insert'
@@ -54,10 +63,12 @@ export interface UpdateAst {
         set?: Record<string, SqlValue>
         from?: Table
         where?: SQL
+        returning?: boolean
 }
 export interface DeleteAst {
         op: 'Delete'
         table: Table
         where?: SQL
+        returning?: boolean
 }
 export type LogicalAst = SelectAst | InsertAst | UpdateAst | DeleteAst | InitAllAst

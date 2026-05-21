@@ -93,12 +93,18 @@ export interface IndexKind {
 }
 export interface ColumnMeta {
         name: string
+        key: string
         type: ColumnType
         byteSize: number
         forkId: number
         isPrimary: boolean
         isUnique: boolean
         hasOrder: boolean
+        notNull: boolean
+        isText: boolean
+        defaultValue?: unknown
+        defaultFn?: () => unknown
+        references?: { table: string; column: string; onDelete?: string }
 }
 export interface IndexDescriptor {
         name: string
@@ -107,6 +113,11 @@ export interface IndexDescriptor {
         forkId: number
         handle: AccessIndex
 }
+export interface ColumnCodec {
+        strings: string[]
+        intern: Map<string, number>
+        nulls: Set<string>
+}
 export interface RelationDescriptor {
         relId: number
         name: string
@@ -114,6 +125,7 @@ export interface RelationDescriptor {
         indexes: IndexDescriptor[]
         heaps: HeapHandle[]
         idxHandles: AccessIndex[]
+        codecs: ColumnCodec[]
 }
 export interface TupleColumn {
         name: string
