@@ -1,9 +1,9 @@
 import type { UpdateOp, DeleteOp, InsertOp, Row, RowSetter } from '../../shared/types'
 import type { Catalog } from '../catalog'
 import type { RelationDescriptor, RowIterator, Rid } from '../types'
-import { tableNameOf, buildRow, collectRids, fromRows, compilePredicate } from './expr'
+import { tableNameOf, buildRow, collectRids, fromRows, compilePredicate } from './utils'
 const colIndexOf = (rel: RelationDescriptor, name: string): number => rel.columns.findIndex((c) => c.name === name || c.key === name)
-export const makeUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
+export const createUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         const pred = compilePredicate(ast.predicate)
         const setters: Record<string, RowSetter> = ast.setters ?? {}
@@ -44,7 +44,7 @@ const cascadeFrom = (catalog: Catalog, parent: RelationDescriptor, parentRows: R
                 }
         }
 }
-export const makeDelete = (catalog: Catalog, ast: DeleteOp): RowIterator => {
+export const createDelete = (catalog: Catalog, ast: DeleteOp): RowIterator => {
         const rel = catalog.resolve(tableNameOf(ast.table))
         const pred = compilePredicate(ast.predicate)
         const rids = collectRids(rel.heaps[0])
@@ -59,7 +59,7 @@ export const makeDelete = (catalog: Catalog, ast: DeleteOp): RowIterator => {
         if (ast.returning) return fromRows(removed.map((r) => ({ ...r })))
         return fromRows([{ rowCount: removed.length, deleted: removed.length }])
 }
-export const makeInsert = (catalog: Catalog, ast: InsertOp): RowIterator => {
+export const createInsert = (catalog: Catalog, ast: InsertOp): RowIterator => {
         const name = tableNameOf(ast.table)
         const rows: Row[] = ast.values || []
         const rids: Rid[] = []

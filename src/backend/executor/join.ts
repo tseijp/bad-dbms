@@ -1,6 +1,6 @@
 import type { Row, JoinRow, JoinPredicate, JoinKind } from '../../shared/types'
 import type { RowIterator } from '../types'
-export const makeNestedLoopJoin = (left: RowIterator, right: RowIterator, rightName: string, predicate: JoinPredicate, kind: JoinKind = 'inner'): RowIterator => {
+export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, rightName: string, predicate: JoinPredicate, kind: JoinKind = 'inner'): RowIterator => {
         const rightBuf: JoinRow[] = []
         while (true) {
                 const r = right.next()
@@ -42,7 +42,7 @@ export const makeNestedLoopJoin = (left: RowIterator, right: RowIterator, rightN
         let i = 0
         return { next: () => (i < out.length ? out[i++] : null) as Row | null, close: () => {} }
 }
-export const makeHashJoin = (left: RowIterator, right: RowIterator, leftKey: string, rightKey: string): RowIterator => {
+export const createHashJoin = (left: RowIterator, right: RowIterator, leftKey: string, rightKey: string): RowIterator => {
         const table = new Map<unknown, Row[]>()
         while (true) {
                 const r = left.next()

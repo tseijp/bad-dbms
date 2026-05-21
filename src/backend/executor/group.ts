@@ -1,6 +1,6 @@
 import type { Row, AggSpec, SortKey } from '../../shared/types'
 import type { RowIterator } from '../types'
-import { isNullish } from './expr'
+import { isNullish } from './utils'
 interface AggState {
         count: number
         sum: number
@@ -38,7 +38,7 @@ interface AggGroup {
         key: unknown[]
         states: AggState[]
 }
-export const makeAggregate = (child: RowIterator, groupBy: string[], aggs: AggSpec[]): RowIterator => {
+export const createAggregate = (child: RowIterator, groupBy: string[], aggs: AggSpec[]): RowIterator => {
         const groups = new Map<string, AggGroup>()
         const order: string[] = []
         while (true) {
@@ -82,7 +82,7 @@ const cmpValue = (a: unknown, b: unknown): number => {
         if ((av as number) > (bv as number)) return 1
         return 0
 }
-export const makeSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
+export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
         const buf: Row[] = []
         while (true) {
                 const r = child.next()
@@ -109,7 +109,7 @@ const rowKey = (row: Row): string => {
         for (const k of keys) s += k + ' ' + String(row[k]) + ' '
         return s
 }
-export const makeDistinct = (child: RowIterator): RowIterator => {
+export const createDistinct = (child: RowIterator): RowIterator => {
         const seen = new Set<string>()
         const next = () => {
                 while (true) {
@@ -123,7 +123,7 @@ export const makeDistinct = (child: RowIterator): RowIterator => {
         }
         return { next, close: () => child.close() }
 }
-export const makeLimit = (child: RowIterator, limit?: number, offset = 0): RowIterator => {
+export const createLimit = (child: RowIterator, limit?: number, offset = 0): RowIterator => {
         let skipped = 0
         let produced = 0
         const next = () => {

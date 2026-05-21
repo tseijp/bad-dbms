@@ -1,11 +1,7 @@
 import type { SQL, SqlNode, PhysicalOp, AggSpec, SortKey, ProjectorSpec, Row } from '../shared/types'
 import type { SelectAst, ProjItem } from './types'
 import { colNameOf, compileExpr, compilePredicate, compileNode, EvalCtx } from './compile'
-const tableNameOf = (t: unknown): string => {
-        if (typeof t === 'string') return t
-        const v = t as { $meta?: { name: string }; node?: { name?: string } }
-        return v?.$meta?.name ?? v?.node?.name ?? ''
-}
+import { tableNameOf } from '../shared/helper'
 const nodeOf = (expr: SQL | SqlNode): SqlNode => ((expr as SQL).kind === 'sql' ? (expr as SQL).node : (expr as SqlNode))
 const argNode = (n: SqlNode | undefined): SqlNode | undefined => (n && 'args' in n && n.args[0] ? nodeOf(n.args[0]) : undefined)
 const aggSig = (n: SqlNode | undefined): string | undefined => {
@@ -133,4 +129,3 @@ export const planSelect = (ast: SelectAst, baseCtx: EvalCtx): { plan: PhysicalOp
         if (ast.limit !== undefined || ast.offset !== undefined) plan = { op: 'Limit', child: plan, limit: ast.limit, offset: ast.offset }
         return { plan }
 }
-export { tableNameOf }

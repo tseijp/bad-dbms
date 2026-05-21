@@ -2,7 +2,8 @@ import type { SQL, SqlValue, Row, PhysicalOp } from '../shared/types'
 import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinClause, JoinKind, ProjItem } from './types'
 import { createDatabase as createBackend } from '../backend/index'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
-import { planSelect, tableNameOf } from './plan'
+import { planSelect } from './plan'
+import { tableNameOf, stripRid } from '../shared/helper'
 export type { DatabaseConfig } from './types'
 type Backend = ReturnType<typeof createBackend>
 type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
@@ -11,12 +12,6 @@ const isSqlValue = (v: unknown): v is SQL => !!v && typeof v === 'object' && (v 
 const projectionOf = (fields?: Columns | Record<string, SQL>): ProjItem[] | undefined => {
         if (!fields) return undefined
         return Object.keys(fields).map((k) => ({ alias: k, expr: (fields as Record<string, SQL>)[k] }))
-}
-const stripRid = (row: Row): Row => {
-        if (!row || typeof row !== 'object' || !('__rid' in row)) return row
-        const out: Row = {}
-        for (const k in row) if (k !== '__rid') out[k] = row[k]
-        return out
 }
 const propertyKeyOf = (table: Table, col: Table['$meta']['columns'][number]): string => {
         const rec = table as unknown as Record<string, unknown>
@@ -211,18 +206,17 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
         function transaction(fn: (tx: Tx, c?: unknown) => unknown): unknown {
                 return (fn as Function).length >= 2 ? tickRunner(fn) : runScope(fn as (tx: Tx) => unknown)
         }
-        const $count = async (table: Table, predicate?: SQL): Promise<number> => {
-                const rel = backend?.catalog.find(tableNameOf(table))
-                if (!rel) return 0
-                const pred = predicate ? compilePredicate(predicate, ctx) : () => true
-                let n = 0
-                rel.heaps[0].scan((rid) => void (pred(backend!.catalog.readRow(rel, rid)) && n++))
-                return n
-        }
         const api = {
                 ...buildTx(),
                 transaction,
-                $count,
+                $count: async (table: Table, predicate?: SQL): Promise<number> => {
+                        const rel = backend?.catalog.find(tableNameOf(table))
+                        if (!rel) return 0
+                        const pred = predicate ? compilePredicate(predicate, ctx) : () => true
+                        let n = 0
+                        rel.heaps[0].scan((rid) => void (pred(backend!.catalog.readRow(rel, rid)) && n++))
+                        return n
+                },
                 use: (adapter: unknown) => (adapters.push(adapter), api),
                 all: (n: number) =>
                         Promise.resolve().then(() => {

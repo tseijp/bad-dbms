@@ -1,4 +1,5 @@
 import type { SqlNode, SQL, Row } from '../shared/types'
+import { isNullish } from '../shared/helper'
 export type JoinRow = Record<string, Row | null>
 export interface EvalCtx {
         current: Row | null
@@ -12,7 +13,6 @@ const asNode = (node: NodeInput): SqlNode | null => {
         if ((node as SQL).kind === 'sql') return (node as SQL).node
         return node as SqlNode
 }
-const isNullish = (v: unknown): boolean => v === null || v === undefined
 const noNegZero = (n: number): number => (n === 0 ? 0 : n)
 const fromJoinRow = (jr: JoinRow, name: string, table?: string): unknown => {
         if (table && Object.prototype.hasOwnProperty.call(jr, table)) {
