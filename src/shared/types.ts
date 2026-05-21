@@ -3,7 +3,20 @@ export type NodeType = 'column' | 'literal' | 'placeholder' | 'binop' | 'unop' |
 export type BinOp = '+' | '-' | '*' | '/' | '%' | '=' | '!=' | '<' | '<=' | '>' | '>=' | 'and' | 'or' | 'in' | 'like' | 'ilike'
 export type UnOp = 'not' | 'isNull' | 'isNotNull' | 'exists' | 'notExists'
 export type AggKind = 'count' | 'sum' | 'avg' | 'min' | 'max'
-export type SqlNode = { type: 'column'; name: string; dataType: ColumnType | string; tableName?: string } | { type: 'literal'; value: unknown; encoder?: unknown } | { type: 'raw'; value: string } | { type: 'identifier'; name: string } | { type: 'placeholder'; name: string } | { type: 'binop'; op: BinOp; args: SQL[] } | { type: 'unop'; op: UnOp; args: SQL[] } | { type: 'func'; name: string; args: SQL[] } | { type: 'aggregate'; name: AggKind; distinct: boolean; args: SQL[] } | { type: 'list'; items: SQL[] } | { type: 'order'; dir: 'asc' | 'desc'; col: SQL } | { type: 'table'; name: string } | { type: 'currentTuple'; col: string; tableName: string }
+export interface ColumnNode { type: 'column'; name: string; dataType: ColumnType | string; tableName?: string }
+export interface LiteralNode { type: 'literal'; value: unknown; encoder?: unknown }
+export interface RawNode { type: 'raw'; value: string }
+export interface IdentifierNode { type: 'identifier'; name: string }
+export interface PlaceholderNode { type: 'placeholder'; name: string }
+export interface BinopNode { type: 'binop'; op: BinOp; args: SQL[] }
+export interface UnopNode { type: 'unop'; op: UnOp; args: SQL[] }
+export interface FuncNode { type: 'func'; name: string; args: SQL[] }
+export interface AggregateNode { type: 'aggregate'; name: AggKind; distinct: boolean; args: SQL[] }
+export interface ListNode { type: 'list'; items: SQL[] }
+export interface OrderNode { type: 'order'; dir: 'asc' | 'desc'; col: SQL }
+export interface TableNode { type: 'table'; name: string }
+export interface CurrentTupleNode { type: 'currentTuple'; col: string; tableName: string }
+export type SqlNode = ColumnNode | LiteralNode | RawNode | IdentifierNode | PlaceholderNode | BinopNode | UnopNode | FuncNode | AggregateNode | ListNode | OrderNode | TableNode | CurrentTupleNode
 export interface ExprMethods {
         add(other: SqlValue): SQL
         sub(other: SqlValue): SQL
@@ -42,7 +55,7 @@ export interface ColumnConfig {
         defaultFn?: () => unknown
         hasOrder?: boolean
         orderRange?: [number, number]
-        references?: { fn: () => SQL; onDelete?: string }
+        references?: { fn: () => SQL; onDelete?: string; onUpdate?: string }
         tag?: 'str'
 }
 export interface ColumnDescriptor extends ColumnConfig {
@@ -67,10 +80,23 @@ export type RowSetter = (row: Row) => unknown
 export type JoinPredicate = (left: Row, right: Row) => boolean
 export type TableRef = string | { $meta: { name: string } } | { node: { name: string } }
 export type SqlExpr = SQL | SqlNode
-export type AggSpec = { name: string; kind: AggKind; field: string }
-export type SortKey = { field: string; dir: 'asc' | 'desc' }
+export type AggSpec = { name: string; kind: AggKind; field: string; distinct?: boolean }
+export type SortKey = { field: string; dir: 'asc' | 'desc'; eval?: (row: Row) => unknown }
 export type Projection = Array<{ alias: string; expr: SqlExpr }>
-export type PhysicalOp = { op: 'SeqScan'; table: TableRef } | { op: 'IndexScan'; table: TableRef; indexName: string; range?: { start?: number; end?: number } } | { op: 'Filter'; child: PhysicalOp; predicate: RowPredicate } | { op: 'Projection'; child: PhysicalOp; fields: string[] } | { op: 'NestedLoopJoin'; left: PhysicalOp; right: PhysicalOp; predicate: JoinPredicate } | { op: 'HashJoin'; left: PhysicalOp; right: PhysicalOp; leftKey: string; rightKey: string } | { op: 'Aggregate'; child: PhysicalOp; groupBy: string[]; aggs: AggSpec[] } | { op: 'Sort'; child: PhysicalOp; keys: SortKey[] } | { op: 'Update'; table: TableRef; predicate?: RowPredicate; setters?: Record<string, RowSetter> } | { op: 'Delete'; table: TableRef; predicate?: RowPredicate } | { op: 'Insert'; table: TableRef; values: Row[]; returning?: boolean } | { op: 'Select'; table?: TableRef; projection?: Projection; where?: SqlExpr; groupBy?: unknown[]; orderBy?: unknown[]; limit?: number; offset?: number }
+export interface SeqScanOp { op: 'SeqScan'; table: TableRef }
+export interface IndexScanOp { op: 'IndexScan'; table: TableRef; indexName: string; range?: { start?: number; end?: number } }
+export interface FilterOp { op: 'Filter'; child: PhysicalOp; predicate: RowPredicate }
+export type ProjectorSpec = { alias: string; eval: RowSetter }
+export interface ProjectionOp { op: 'Projection'; child: PhysicalOp; fields: string[]; projectors?: ProjectorSpec[] }
+export interface NestedLoopJoinOp { op: 'NestedLoopJoin'; left: PhysicalOp; right: PhysicalOp; predicate: JoinPredicate }
+export interface HashJoinOp { op: 'HashJoin'; left: PhysicalOp; right: PhysicalOp; leftKey: string; rightKey: string }
+export interface AggregateOp { op: 'Aggregate'; child: PhysicalOp; groupBy: string[]; aggs: AggSpec[] }
+export interface SortOp { op: 'Sort'; child: PhysicalOp; keys: SortKey[] }
+export interface UpdateOp { op: 'Update'; table: TableRef; predicate?: RowPredicate; setters?: Record<string, RowSetter>; returning?: boolean }
+export interface DeleteOp { op: 'Delete'; table: TableRef; predicate?: RowPredicate; returning?: boolean }
+export interface InsertOp { op: 'Insert'; table: TableRef; values: Row[]; returning?: boolean }
+export interface SelectOp { op: 'Select'; table?: TableRef; projection?: Projection; where?: SqlExpr; groupBy?: unknown[]; orderBy?: unknown[]; limit?: number; offset?: number }
+export type PhysicalOp = SeqScanOp | IndexScanOp | FilterOp | ProjectionOp | NestedLoopJoinOp | HashJoinOp | AggregateOp | SortOp | UpdateOp | DeleteOp | InsertOp | SelectOp
 export type LogicalOp = 'Select' | 'Insert' | 'Update' | 'Delete' | 'InitAll'
 export interface InitAllAst {
         op: 'InitAll'
@@ -78,3 +104,7 @@ export interface InitAllAst {
         count?: number
         adapters?: unknown[]
 }
+export interface EmptyAst {
+        op?: undefined
+}
+export type ExecuteAst = PhysicalOp | InitAllAst | EmptyAst

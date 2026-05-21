@@ -1,11 +1,10 @@
-import type { SQL, SqlValue, Row, Rid, PhysicalOp, ColumnType } from '../shared/types'
-import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst } from './types'
+import type { SQL, SqlNode, SqlValue, Row, Rid, PhysicalOp, ColumnType } from '../shared/types'
+import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinClause, ProjItem } from './types'
 import { createDatabase as createBackend } from '../backend/index'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect, tableNameOf } from './plan'
 export type { DatabaseConfig } from './types'
 type Backend = ReturnType<typeof createBackend>
-type ProjItem = { alias: string; expr: SQL }
 type RunFn = (ast: SelectAst | InsertAst | UpdateAst | DeleteAst) => unknown
 const isSqlValue = (v: unknown): v is SQL => !!v && typeof v === 'object' && (v as { kind?: string }).kind === 'sql'
 const projectionOf = (fields?: Columns | Record<string, SQL>): ProjItem[] | undefined => {
@@ -15,19 +14,61 @@ const projectionOf = (fields?: Columns | Record<string, SQL>): ProjItem[] | unde
         return out
 }
 interface ColDef {
+        key: string
+        name: string
         type: ColumnType
         isPrimary: boolean
         isUnique: boolean
         hasOrder: boolean
+        notNull: boolean
+        isText: boolean
+        defaultValue?: unknown
+        defaultFn?: () => unknown
+        references?: { table: string; column: string; onDelete?: string }
+}
+// the property key under which a column is exposed on its table object.
+const propertyKeyOf = (table: Table, col: Table['$meta']['columns'][number]): string => {
+        const rec = table as unknown as Record<string, unknown>
+        for (const k in rec) {
+                if (k === '$meta' || k === 'kind' || k === 'node') continue
+                if (rec[k] === col) return k
+        }
+        return col.$col.name
+}
+const resolveReference = (col: Table['$meta']['columns'][number]): ColDef['references'] => {
+        const ref = col.$col.references
+        if (!ref) return undefined
+        const target = ref.fn() as { $col?: { name?: string; tableName?: string } }
+        const tc = target?.$col
+        if (!tc || !tc.tableName || !tc.name) return undefined
+        return { table: tc.tableName, column: tc.name, onDelete: ref.onDelete }
+}
+const columnDefsOf = (table: Table): Record<string, ColDef> => {
+        const def: Record<string, ColDef> = {}
+        for (const col of table.$meta.columns) {
+                const c = col.$col
+                def[propertyKeyOf(table, col)] = {
+                        key: propertyKeyOf(table, col),
+                        name: c.name,
+                        type: c.type,
+                        isPrimary: !!c.primaryKey,
+                        isUnique: !!c.unique,
+                        hasOrder: !!c.hasOrder,
+                        notNull: !!c.notNull || !!c.primaryKey,
+                        isText: c.tag === 'str',
+                        defaultValue: c.defaultValue,
+                        defaultFn: c.defaultFn,
+                        references: resolveReference(col),
+                }
+        }
+        return def
 }
 const registerTables = (backend: Backend, tables: Record<string, Table>) => {
         if (!backend?.catalog?.register) return
         for (const key in tables) {
                 const meta = tables[key].$meta
                 if (!meta) continue
-                const def: Record<string, ColDef> = {}
-                for (const col of meta.columns) def[col.$col.name] = { type: col.$col.type, isPrimary: !!col.$col.primaryKey, isUnique: !!col.$col.unique, hasOrder: !!col.$col.hasOrder }
-                backend.catalog.register(meta.name, def)
+                backend.catalog.register(meta.name, columnDefsOf(tables[key]))
         }
 }
 const generateInitRows = (table: Table, count: number): Row[] => {
@@ -77,20 +118,362 @@ const dispatch = (backend: Backend | null, cfg: DatabaseConfig, plan: PhysicalOp
         return { error: 'no-backend', op: plan.op } as DispatchError
 }
 const isDispatchError = (v: unknown): v is DispatchError => !!v && typeof v === 'object' && (v as DispatchError).error === 'no-backend'
+const stripRid = (row: Row): Row => {
+        if (!row || typeof row !== 'object' || !('__rid' in row)) return row
+        const out: Row = {}
+        for (const k in row) if (k !== '__rid') out[k] = row[k]
+        return out
+}
+const dedupeRows = (rows: Row[]): Row[] => {
+        const seen = new Set<string>()
+        const out: Row[] = []
+        for (const row of rows) {
+                const key = JSON.stringify(row)
+                if (seen.has(key)) continue
+                seen.add(key)
+                out.push(row)
+        }
+        return out
+}
+const nodeOf = (e: unknown): SqlNode | undefined => {
+        if (!e || typeof e !== 'object') return undefined
+        if ((e as { kind?: string }).kind === 'sql') return (e as SQL).node
+        if ('type' in (e as object)) return e as SqlNode
+        return undefined
+}
+// evaluate a SqlNode against a join row keyed by table name -> column DB names.
+const evalJoin = (node: unknown, row: Record<string, Row | null>): unknown => {
+        const n = nodeOf(node)
+        if (!n) return node
+        if (n.type === 'literal' || n.type === 'raw') return (n as { value: unknown }).value
+        if (n.type === 'column') {
+                if (n.tableName && Object.prototype.hasOwnProperty.call(row, n.tableName)) {
+                        const tbl = row[n.tableName]
+                        return tbl ? tbl[n.name] : null
+                }
+                for (const k in row) {
+                        const t = row[k]
+                        if (t && n.name in t) return t[n.name]
+                }
+                return undefined
+        }
+        if (n.type === 'binop') {
+                const args = (n.args || []).map((a) => evalJoin(a, row))
+                if (n.op === 'and') return args.every((x) => !!x)
+                if (n.op === 'or') return args.some((x) => !!x)
+                const [a, b] = args as [any, any]
+                if (n.op === '=') return a === b
+                if (n.op === '!=') return a !== b
+                if (n.op === '<') return a < b
+                if (n.op === '<=') return a <= b
+                if (n.op === '>') return a > b
+                if (n.op === '>=') return a >= b
+                if (n.op === 'in') return Array.isArray(b) ? b.includes(a) : false
+                if (a === null || a === undefined || b === null || b === undefined) return null
+                if (n.op === '+') return a + b
+                if (n.op === '-') return a - b
+                if (n.op === '*') return a * b
+                if (n.op === '/') return b === 0 ? 0 : a / b
+                if (n.op === '%') return b === 0 ? 0 : a % b
+                return undefined
+        }
+        if (n.type === 'unop') {
+                const v = evalJoin((n.args || [])[0], row)
+                if (n.op === 'not') return !v
+                if (n.op === 'isNull') return v === null || v === undefined
+                if (n.op === 'isNotNull') return v !== null && v !== undefined
+                return undefined
+        }
+        if (n.type === 'func') {
+                const args = (n.args || []).map((a) => evalJoin(a, row))
+                if (n.name === 'toFloat') return Number(args[0])
+                if (n.name === 'toInt') return Number(args[0]) | 0
+                if (n.name === 'toBool') return !!args[0]
+                if (n.name === 'between') return (args[0] as number) >= (args[1] as number) && (args[0] as number) <= (args[2] as number)
+                return undefined
+        }
+        if (n.type === 'list') return (n.items || []).map((a) => evalJoin(a, row))
+        return undefined
+}
+// fetch every row of one table through the backend SeqScan.
+const readTableRows = async (backend: Backend | null, cfg: DatabaseConfig, table: Table): Promise<Row[]> => {
+        const plan: PhysicalOp = { op: 'SeqScan', table: tableNameOf(table) }
+        const rows = await Promise.resolve(dispatch(backend, cfg, plan))
+        return (Array.isArray(rows) ? (rows as Row[]) : []).map(stripRid)
+}
+// the table names a nested projection spec's columns all reference.
+const nestedTablesOf = (spec: Record<string, SQL>): Set<string> => {
+        const tables = new Set<string>()
+        for (const fk in spec) {
+                const n = nodeOf(spec[fk])
+                if (n && n.type === 'column' && n.tableName) tables.add(n.tableName)
+        }
+        return tables
+}
+// project one join row, supporting flat aliases and nested table objects;
+// a nested object whose source table was null-filled collapses to null.
+const projectJoinRow = (joinRow: Record<string, Row | null>, projection: ProjItem[] | undefined): Row => {
+        if (!projection) {
+                const out: Row = {}
+                for (const k in joinRow) out[k] = joinRow[k]
+                return out
+        }
+        const out: Row = {}
+        for (const p of projection) {
+                const expr = p.expr as unknown
+                if (expr && typeof expr === 'object' && !nodeOf(expr)) {
+                        const spec = expr as Record<string, SQL>
+                        const tables = nestedTablesOf(spec)
+                        const allNull = tables.size > 0 && [...tables].every((t) => joinRow[t] === null)
+                        if (allNull) {
+                                out[p.alias] = null
+                                continue
+                        }
+                        const nested: Row = {}
+                        for (const fk in spec) nested[fk] = evalJoin(spec[fk], joinRow)
+                        out[p.alias] = nested
+                        continue
+                }
+                out[p.alias] = evalJoin(expr, joinRow)
+        }
+        return out
+}
+// self-join match: the on clause's two column args resolve to the left and
+// right rows of the same table respectively (no Drizzle alias() in tests).
+const matchSelfJoin = (on: SQL, table: string, left: Row, right: Row): boolean => {
+        const n = nodeOf(on)
+        if (!n || n.type !== 'binop') return !!evalJoin(on, { [table]: left })
+        const a = evalJoin(n.args[0], { [table]: left })
+        const b = evalJoin(n.args[1], { [table]: right })
+        if (n.op === '=') return a === b
+        if (n.op === '!=') return a !== b
+        if (n.op === '<') return (a as number) < (b as number)
+        if (n.op === '<=') return (a as number) <= (b as number)
+        if (n.op === '>') return (a as number) > (b as number)
+        if (n.op === '>=') return (a as number) >= (b as number)
+        return false
+}
+const runJoinSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: SelectAst): Promise<unknown> => {
+        if (!ast.table) return []
+        const joins = ast.joins ?? []
+        let acc: Array<Record<string, Row | null>> = (await readTableRows(backend, cfg, ast.table)).map((r) => ({ [ast.table!.$meta.name]: r }))
+        for (const j of joins) {
+                const rightRows = await readTableRows(backend, cfg, j.table)
+                const rname = j.table.$meta.name
+                const isSelf = acc.length > 0 && Object.prototype.hasOwnProperty.call(acc[0], rname)
+                const next: Array<Record<string, Row | null>> = []
+                const rightMatched = new Set<Row>()
+                for (const left of acc) {
+                        let matched = false
+                        for (const right of rightRows) {
+                                const leftSelf = left[rname]
+                                const ok = isSelf
+                                        ? leftSelf !== null && matchSelfJoin(j.on, rname, leftSelf, right)
+                                        : !!evalJoin(j.on, { ...left, [rname]: right })
+                                if (!ok) continue
+                                next.push(isSelf ? { ...left } : { ...left, [rname]: right })
+                                matched = true
+                                rightMatched.add(right)
+                        }
+                        if (!matched && (j.kind === 'left' || j.kind === 'full')) next.push(isSelf ? { ...left } : { ...left, [rname]: null })
+                }
+                if (!isSelf && (j.kind === 'right' || j.kind === 'full')) {
+                        for (const right of rightRows) {
+                                if (rightMatched.has(right)) continue
+                                const blank: Record<string, Row | null> = { [rname]: right }
+                                for (const k in acc[0] ?? {}) if (k !== rname) blank[k] = null
+                                next.push(blank)
+                        }
+                }
+                acc = next
+        }
+        const filtered = ast.where ? acc.filter((r) => !!evalJoin(ast.where, r)) : acc
+        let out = filtered.map((r) => projectJoinRow(r, ast.projection))
+        if (ast.groupBy && ast.groupBy.length > 0) out = groupJoinRows(filtered, ast)
+        if (ast.having) out = out.filter((r) => havingPass(ast, r))
+        if (ast.orderBy && ast.orderBy.length > 0) out = sortJoinRows(out, ast)
+        if (ast.distinct) out = dedupeRows(out)
+        const offset = ast.offset ?? 0
+        if (ast.offset !== undefined || ast.limit !== undefined) {
+                const end = ast.limit !== undefined ? offset + ast.limit : out.length
+                return out.slice(offset, end)
+        }
+        return out
+}
+const groupJoinRows = (rows: Array<Record<string, Row | null>>, ast: SelectAst): Row[] => {
+        const groupBy = ast.groupBy ?? []
+        const buckets = new Map<string, { rows: Array<Record<string, Row | null>>; sample: Record<string, Row | null> }>()
+        const order: string[] = []
+        for (const r of rows) {
+                const k = groupBy.map((g) => evalJoin(g, r)).join('|')
+                let b = buckets.get(k)
+                if (!b) {
+                        b = { rows: [], sample: r }
+                        buckets.set(k, b)
+                        order.push(k)
+                }
+                b.rows.push(r)
+        }
+        const out: Row[] = []
+        for (const k of order) {
+                const b = buckets.get(k)!
+                const row: Row = {}
+                for (const p of ast.projection ?? []) {
+                        const node = nodeOf(p.expr)
+                        if (node?.type === 'aggregate') {
+                                row[p.alias] = aggregateOver(node, b.rows)
+                                continue
+                        }
+                        row[p.alias] = evalJoin(p.expr, b.sample)
+                }
+                out.push(row)
+        }
+        return out
+}
+const aggregateOver = (node: SqlNode & { type: 'aggregate' }, rows: Array<Record<string, Row | null>>): unknown => {
+        const arg = node.args && node.args[0]
+        const values = rows.map((r) => (arg ? evalJoin(arg, r) : 1)).filter((v) => v !== null && v !== undefined)
+        if (node.name === 'count') {
+                if (node.distinct) return new Set(values).size
+                return arg ? values.length : rows.length
+        }
+        const nums = values.map((v) => Number(v))
+        if (node.name === 'sum') return nums.length ? String(nums.reduce((a, b) => a + b, 0)) : null
+        if (node.name === 'avg') return nums.length ? String(nums.reduce((a, b) => a + b, 0) / nums.length) : null
+        if (node.name === 'min') return nums.length ? Math.min(...nums) : null
+        if (node.name === 'max') return nums.length ? Math.max(...nums) : null
+        return null
+}
+const sortJoinRows = (rows: Row[], ast: SelectAst): Row[] => {
+        const keys = (ast.orderBy ?? []).map((o) => {
+                const n = nodeOf(o)
+                if (n && n.type === 'order') return { node: n.col as unknown, dir: n.dir }
+                return { node: o as unknown, dir: 'asc' as const }
+        })
+        const num = (v: unknown) => (typeof v === 'string' && v !== '' && !isNaN(Number(v)) ? Number(v) : v)
+        return rows.slice().sort((a, b) => {
+                for (const k of keys) {
+                        const kn = nodeOf(k.node)
+                        const field = kn && kn.type === 'column' ? kn.name : ''
+                        const av = num(a[field])
+                        const bv = num(b[field])
+                        if ((av as number) < (bv as number)) return k.dir === 'desc' ? 1 : -1
+                        if ((av as number) > (bv as number)) return k.dir === 'desc' ? -1 : 1
+                }
+                return 0
+        })
+}
+// signature of an aggregate node: kind + the column it reduces.
+const aggSig = (node: SqlNode | undefined): string | undefined => {
+        if (!node || node.type !== 'aggregate') return undefined
+        const arg = nodeOf((node.args || [])[0])
+        const field = arg && arg.type === 'column' ? arg.name : ''
+        return `${node.name}:${node.distinct ? 'd' : ''}:${field}`
+}
+// evaluate a HAVING clause against a collapsed group row; aggregate references
+// resolve to the projected alias holding the same aggregate.
+const havingValue = (node: unknown, row: Row, ast: SelectAst): unknown => {
+        const n = nodeOf(node)
+        if (!n) return node
+        if (n.type === 'literal' || n.type === 'raw') return (n as { value: unknown }).value
+        if (n.type === 'aggregate') {
+                const sig = aggSig(n)
+                for (const p of ast.projection ?? []) if (aggSig(nodeOf(p.expr)) === sig) return row[p.alias]
+                return undefined
+        }
+        if (n.type === 'column') return row[n.name]
+        if (n.type === 'binop') {
+                const a = havingValue(n.args[0], row, ast)
+                const b = havingValue(n.args[1], row, ast)
+                const an = typeof a === 'string' && a !== '' && !isNaN(Number(a)) ? Number(a) : a
+                const bn = typeof b === 'string' && b !== '' && !isNaN(Number(b)) ? Number(b) : b
+                if (n.op === 'and') return n.args.every((x) => !!havingValue(x, row, ast))
+                if (n.op === 'or') return n.args.some((x) => !!havingValue(x, row, ast))
+                if (n.op === '=') return an === bn
+                if (n.op === '!=') return an !== bn
+                if (n.op === '<') return (an as number) < (bn as number)
+                if (n.op === '<=') return (an as number) <= (bn as number)
+                if (n.op === '>') return (an as number) > (bn as number)
+                if (n.op === '>=') return (an as number) >= (bn as number)
+                return undefined
+        }
+        if (n.type === 'unop') return n.op === 'not' ? !havingValue(n.args[0], row, ast) : undefined
+        return undefined
+}
+const havingPass = (ast: SelectAst, row: Row): boolean => !!havingValue(ast.having, row, ast)
 const runSelect = async (backend: Backend | null, cfg: DatabaseConfig, ast: SelectAst, ctx: EvalCtx): Promise<unknown> => {
-        const { plan, proj } = planSelect(ast, ctx)
+        if (ast.joins && ast.joins.length > 0) return runJoinSelect(backend, cfg, ast)
+        const { plan } = planSelect(ast, ctx)
         const rows = await Promise.resolve(dispatch(backend, cfg, plan))
         if (isDispatchError(rows)) return rows
-        const arr = Array.isArray(rows) ? (rows as Row[]) : []
-        if (proj.hasAgg && (!ast.groupBy || ast.groupBy.length === 0)) return arr[0] ?? {}
-        if (ast.limit !== undefined) return arr.slice(0, ast.limit)
+        let arr = (Array.isArray(rows) ? (rows as Row[]) : []).map(stripRid)
+        if (ast.distinct) arr = dedupeRows(arr)
+        if (ast.having) arr = arr.filter((r) => havingPass(ast, r))
+        const offset = ast.offset ?? 0
+        if (ast.offset !== undefined || ast.limit !== undefined) {
+                const end = ast.limit !== undefined ? offset + ast.limit : arr.length
+                return arr.slice(offset, end)
+        }
         return arr
 }
-const runInsert = (backend: Backend | null, cfg: DatabaseConfig, ast: InsertAst): unknown => {
+// all currently stored values of one DB-named column.
+const columnValues = (backend: Backend, table: Table, dbName: string): unknown[] => {
+        const rel = backend.catalog.find(tableNameOf(table))
+        if (!rel) return []
+        const idx = rel.columns.findIndex((c) => c.name === dbName)
+        if (idx < 0) return []
+        const out: unknown[] = []
+        rel.heaps[0].scan((rid) => void out.push(backend.catalog.readRow(rel, rid)[dbName]))
+        return out
+}
+// reject inserts that omit a notNull column or collide on a unique column.
+const assertInsert = (backend: Backend, table: Table, rows: Record<string, unknown>[]): void => {
+        for (const col of table.$meta.columns) {
+                const c = col.$col
+                const key = propertyKeyOf(table, col)
+                const isNotNull = !!c.notNull || !!c.primaryKey
+                const hasDefault = c.defaultValue !== undefined || !!c.defaultFn
+                for (const row of rows) {
+                        const has = Object.prototype.hasOwnProperty.call(row, key)
+                        const v = has ? row[key] : undefined
+                        if (isNotNull && !hasDefault && (v === undefined || v === null)) throw new Error(`null value in notNull column: ${c.name}`)
+                }
+                if (c.unique || c.primaryKey) {
+                        const existing = new Set(columnValues(backend, table, c.name))
+                        const seen = new Set<unknown>()
+                        for (const row of rows) {
+                                const v = Object.prototype.hasOwnProperty.call(row, key) ? row[key] : undefined
+                                if (v === undefined || v === null) continue
+                                if (existing.has(v) || seen.has(v)) throw new Error(`unique violation: ${c.name}`)
+                                seen.add(v)
+                        }
+                }
+        }
+}
+// reject updates that null a notNull column or collide on a unique column.
+const assertConstraints = (backend: Backend, table: Table, set: Record<string, SqlValue> | undefined, predicate: (row: Row) => boolean, _mode: string): void => {
+        if (!set) return
+        const rel = backend.catalog.find(tableNameOf(table))
+        if (!rel) return
+        for (const col of table.$meta.columns) {
+                const c = col.$col
+                const key = propertyKeyOf(table, col)
+                if (!(key in set)) continue
+                const v = set[key]
+                const isNotNull = !!c.notNull || !!c.primaryKey
+                if (isNotNull && v === null) throw new Error(`null value in notNull column: ${c.name}`)
+                if ((c.unique || c.primaryKey) && v !== null && !isSqlValue(v)) {
+                        const existing = columnValues(backend, table, c.name)
+                        if (existing.includes(v)) throw new Error(`unique violation: ${c.name}`)
+                }
+        }
+}
+const runInsert = async (backend: Backend | null, cfg: DatabaseConfig, ast: InsertAst): Promise<unknown> => {
         const rows = ast.values ?? []
         const plan: PhysicalOp = { op: 'Insert', table: tableNameOf(ast.table), values: rows, returning: !!ast.returning }
         if (cfg.execute) return cfg.execute(plan)
         if (!backend) return { error: 'no-backend', op: 'Insert' } as DispatchError
+        assertInsert(backend, ast.table, rows)
         const rids: Rid[] = []
         for (const row of rows) {
                 const rid = backend.catalog.insertRow(tableNameOf(ast.table), row)
@@ -98,7 +481,7 @@ const runInsert = (backend: Backend | null, cfg: DatabaseConfig, ast: InsertAst)
         }
         return ast.returning ? rids : { rowCount: rids.length }
 }
-const runUpdate = (backend: Backend | null, cfg: DatabaseConfig, ast: UpdateAst, ctx: EvalCtx): unknown => {
+const runUpdate = async (backend: Backend | null, cfg: DatabaseConfig, ast: UpdateAst, ctx: EvalCtx): Promise<unknown> => {
         const predicate = ast.where ? compilePredicate(ast.where, ctx) : () => true
         const setters: Record<string, (row: Row) => unknown> = {}
         for (const k in ast.set ?? {}) {
@@ -106,13 +489,27 @@ const runUpdate = (backend: Backend | null, cfg: DatabaseConfig, ast: UpdateAst,
                 if (isSqlValue(v)) setters[k] = compileExpr(v, ctx)
                 else setters[k] = () => v
         }
-        return dispatch(backend, cfg, { op: 'Update', table: tableNameOf(ast.table), predicate, setters })
+        if (backend) assertConstraints(backend, ast.table, ast.set, predicate, 'update')
+        const rows = await Promise.resolve(dispatch(backend, cfg, { op: 'Update', table: tableNameOf(ast.table), predicate, setters, returning: !!ast.returning }))
+        if (isDispatchError(rows)) return rows
+        const arr = Array.isArray(rows) ? (rows as Row[]) : []
+        if (ast.returning) return arr.map(stripRid)
+        return (arr[0] as Row) ?? { rowCount: 0, changes: 0 }
 }
-const runDelete = (backend: Backend | null, cfg: DatabaseConfig, ast: DeleteAst, ctx: EvalCtx): unknown => {
+const runDelete = async (backend: Backend | null, cfg: DatabaseConfig, ast: DeleteAst, ctx: EvalCtx): Promise<unknown> => {
         const predicate = ast.where ? compilePredicate(ast.where, ctx) : () => true
-        return dispatch(backend, cfg, { op: 'Delete', table: tableNameOf(ast.table), predicate })
+        const rows = await Promise.resolve(dispatch(backend, cfg, { op: 'Delete', table: tableNameOf(ast.table), predicate, returning: !!ast.returning }))
+        if (isDispatchError(rows)) return rows
+        const arr = Array.isArray(rows) ? (rows as Row[]) : []
+        if (ast.returning) return arr.map(stripRid)
+        return (arr[0] as Row) ?? { rowCount: 0, deleted: 0 }
 }
 const makeSelect = (run: RunFn, ast: SelectAst) => {
+        const addJoin = (kind: JoinClause['kind'], table: Table, on: SQL) => {
+                ast.joins = ast.joins ?? []
+                ast.joins.push({ kind, table, on })
+                return b
+        }
         const b = {
                 from(t: Table) {
                         ast.table = t
@@ -124,6 +521,10 @@ const makeSelect = (run: RunFn, ast: SelectAst) => {
                 },
                 groupBy(...cols: SQL[]) {
                         ast.groupBy = cols
+                        return b
+                },
+                having(c?: SQL) {
+                        if (c) ast.having = c
                         return b
                 },
                 orderBy(...cols: SQL[]) {
@@ -138,6 +539,18 @@ const makeSelect = (run: RunFn, ast: SelectAst) => {
                         ast.offset = n
                         return b
                 },
+                innerJoin(table: Table, on: SQL) {
+                        return addJoin('inner', table, on)
+                },
+                leftJoin(table: Table, on: SQL) {
+                        return addJoin('left', table, on)
+                },
+                rightJoin(table: Table, on: SQL) {
+                        return addJoin('right', table, on)
+                },
+                fullJoin(table: Table, on: SQL) {
+                        return addJoin('full', table, on)
+                },
                 toAST() {
                         return ast
                 },
@@ -149,6 +562,8 @@ const makeSelect = (run: RunFn, ast: SelectAst) => {
 }
 const makeInsert = (run: RunFn, t: Table) => {
         const ast: InsertAst = { op: 'Insert', table: t }
+        let promise: Promise<unknown> | null = null
+        const fire = () => (promise ?? (promise = Promise.resolve(run(ast))))
         const b = {
                 values(rows: Record<string, number> | Record<string, number>[]) {
                         ast.values = Array.isArray(rows) ? rows : [rows]
@@ -159,13 +574,18 @@ const makeInsert = (run: RunFn, t: Table) => {
                         return b
                 },
                 then(r: (v: unknown) => unknown, j?: (e: unknown) => unknown) {
-                        return Promise.resolve(run(ast)).then(r, j)
+                        return fire().then(r, j)
+                },
+                catch(j: (e: unknown) => unknown) {
+                        return fire().catch(j)
                 },
         }
         return b
 }
 const makeUpdate = (run: RunFn, t: Table) => {
         const ast: UpdateAst = { op: 'Update', table: t }
+        let promise: Promise<unknown> | null = null
+        const fire = () => (promise ?? (promise = Promise.resolve(run(ast))))
         const b = {
                 set(v: Record<string, SqlValue>) {
                         ast.set = v
@@ -179,66 +599,62 @@ const makeUpdate = (run: RunFn, t: Table) => {
                         if (c) ast.where = c
                         return b
                 },
+                returning() {
+                        ast.returning = true
+                        return b
+                },
                 then(r: (v: unknown) => unknown, j?: (e: unknown) => unknown) {
-                        return Promise.resolve(run(ast)).then(r, j)
+                        return fire().then(r, j)
+                },
+                catch(j: (e: unknown) => unknown) {
+                        return fire().catch(j)
                 },
         }
         return b
 }
 const makeDelete = (run: RunFn, t: Table) => {
         const ast: DeleteAst = { op: 'Delete', table: t }
+        let promise: Promise<unknown> | null = null
+        const fire = () => (promise ?? (promise = Promise.resolve(run(ast))))
         const b = {
                 where(c?: SQL) {
                         if (c) ast.where = c
                         return b
                 },
+                returning() {
+                        ast.returning = true
+                        return b
+                },
                 then(r: (v: unknown) => unknown, j?: (e: unknown) => unknown) {
-                        return Promise.resolve(run(ast)).then(r, j)
+                        return fire().then(r, j)
+                },
+                catch(j: (e: unknown) => unknown) {
+                        return fire().catch(j)
                 },
         }
         return b
 }
-const wrapVal = (v: SqlValue): SQL => (v && (v as SQL).kind === 'sql' ? (v as SQL) : ({ kind: 'sql', node: { type: 'literal', value: v } } as SQL))
-const attachExpr = (node: SQL['node']): SQL => {
-        const self = { kind: 'sql' as const, node } as SQL
-        const mk = (n: SQL['node']) => attachExpr(n)
-        self.add = (v) => mk({ type: 'binop', op: '+', args: [self, wrapVal(v)] })
-        self.sub = (v) => mk({ type: 'binop', op: '-', args: [self, wrapVal(v)] })
-        self.mul = (v) => mk({ type: 'binop', op: '*', args: [self, wrapVal(v)] })
-        self.div = (v) => mk({ type: 'binop', op: '/', args: [self, wrapVal(v)] })
-        self.mod = (v) => mk({ type: 'binop', op: '%', args: [self, wrapVal(v)] })
-        self.eq = (v) => mk({ type: 'binop', op: '=', args: [self, wrapVal(v)] })
-        self.ne = (v) => mk({ type: 'binop', op: '!=', args: [self, wrapVal(v)] })
-        self.lt = (v) => mk({ type: 'binop', op: '<', args: [self, wrapVal(v)] })
-        self.lte = (v) => mk({ type: 'binop', op: '<=', args: [self, wrapVal(v)] })
-        self.gt = (v) => mk({ type: 'binop', op: '>', args: [self, wrapVal(v)] })
-        self.gte = (v) => mk({ type: 'binop', op: '>=', args: [self, wrapVal(v)] })
-        self.toFloat = () => mk({ type: 'func', name: 'toFloat', args: [self] })
-        self.toInt = () => mk({ type: 'func', name: 'toInt', args: [self] })
-        self.toBool = () => mk({ type: 'func', name: 'toBool', args: [self] })
-        self.at = (i) => mk({ type: 'func', name: 'at', args: [self, wrapVal(i)] })
-        return self
-}
-const currentTupleProxy = (table: Table) => {
+// per-row tick proxy: c.col reads the current row's scalar value live, while
+// $meta keeps table introspection available.
+const currentTupleProxy = (table: Table, ctx: EvalCtx) => {
         const meta = table.$meta
         const handler: ProxyHandler<Record<string, unknown>> = {
                 get(_t, prop) {
                         if (prop === '$meta') return meta
-                        return attachExpr({ type: 'currentTuple', col: String(prop), tableName: meta.name })
+                        const key = String(prop)
+                        const cur = ctx.current
+                        if (cur && key in cur) return cur[key]
+                        const col = meta.columns.find((c) => c.$col.name === key)
+                        return col ? cur?.[col.$col.name] : undefined
                 },
         }
         return new Proxy({}, handler)
 }
 const iterateTable = (backend: Backend, tableName: string): Row[] => {
-        const rel = backend.catalog.resolve(tableName)
+        const rel = backend.catalog.find(tableName)
         if (!rel) return []
-        const desc = backend.catalog.tupleDescriptor(rel)
         const rows: Row[] = []
-        rel.heaps[0].scan((rid) => {
-                const row: Row = { __rid: rid }
-                for (const col of desc.columns) row[col.name] = col.heap.read(rid)
-                rows.push(row)
-        })
+        rel.heaps[0].scan((rid) => void rows.push(backend.catalog.readRow(rel, rid)))
         return rows
 }
 const isConfig = (v: unknown): v is DatabaseConfig => {
@@ -269,30 +685,81 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
         }
         const buildTx = () => ({
                 select: (fields?: Columns | Record<string, SQL>) => makeSelect(run, { op: 'Select', projection: projectionOf(fields) }),
+                selectDistinct: (fields?: Columns | Record<string, SQL>) => makeSelect(run, { op: 'Select', projection: projectionOf(fields), distinct: true }),
                 insert: (t: Table) => makeInsert(run, t),
                 update: (t: Table) => makeUpdate(run, t),
                 delete: (t: Table) => makeDelete(run, t),
         })
-        type Tx = ReturnType<typeof buildTx>
+        type TxApi = ReturnType<typeof buildTx>
+        type Tx = TxApi & { rollback(): never; transaction<T>(fn: (inner: Tx) => Promise<T> | T): Promise<T> }
         type TickRunner = { run(extra?: unknown): Promise<unknown> }
-        const transaction = (fn: (tx: Tx, c?: unknown) => Promise<unknown> | unknown): TickRunner => ({
+        const ROLLBACK = Symbol('rollback')
+        const isRollback = (e: unknown): boolean => !!e && typeof e === 'object' && (e as { __rollback?: symbol }).__rollback === ROLLBACK
+        // run one transaction scope: snapshot, run, commit on success, restore on
+        // throw; an explicit rollback resolves normally, other errors propagate.
+        const runScope = async <T>(fn: (tx: Tx) => Promise<T> | T): Promise<T> => {
+                const snap = backend ? backend.catalog.snapshot() : null
+                const tx = buildTxHandle()
+                type Settled = { ok: true; value: T } | { ok: false; error: unknown }
+                const settled: Settled = await Promise.resolve(fn(tx)).then(
+                        (value: T): Settled => ({ ok: true, value }),
+                        (error: unknown): Settled => ({ ok: false, error }),
+                )
+                if (settled.ok) return settled.value
+                if (backend && snap) backend.catalog.restore(snap)
+                if (isRollback(settled.error)) return undefined as T
+                throw settled.error
+        }
+        const buildTxHandle = (): Tx => {
+                const base = buildTx()
+                const handle = {
+                        ...base,
+                        rollback(): never {
+                                throw { __rollback: ROLLBACK }
+                        },
+                        transaction<T>(fn: (inner: Tx) => Promise<T> | T): Promise<T> {
+                                return runScope(fn)
+                        },
+                } as Tx
+                return handle
+        }
+        const runCallback = <R>(fn: (tx: Tx) => Promise<R> | R): Promise<R> => runScope(fn)
+        function transaction<R>(fn: (tx: Tx) => Promise<R> | R): Promise<R>
+        function transaction(fn: (tx: Tx, c: unknown) => Promise<unknown> | unknown): TickRunner
+        function transaction(fn: (tx: Tx, c?: unknown) => Promise<unknown> | unknown): Promise<unknown> | TickRunner {
+                if (!usesCurrentTuple(fn as (...args: unknown[]) => unknown)) return runCallback(fn as (tx: Tx) => unknown)
+                return tickRunner(fn)
+        }
+        const tickRunner = (fn: (tx: Tx, c?: unknown) => Promise<unknown> | unknown): TickRunner => ({
                 async run(extra?: unknown) {
-                        if (!usesCurrentTuple(fn as (...args: unknown[]) => unknown)) return fn(buildTx())
                         const primary = Object.values(tables)[0] as Table | undefined
                         if (!primary || !backend) return extra
-                        const proxy = currentTupleProxy(primary)
+                        const proxy = currentTupleProxy(primary, ctx)
                         const rows = iterateTable(backend, tableNameOf(primary))
                         for (const row of rows) {
                                 ctx.current = row
-                                await Promise.resolve(fn(buildTx(), proxy))
+                                await Promise.resolve(fn(buildTxHandle(), proxy))
                         }
                         ctx.current = null
                         return extra
                 },
         })
+        // Drizzle $count shortcut: resolves directly to a row count.
+        const $count = async (table: Table, predicate?: SQL): Promise<number> => {
+                if (!backend) return 0
+                const rel = backend.catalog.find(tableNameOf(table))
+                if (!rel) return 0
+                const pred = predicate ? compilePredicate(predicate, ctx) : () => true
+                let n = 0
+                rel.heaps[0].scan((rid) => {
+                        if (pred(backend.catalog.readRow(rel, rid))) n++
+                })
+                return n
+        }
         const api = {
                 ...buildTx(),
                 transaction,
+                $count,
                 use(adapter: unknown) {
                         adapters.push(adapter)
                         return api
