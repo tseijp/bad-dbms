@@ -10,38 +10,38 @@ const dataTypeOf = (type: ColumnType, tag?: 'str'): string => {
         return 'integer'
 }
 const column = <T = number>(type: ColumnType, name?: string, config: ColumnConfig = {}): Column<T> => {
-        const desc: ColumnDescriptor = { name: name ?? '', type, ...config }
-        const base = make({ type: 'column', name: desc.name, dataType: dataTypeOf(type, config.tag) })
-        const self = base as unknown as Column<T>
-        self.$col = desc
+        const _desc: ColumnDescriptor = { name: name ?? '', type, ...config }
+        const _base = make({ type: 'column', name: _desc.name, dataType: dataTypeOf(type, config.tag) })
+        const self = _base as unknown as Column<T>
+        self.$col = _desc
         self.primaryKey = () => {
-                desc.primaryKey = true
+                _desc.primaryKey = true
                 return self
         }
         self.unique = () => {
-                desc.unique = true
+                _desc.unique = true
                 return self
         }
         self.notNull = () => {
-                desc.notNull = true
+                _desc.notNull = true
                 return self
         }
         self.default = (value: T) => {
-                desc.defaultValue = value
+                _desc.defaultValue = value
                 return self
         }
         self.$defaultFn = (fn: () => T) => {
-                desc.defaultFn = fn
+                _desc.defaultFn = fn
                 return self
         }
         self.defaultFn = self.$defaultFn
         self.references = (fn: () => SQL, opts?: { onDelete?: string; onUpdate?: string }) => {
-                desc.references = { fn, onDelete: opts?.onDelete, onUpdate: opts?.onUpdate }
+                _desc.references = { fn, onDelete: opts?.onDelete, onUpdate: opts?.onUpdate }
                 return self
         }
         self.order = (min: number, max: number) => {
-                desc.hasOrder = true
-                desc.orderRange = [min, max]
+                _desc.hasOrder = true
+                _desc.orderRange = [min, max]
                 return self
         }
         return self

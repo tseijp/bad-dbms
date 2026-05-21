@@ -26,19 +26,16 @@ describe('column types', () => {
 
         // All chosen values are exactly representable in float32, so a
         // correct store returns them verbatim under strict equality.
-        it.each([[0], [1], [0.5], [1.25], [-2.5], [100.125], [-0.75], [-1], [2], [0.125], [-0.5], [8.5], [1024.25]])(
-                'float column stores and reads %f',
-                async (v) => {
-                        const t = table('ftype', {
-                                id: integer('id').primaryKey(),
-                                v: float('v'),
-                        })
-                        const db = database({ t })
-                        await db.insert(db.tables.t).values({ id: 1, v })
-                        const rows = await db.select().from(db.tables.t)
-                        expect(rows[0].v).toBe(v)
-                }
-        )
+        it.each([[0], [1], [0.5], [1.25], [-2.5], [100.125], [-0.75], [-1], [2], [0.125], [-0.5], [8.5], [1024.25]])('float column stores and reads %f', async (v) => {
+                const t = table('ftype', {
+                        id: integer('id').primaryKey(),
+                        v: float('v'),
+                })
+                const db = database({ t })
+                await db.insert(db.tables.t).values({ id: 1, v })
+                const rows = await db.select().from(db.tables.t)
+                expect(rows[0].v).toBe(v)
+        })
 
         // Correct spec: a text column stores and reads back string
         // values verbatim. bad-dbms is a numeric store and coerces text

@@ -126,7 +126,8 @@ export interface FileAdapter {
 export type Row = Record<string, unknown>
 export type RowPredicate = (row: Row) => boolean
 export type RowSetter = (row: Row) => unknown
-export type JoinPredicate = (left: Row, right: Row) => boolean
+export type JoinRow = Record<string, Row | null>
+export type JoinPredicate = (joinRow: JoinRow) => boolean
 export type TableRef = string | { $meta: { name: string } } | { node: { name: string } }
 export type SqlExpr = SQL | SqlNode
 export type AggSpec = { name: string; kind: AggKind; field: string; distinct?: boolean }
@@ -135,6 +136,11 @@ export type Projection = Array<{ alias: string; expr: SqlExpr }>
 export interface SeqScanOp {
         op: 'SeqScan'
         table: TableRef
+}
+export interface NamedScanOp {
+        op: 'NamedScan'
+        table: TableRef
+        name: string
 }
 export interface IndexScanOp {
         op: 'IndexScan'
@@ -154,11 +160,14 @@ export interface ProjectionOp {
         fields: string[]
         projectors?: ProjectorSpec[]
 }
+export type JoinKind = 'inner' | 'left' | 'right' | 'full'
 export interface NestedLoopJoinOp {
         op: 'NestedLoopJoin'
         left: PhysicalOp
         right: PhysicalOp
+        rightName: string
         predicate: JoinPredicate
+        kind?: JoinKind
 }
 export interface HashJoinOp {
         op: 'HashJoin'
@@ -177,6 +186,16 @@ export interface SortOp {
         op: 'Sort'
         child: PhysicalOp
         keys: SortKey[]
+}
+export interface DistinctOp {
+        op: 'Distinct'
+        child: PhysicalOp
+}
+export interface LimitOp {
+        op: 'Limit'
+        child: PhysicalOp
+        limit?: number
+        offset?: number
 }
 export interface UpdateOp {
         op: 'Update'
@@ -197,17 +216,7 @@ export interface InsertOp {
         values: Row[]
         returning?: boolean
 }
-export interface SelectOp {
-        op: 'Select'
-        table?: TableRef
-        projection?: Projection
-        where?: SqlExpr
-        groupBy?: unknown[]
-        orderBy?: unknown[]
-        limit?: number
-        offset?: number
-}
-export type PhysicalOp = SeqScanOp | IndexScanOp | FilterOp | ProjectionOp | NestedLoopJoinOp | HashJoinOp | AggregateOp | SortOp | UpdateOp | DeleteOp | InsertOp | SelectOp
+export type PhysicalOp = SeqScanOp | NamedScanOp | IndexScanOp | FilterOp | ProjectionOp | NestedLoopJoinOp | HashJoinOp | AggregateOp | SortOp | DistinctOp | LimitOp | UpdateOp | DeleteOp | InsertOp
 export type LogicalOp = 'Select' | 'Insert' | 'Update' | 'Delete' | 'InitAll'
 export interface InitAllAst {
         op: 'InitAll'

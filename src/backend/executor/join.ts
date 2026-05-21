@@ -1,55 +1,77 @@
-import type { Row } from '../../shared/types'
+import type { Row, JoinRow, JoinPredicate, JoinKind } from '../../shared/types'
 import type { RowIterator } from '../types'
-import { evalNode } from './expr'
-// join operators: nested-loop for arbitrary predicates, hash for equi-joins.
-export const makeNestedLoopJoin = (left: RowIterator, right: RowIterator, predicate: unknown): RowIterator => {
-        const fn = typeof predicate === 'function' ? (predicate as (l: Row, r: Row) => boolean) : (l: Row, r: Row) => !!evalNode(predicate, { ...l, ...r })
-        const rightBuf: Row[] = []
+export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, rightName: string, predicate: JoinPredicate, kind: JoinKind = 'inner'): RowIterator => {
+        const _rightBuf: JoinRow[] = []
         while (true) {
                 const r = right.next()
                 if (r === null) break
-                rightBuf.push(r)
+                _rightBuf.push(r as JoinRow)
         }
         right.close()
-        let curLeft: Row | null = null
-        let j = 0
-        const next = () => {
-                while (true) {
-                        if (curLeft === null) {
-                                curLeft = left.next()
-                                if (curLeft === null) return null
-                                j = 0
-                        }
-                        while (j < rightBuf.length) {
-                                const r = rightBuf[j++]
-                                if (fn(curLeft, r)) return { ...curLeft, ...r }
-                        }
-                        curLeft = null
-                }
+        const _keepLeft = kind === 'left' || kind === 'full'
+        const _keepRight = kind === 'right' || kind === 'full'
+        const _rightMatched = new Array<boolean>(_rightBuf.length).fill(false)
+        const _out: JoinRow[] = []
+        const _leftKeys = new Set<string>()
+        const _nulled = (keys: Iterable<string>): JoinRow => {
+                const o: JoinRow = {}
+                for (const k of keys) o[k] = null
+                return o
         }
-        return { next, close: () => left.close() }
+        let _leftRow = left.next()
+        while (_leftRow !== null) {
+                const lj = _leftRow as JoinRow
+                for (const k in lj) _leftKeys.add(k)
+                let matched = false
+                for (let j = 0; j < _rightBuf.length; j++) {
+                        const joined: JoinRow = { ...lj, ..._rightBuf[j] }
+                        if (!predicate(joined)) continue
+                        _out.push(joined)
+                        _rightMatched[j] = true
+                        matched = true
+                }
+                if (!matched && _keepLeft) _out.push({ ...lj, [rightName]: null })
+                _leftRow = left.next()
+        }
+        left.close()
+        if (_keepRight)
+                for (let j = 0; j < _rightBuf.length; j++) {
+                        if (_rightMatched[j]) continue
+                        _out.push({ ..._nulled(_leftKeys), ..._rightBuf[j] })
+                }
+        let _i = 0
+        return {
+                next() {
+                        return (_i < _out.length ? _out[_i++] : null) as Row | null
+                },
+                close() {},
+        }
 }
-export const makeHashJoin = (left: RowIterator, right: RowIterator, leftKey: string, rightKey: string): RowIterator => {
-        const table = new Map<unknown, Row[]>()
+export const createHashJoin = (left: RowIterator, right: RowIterator, leftKey: string, rightKey: string): RowIterator => {
+        const _table = new Map<unknown, Row[]>()
         while (true) {
                 const r = left.next()
                 if (r === null) break
                 const k = r[leftKey]
-                const arr = table.get(k) ?? []
+                const arr = _table.get(k) ?? []
                 arr.push(r)
-                table.set(k, arr)
+                _table.set(k, arr)
         }
         left.close()
-        const queue: Row[] = []
-        const next = () => {
-                while (queue.length === 0) {
-                        const r = right.next()
-                        if (r === null) return null
-                        const match = table.get(r[rightKey])
-                        if (!match) continue
-                        for (const m of match) queue.push({ ...m, ...r })
-                }
-                return queue.shift() ?? null
+        const _queue: Row[] = []
+        return {
+                next() {
+                        while (_queue.length === 0) {
+                                const r = right.next()
+                                if (r === null) return null
+                                const match = _table.get(r[rightKey])
+                                if (!match) continue
+                                for (const m of match) _queue.push({ ...m, ...r })
+                        }
+                        return _queue.shift() ?? null
+                },
+                close() {
+                        right.close()
+                },
         }
-        return { next, close: () => right.close() }
 }

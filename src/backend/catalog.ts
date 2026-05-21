@@ -46,7 +46,6 @@ const buildColumn = (key: string, def: Partial<ColumnMeta>, forkId: number): Col
 })
 const needsIndex = (col: ColumnMeta) => col.isPrimary || col.isUnique || col.hasOrder
 const indexKindOf = (col: ColumnMeta): 'nbtree' | 'hash' => (col.hasOrder || col.isPrimary || col.isUnique ? 'nbtree' : 'hash')
-// encode a JS value into the number the heap stores; text values are interned.
 const encodeCell = (col: ColumnMeta, codec: ColumnCodec, value: unknown): number => {
         if (!col.isText) return Number(value)
         const s = String(value)
@@ -57,16 +56,12 @@ const encodeCell = (col: ColumnMeta, codec: ColumnCodec, value: unknown): number
         codec.intern.set(s, id)
         return id
 }
-// decode the heap number back into the user-facing JS value.
 const decodeCell = (col: ColumnMeta, codec: ColumnCodec, raw: number | undefined): unknown => {
         if (raw === undefined) return undefined
         if (!col.isText) return raw
         if (raw <= 0) return ''
         return codec.strings[raw - 1] ?? ''
 }
-// resolve the value to store for one column on insert. An explicit value
-// (including null) is kept as-is; an omitted column falls back to its default
-// and is otherwise stored as NULL.
 const resolveInsertValue = (col: ColumnMeta, row: Row): { value: unknown; isNull: boolean } => {
         const has = Object.prototype.hasOwnProperty.call(row, col.key)
         const raw = has ? row[col.key] : undefined
@@ -140,18 +135,17 @@ export const createCatalog = (deps: CatalogDeps) => {
                 _relations.set(name, rel)
                 return rel
         }
-        const nameOf = (nameOrTable: TableOrName): string => {
+        const _nameOf = (nameOrTable: TableOrName): string => {
                 if (typeof nameOrTable === 'string') return nameOrTable
                 if (nameOrTable && nameOrTable.$meta) return nameOrTable.$meta.name
                 return ''
         }
-        const find = (nameOrTable: TableOrName): RelationDescriptor | undefined => _relations.get(nameOf(nameOrTable))
+        const find = (nameOrTable: TableOrName): RelationDescriptor | undefined => _relations.get(_nameOf(nameOrTable))
         const resolve = (nameOrTable: TableOrName): RelationDescriptor => {
                 const rel = find(nameOrTable)
-                if (!rel) throw new Error(`relation not found: ${nameOf(nameOrTable)}`)
+                if (!rel) throw new Error(`relation not found: ${_nameOf(nameOrTable)}`)
                 return rel
         }
-        // decode every column of one tuple into a user-facing row keyed by DB name.
         const readRow = (rel: RelationDescriptor, rid: Rid): Row => {
                 const row: Row = { __rid: rid }
                 const rk = ridKey(rid)
@@ -165,29 +159,54 @@ export const createCatalog = (deps: CatalogDeps) => {
                 }
                 return row
         }
-        const insertRow = (relName: string, row: Row): Rid => {
-                const rel = resolve(relName)
-                let rid: Rid | null = null
-                const slots: Array<{ value: unknown; isNull: boolean }> = []
-                for (const col of rel.columns) slots.push(resolveInsertValue(col, row))
+        const _columnValues = (rel: RelationDescriptor, colIdx: number): unknown[] => {
+                const col = rel.columns[colIdx]
+                const codec = rel.codecs[colIdx]
+                const out: unknown[] = []
+                rel.heaps[0].scan((rid: Rid) => {
+                        if (codec.nulls.has(ridKey(rid))) return
+                        out.push(decodeCell(col, codec, rel.heaps[colIdx].read(rid)))
+                })
+                return out
+        }
+        type Slot = { value: unknown; isNull: boolean }
+        const _checkBatch = (rel: RelationDescriptor, batch: Slot[][]): void => {
                 for (let i = 0; i < rel.columns.length; i++) {
                         const col = rel.columns[i]
-                        const stored = encodeCell(col, rel.codecs[i], slots[i].value)
-                        const r = rel.heaps[i].insert(stored)
+                        const unique = col.isUnique || col.isPrimary
+                        const existing = unique ? new Set(_columnValues(rel, i)) : null
+                        const seen = new Set<unknown>()
+                        for (const slots of batch) {
+                                if (col.notNull && slots[i].isNull) throw new Error(`null value in notNull column: ${col.name}`)
+                                if (!unique || slots[i].isNull) continue
+                                const v = slots[i].value
+                                if (existing!.has(v) || seen.has(v)) throw new Error(`unique violation: ${col.name}`)
+                                seen.add(v)
+                        }
+                }
+        }
+        const _writeRow = (rel: RelationDescriptor, slots: Slot[]): Rid => {
+                let rid: Rid | null = null
+                for (let i = 0; i < rel.columns.length; i++) {
+                        const r = rel.heaps[i].insert(encodeCell(rel.columns[i], rel.codecs[i], slots[i].value))
                         if (i === 0) rid = r
                 }
-                if (!rid) throw new Error(`insert produced no rid: ${relName}`)
+                if (!rid) throw new Error(`insert produced no rid: ${rel.name}`)
                 const rk = ridKey(rid)
-                for (let i = 0; i < rel.columns.length; i++) {
-                        if (slots[i].isNull) rel.codecs[i].nulls.add(rk)
-                }
+                for (let i = 0; i < rel.columns.length; i++) if (slots[i].isNull) rel.codecs[i].nulls.add(rk)
                 for (const idx of rel.indexes) {
-                        const col = rel.columns[idx.columnIdx]
-                        const key = encodeCell(col, rel.codecs[idx.columnIdx], slots[idx.columnIdx].value)
-                        idx.handle.insert(key, rid)
+                        const ci = idx.columnIdx
+                        idx.handle.insert(encodeCell(rel.columns[ci], rel.codecs[ci], slots[ci].value), rid)
                 }
                 return rid
         }
+        const insertRows = (relName: string, rows: Row[]): Rid[] => {
+                const rel = resolve(relName)
+                const batch = rows.map((row) => rel.columns.map((col) => resolveInsertValue(col, row)))
+                _checkBatch(rel, batch)
+                return batch.map((slots) => _writeRow(rel, slots))
+        }
+        const insertRow = (relName: string, row: Row): Rid => insertRows(relName, [row])[0]
         return {
                 register,
                 resolve,
@@ -222,15 +241,24 @@ export const createCatalog = (deps: CatalogDeps) => {
                         return Array.from(_relations.values())
                 },
                 insertRow,
-                // mark one cell null / not-null and write the underlying heap value.
+                insertRows,
                 writeCell(rel: RelationDescriptor, colIdx: number, rid: Rid, value: unknown): void {
                         const col = rel.columns[colIdx]
                         const codec = rel.codecs[colIdx]
                         const rk = ridKey(rid)
                         if (value === null || value === undefined) {
+                                if (col.notNull) throw new Error(`null value in notNull column: ${col.name}`)
                                 codec.nulls.add(rk)
                                 rel.heaps[colIdx].update(rid, encodeCell(col, codec, col.isText ? '' : 0))
                                 return
+                        }
+                        if (col.isUnique || col.isPrimary) {
+                                let clash = false
+                                rel.heaps[0].scan((other: Rid) => {
+                                        if (ridKey(other) === rk || codec.nulls.has(ridKey(other))) return
+                                        if (decodeCell(col, codec, rel.heaps[colIdx].read(other)) === value) clash = true
+                                })
+                                if (clash) throw new Error(`unique violation: ${col.name}`)
                         }
                         codec.nulls.delete(rk)
                         rel.heaps[colIdx].update(rid, encodeCell(col, codec, value))
@@ -239,7 +267,6 @@ export const createCatalog = (deps: CatalogDeps) => {
                         const rk = ridKey(rid)
                         for (const codec of rel.codecs) codec.nulls.delete(rk)
                 },
-                // capture the logical content of every relation for transaction rollback.
                 snapshot(): Map<string, Row[]> {
                         const snap = new Map<string, Row[]>()
                         for (const rel of _relations.values()) {
@@ -258,7 +285,6 @@ export const createCatalog = (deps: CatalogDeps) => {
                         }
                         return snap
                 },
-                // restore every relation to a previously captured snapshot.
                 restore(snap: Map<string, Row[]>): void {
                         for (const rel of _relations.values()) {
                                 const victims: Rid[] = []
