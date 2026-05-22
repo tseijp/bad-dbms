@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { freshUsers } from './_fixtures'
-
 describe('sequential insert batches', () => {
         it('two sequential single-row inserts accumulate to two rows', async () => {
                 const { db, users } = freshUsers()
@@ -9,7 +8,6 @@ describe('sequential insert batches', () => {
                 const rows = await db.select().from(users)
                 expect(rows.length).toBe(2)
         })
-
         it('two sequential single-row inserts keep ids 1,2 in order', async () => {
                 const { db, users } = freshUsers()
                 await db.insert(users).values([{ id: 1, name: 11, score: 10 }])
@@ -17,7 +15,6 @@ describe('sequential insert batches', () => {
                 const rows = await db.select().from(users)
                 expect(rows.map((r: { id: number }) => r.id)).toEqual([1, 2])
         })
-
         it('three separate single-row inserts accumulate to three rows', async () => {
                 const { db, users } = freshUsers()
                 await db.insert(users).values({ id: 1, name: 11, score: 10 })
@@ -26,7 +23,6 @@ describe('sequential insert batches', () => {
                 const rows = await db.select().from(users)
                 expect(rows.length).toBe(3)
         })
-
         it.each([[2], [3], [4], [6]])('%i sequential batches of one row each accumulate', async (batches) => {
                 const { db, users } = freshUsers()
                 const ids = Array.from({ length: batches }, (_v, i) => i + 1)
@@ -34,7 +30,6 @@ describe('sequential insert batches', () => {
                 const rows = await db.select().from(users)
                 expect(rows.length).toBe(batches)
         })
-
         it.each([[[2, 3]], [[1, 4]], [[5, 5]], [[3, 7]]])('two batches sized %j accumulate to their sum', async (sizes) => {
                 const { db, users } = freshUsers()
                 let offset = 0
@@ -46,7 +41,6 @@ describe('sequential insert batches', () => {
                 const back = await db.select().from(users)
                 expect(back.length).toBe(sizes[0] + sizes[1])
         })
-
         it('second batch appends after the first batch in insertion order', async () => {
                 const { db, users } = freshUsers()
                 await db.insert(users).values([
@@ -60,7 +54,6 @@ describe('sequential insert batches', () => {
                 const rows = await db.select().from(users)
                 expect(rows.map((r: { id: number }) => r.id)).toEqual([1, 2, 3, 4])
         })
-
         // A later batch cannot quietly re-use a key the first batch already
         // claimed: the primary-key constraint spans the whole table, not just
         // one statement.
@@ -69,7 +62,6 @@ describe('sequential insert batches', () => {
                 await db.insert(users).values([{ id: 1, name: 1, score: 0 }])
                 await expect(db.insert(users).values([{ id: 1, name: 2, score: 0 }])).rejects.toBeDefined()
         })
-
         it('a rejected second batch leaves the first batch intact', async () => {
                 const { db, users } = freshUsers()
                 await db.insert(users).values([{ id: 1, name: 1, score: 0 }])

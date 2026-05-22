@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, asc, desc } from '../../src/index'
 import { makeRanked, fresh, seqOf } from './_fixtures'
-
 // A two-key table whose secondary key is nullable, so the placement of NULL
 // inside a tie group can be attacked. rank groups rows; score, when present,
 // orders within a group; some rows leave score NULL.
@@ -20,7 +19,6 @@ const seededNullableSecondary = async () => {
         ])
         return { db, t: db.tables.t }
 }
-
 describe('multi-key ordering breaks ties with a secondary key', () => {
         // A reader sorts a ranked board by rank, then settles rows of
         // equal rank by score. The secondary key only matters inside a
@@ -32,28 +30,24 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 { id: 4, rank: 1, score: 80 },
                 { id: 5, rank: 3, score: 40 },
         ]
-
         it('sorting by rank ascending then score ascending orders within each rank', async () => {
                 const { db, t } = fresh(makeRanked)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.rank), asc(t.score))
                 expect(seqOf(rows, 'id')).toEqual([2, 4, 3, 1, 5])
         })
-
         it('sorting by rank ascending then score descending flips only the in-rank order', async () => {
                 const { db, t } = fresh(makeRanked)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.rank), desc(t.score))
                 expect(seqOf(rows, 'id')).toEqual([4, 2, 1, 3, 5])
         })
-
         it('sorting by rank descending then score ascending reverses ranks but not in-rank order', async () => {
                 const { db, t } = fresh(makeRanked)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(desc(t.rank), asc(t.score))
                 expect(seqOf(rows, 'id')).toEqual([5, 3, 1, 2, 4])
         })
-
         it('the secondary key is consulted only when the primary key ties', async () => {
                 const { db, t } = fresh(makeRanked)
                 // every rank distinct: the score key can never come into play
@@ -65,7 +59,6 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 const rows = await db.select().from(t).orderBy(asc(t.rank), desc(t.score))
                 expect(seqOf(rows, 'id')).toEqual([2, 3, 1])
         })
-
         it('a two-key sort yields the primary key in non-decreasing order throughout', async () => {
                 const { db, t } = fresh(makeRanked)
                 await db.insert(t).values(board)
@@ -74,7 +67,6 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 const sorted = [...ranks].sort((a, b) => a - b)
                 expect(ranks).toEqual(sorted)
         })
-
         it.each([
                 ['rank asc, score asc', asc, asc, [2, 4, 3, 1, 5]],
                 ['rank asc, score desc', asc, desc, [4, 2, 1, 3, 5]],
@@ -86,7 +78,6 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 const rows = await db.select().from(t).orderBy(rankDir(t.rank), scoreDir(t.score))
                 expect(seqOf(rows, 'id')).toEqual(expected)
         })
-
         // The scenarios below attack NULL placement inside a tie group: when
         // the primary key ties, the secondary key orders the group, and a
         // NULL secondary value goes to the SQL-defined end of that group.
@@ -96,14 +87,12 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 // rank-1 group: NULL (id 2) first, then 20 (id 3), 50 (id 1); rank-2: id 4
                 expect(seqOf(rows, 'id')).toEqual([2, 3, 1, 4])
         })
-
         it('inside a tied rank group a descending secondary key puts the NULL-scored row last', async () => {
                 const { db, t } = await seededNullableSecondary()
                 const rows = await db.select().from(t).orderBy(asc(t.rank), desc(t.score))
                 // rank-1 group: 50 (id 1), 20 (id 3), NULL (id 2) last; rank-2: id 4
                 expect(seqOf(rows, 'id')).toEqual([1, 3, 2, 4])
         })
-
         it('the non-null secondary values still order correctly around the NULL', async () => {
                 const { db, t } = await seededNullableSecondary()
                 const rows = await db.select().from(t).orderBy(asc(t.rank), asc(t.score))

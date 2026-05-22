@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer } from '../../src/index'
 import { rowsOf, valuesOf, keysOf, seedUsers, seedEvents } from './helpers'
-
 // select rework: selectDistinct. Drizzle's `selectDistinct` collapses
 // duplicate projected rows, returning one row per distinct projected tuple.
 //
@@ -9,11 +8,8 @@ import { rowsOf, valuesOf, keysOf, seedUsers, seedEvents } from './helpers'
 // builder untyped: a missing method fails honestly at runtime, per test,
 // rather than being commented out. Expected values follow the correct
 // Drizzle spec and are never weakened to the implementation.
-
 // selectDistinct reached untyped so a missing builder fails honestly at run.
-const selectDistinct = (db: any, projection?: unknown) =>
-        projection === undefined ? db.selectDistinct() : db.selectDistinct(projection)
-
+const selectDistinct = (db: any, projection?: unknown) => (projection === undefined ? db.selectDistinct() : db.selectDistinct(projection))
 // a generic table for distinct scenarios over controlled duplicate data.
 const seedValues = async (values: number[]) => {
         const t = table('t', { id: integer('id').primaryKey(), v: integer('v') })
@@ -22,32 +18,27 @@ const seedValues = async (values: number[]) => {
         if (rows.length) await db.insert(t).values(rows)
         return { db, t }
 }
-
 describe('selectDistinct collapses duplicate projected rows', () => {
         it('collapses duplicate kind rows to the distinct set', async () => {
                 const { db, events } = await seedEvents()
                 const rows = await selectDistinct(db, { kind: events.kind }).from(events)
                 expect(valuesOf(rows, 'kind').slice().sort()).toEqual([0, 1, 2])
         })
-
         it('returns three rows from a distinct read over five duplicated kinds', async () => {
                 const { db, events } = await seedEvents()
                 const rows = await selectDistinct(db, { kind: events.kind }).from(events)
                 expect(rowsOf(rows)).toHaveLength(3)
         })
-
         it('treats distinct over already-unique user rows as a no-op', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await selectDistinct(db).from(users)
                 expect(rowsOf(rows)).toHaveLength(3)
         })
-
         it('keys a distinct projection by exactly the projected alias', async () => {
                 const { db, events } = await seedEvents()
                 const rows = await selectDistinct(db, { kind: events.kind }).from(events)
                 expect(keysOf(rows)).toEqual(['kind'])
         })
-
         // matrix: a single-column distinct read over varying duplicate shapes.
         it.each([
                 ['all unique', [1, 2, 3, 4], 4],
@@ -61,7 +52,6 @@ describe('selectDistinct collapses duplicate projected rows', () => {
                 const rows = await selectDistinct(db, { v: t.v }).from(t)
                 expect(rowsOf(rows)).toHaveLength(expected)
         })
-
         it.each([
                 ['unique run', [10, 20, 30], [10, 20, 30]],
                 ['with duplicates', [10, 10, 20, 30, 30], [10, 20, 30]],
@@ -69,22 +59,23 @@ describe('selectDistinct collapses duplicate projected rows', () => {
         ])('returns the sorted distinct values for the %s dataset', async (_label, values, expected) => {
                 const { db, t } = await seedValues(values)
                 const rows = await selectDistinct(db, { v: t.v }).from(t)
-                expect(valuesOf(rows, 'v').slice().sort((a, b) => a - b)).toEqual(expected)
+                expect(
+                        valuesOf(rows, 'v')
+                                .slice()
+                                .sort((a, b) => a - b),
+                ).toEqual(expected)
         })
-
         it('returns an empty array from a distinct read of an empty table', async () => {
                 const { db, t } = await seedValues([])
                 const rows = await selectDistinct(db, { v: t.v }).from(t)
                 expect(rowsOf(rows)).toEqual([])
         })
-
         it('keeps a distinct read of all-distinct rows the same length as a bare read', async () => {
                 const { db, users } = await seedUsers()
                 const bare = await db.select().from(users)
                 const distinct = await selectDistinct(db).from(users)
                 expect([rowsOf(bare).length, rowsOf(distinct).length]).toEqual([3, 3])
         })
-
         it('collapses a full-row distinct read over a table with duplicate rows', async () => {
                 const t = table('t', { id: integer('id').primaryKey(), a: integer('a'), b: integer('b') })
                 const db = database({ t })
@@ -96,7 +87,6 @@ describe('selectDistinct collapses duplicate projected rows', () => {
                 const rows = await selectDistinct(db, { a: t.a, b: t.b }).from(t)
                 expect(rowsOf(rows)).toHaveLength(2)
         })
-
         it('seeds duplicates, reads distinct, inserts a new value, then re-reads distinct', async () => {
                 const { db, t } = await seedValues([1, 1, 2])
                 const before = await selectDistinct(db, { v: t.v }).from(t)

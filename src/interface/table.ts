@@ -19,8 +19,9 @@ const finalizeColumn = (col: Column): Column => {
 }
 const attachTable = (col: Column, name: string, tableName: string): Column => {
         col.$col.name = col.$col.name || name
+        col.$col.key = name
         col.$col.tableName = tableName
-        col.node = { type: 'column', name: col.$col.name, dataType: dataTypeOf(col.$col.type, col.$col.tag), tableName }
+        col.node = { type: 'column', name, dataType: dataTypeOf(col.$col.type, col.$col.tag), tableName }
         return finalizeColumn(col)
 }
 export const table = <S extends Columns>(name: string, schema: S, _config?: (self: S) => unknown[]): Table<S> => {

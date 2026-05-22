@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { fresh, idsOf } from './_fixtures'
-
 describe('nested transactions and savepoints', () => {
         // Drizzle supports nesting: tx.transaction(...) opens a
         // savepoint. An inner rollback undoes only the inner work; the
@@ -16,7 +15,6 @@ describe('nested transactions and savepoints', () => {
                 const rows = await db.select().from(t)
                 expect(idsOf(rows)).toEqual([1, 2])
         })
-
         it('an inner rollback undoes only the inner write, not the outer one', async () => {
                 const { db, t } = fresh()
                 await db.transaction(async (tx) => {
@@ -32,7 +30,6 @@ describe('nested transactions and savepoints', () => {
                 // the outer insert of id 1 commits; the inner insert of id 2 is rolled back
                 expect(idsOf(rows)).toEqual([1])
         })
-
         it('an outer rollback undoes the inner committed write as well', async () => {
                 const { db, t } = fresh()
                 await db
@@ -47,7 +44,6 @@ describe('nested transactions and savepoints', () => {
                 // the outer abort discards everything, including the inner savepoint
                 expect(rows).toEqual([])
         })
-
         it('a nested transaction returns its callbacks value to the outer body', async () => {
                 const { db } = fresh()
                 const result = await db.transaction(async (tx) => {

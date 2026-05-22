@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { fresh, idsOf } from './_fixtures'
-
 describe('transactions compose on one connection and isolate across connections', () => {
         // Sequential transactions on the same connection build on each
         // other's committed state; transactions on separate
@@ -19,7 +18,6 @@ describe('transactions compose on one connection and isolate across connections'
                 const rows = await db.select().from(t)
                 expect(idsOf(rows)).toEqual([1, 2, 3])
         })
-
         it('a second transaction sees the committed writes of the first', async () => {
                 const { db, t } = fresh()
                 await db.transaction(async (tx) => {
@@ -30,7 +28,6 @@ describe('transactions compose on one connection and isolate across connections'
                 })
                 expect(idsOf(seenInside as { id: number }[])).toEqual([1])
         })
-
         it('two separate connections do not see each others transactional writes', async () => {
                 const a = fresh()
                 const b = fresh()
@@ -43,7 +40,6 @@ describe('transactions compose on one connection and isolate across connections'
                 const rowsB = await b.db.select().from(b.t)
                 expect(idsOf(rowsB)).toEqual([2])
         })
-
         it('a rolled-back transaction leaves the connection usable for the next one', async () => {
                 const { db, t } = fresh()
                 await db

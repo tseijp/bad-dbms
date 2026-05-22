@@ -108,11 +108,12 @@ const sortKeys = (orderBy: unknown[], resolve: (n: SqlNode) => string | undefine
 export const planSelect = (ast: SelectAst, baseCtx: EvalCtx): { plan: PhysicalOp } => {
         const { source, ctx, isJoin } = planSource(ast, baseCtx)
         const aggs = aggsOf(ast.projection)
+        const grouped = !!ast.groupBy?.length
         const projected = !!ast.projection?.length
         const flat = aggs.length > 0 || projected
         let plan = source
         if (ast.where) plan = { op: 'Filter', child: plan, predicate: compilePredicate(ast.where, ctx) }
-        if (aggs.length > 0) plan = planAggregate(plan, ast, aggs, ctx, isJoin)
+        if (aggs.length > 0 || grouped) plan = planAggregate(plan, ast, aggs, ctx, isJoin)
         else if (projected) plan = projection(plan, (ast.projection ?? []).map((p) => projector(p, ctx)))
         if (ast.having) plan = { op: 'Filter', child: plan, predicate: compilePredicate(rewriteHaving(ast.having, ast.projection), baseCtx) }
         if (ast.orderBy?.length) {

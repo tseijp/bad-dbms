@@ -134,8 +134,8 @@ export const compileExpr = (node: NodeInput, ctx: EvalCtx): ((row: Row) => unkno
 }
 export const colNameOf = (c: unknown): string => {
         if (!c) return ''
-        const col = c as { $col?: { name: string }; node?: SqlNode }
-        if (col.$col) return col.$col.name
+        const col = c as { $col?: { name: string; key?: string }; node?: SqlNode }
+        if (col.$col) return col.$col.key ?? col.$col.name
         if (col.node?.type === 'column') return col.node.name
         if (col.node?.type === 'currentTuple') return col.node.col
         return String(c)

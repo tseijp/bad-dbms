@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, count } from '../../src/index'
 import { fresh, seeded, idsOf, amountsById } from './_fixtures'
-
 describe('a read inside a transaction sees that transactions own writes', () => {
         // Read-your-writes: a select issued inside the transaction
         // observes every write made earlier in the same callback.
@@ -16,7 +15,6 @@ describe('a read inside a transaction sees that transactions own writes', () => 
                 })
                 expect(seen).toEqual([{ n: 2 }])
         })
-
         it('a select after an update in the same transaction sees the updated value', async () => {
                 const { db, t } = await seeded()
                 const seen = await db.transaction(async (tx) => {
@@ -25,7 +23,6 @@ describe('a read inside a transaction sees that transactions own writes', () => 
                 })
                 expect((seen as { amount: number }[])[0].amount).toBe(77)
         })
-
         it('a select after a delete in the same transaction no longer sees the row', async () => {
                 const { db, t } = await seeded()
                 const seen = await db.transaction(async (tx) => {
@@ -34,7 +31,6 @@ describe('a read inside a transaction sees that transactions own writes', () => 
                 })
                 expect(idsOf(seen as { id: number }[])).toEqual([2, 3])
         })
-
         it('two writes then a read in one transaction reflect both writes', async () => {
                 const { db, t } = await seeded()
                 const seen = await db.transaction(async (tx) => {
@@ -44,7 +40,6 @@ describe('a read inside a transaction sees that transactions own writes', () => 
                 })
                 expect(amountsById(seen as Record<string, number>[])).toEqual([10, 20, 0, 40])
         })
-
         it('a write inside a rolled-back transaction is not visible to reads after it', async () => {
                 const { db, t } = await seeded()
                 await db

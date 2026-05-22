@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from '../../src/index'
 import { fresh, seeded, idsOf, amountsById } from './_fixtures'
-
 describe('a transaction rolls back every write when its body throws', () => {
         // The defining ACID guarantee: if the callback throws, the
         // transaction aborts and none of its writes survive. The table
@@ -16,7 +15,6 @@ describe('a transaction rolls back every write when its body throws', () => {
                 const rows = await db.select().from(t)
                 expect(rows).toEqual([])
         })
-
         it('an update is undone when the transaction body throws after it', async () => {
                 const { db, t } = await seeded()
                 const attempt = db.transaction(async (tx) => {
@@ -27,7 +25,6 @@ describe('a transaction rolls back every write when its body throws', () => {
                 const rows = await db.select().from(t)
                 expect(amountsById(rows)).toEqual([10, 20, 30])
         })
-
         it('a delete is undone when the transaction body throws after it', async () => {
                 const { db, t } = await seeded()
                 const attempt = db.transaction(async (tx) => {
@@ -38,7 +35,6 @@ describe('a transaction rolls back every write when its body throws', () => {
                 const rows = await db.select().from(t)
                 expect(idsOf(rows)).toEqual([1, 2, 3])
         })
-
         it('an earlier write is rolled back when a later statement throws', async () => {
                 const { db, t } = await seeded()
                 const attempt = db.transaction(async (tx) => {
@@ -51,7 +47,6 @@ describe('a transaction rolls back every write when its body throws', () => {
                 // both the insert of id 9 and the update of id 1 must be undone
                 expect(amountsById(rows)).toEqual([10, 20, 30])
         })
-
         it('a transaction that throws leaves the row count unchanged', async () => {
                 const { db, t } = await seeded()
                 const attempt = db.transaction(async (tx) => {
@@ -63,7 +58,6 @@ describe('a transaction rolls back every write when its body throws', () => {
                 const rows = await db.select().from(t)
                 expect(rows.length).toBe(3)
         })
-
         it('the error thrown inside the callback propagates out of the transaction', async () => {
                 const { db } = fresh()
                 const attempt = db.transaction(async () => {
@@ -71,7 +65,6 @@ describe('a transaction rolls back every write when its body throws', () => {
                 })
                 await expect(attempt).rejects.toThrow('the original error')
         })
-
         it('a committed transaction after a rolled-back one starts from the pre-abort state', async () => {
                 const { db, t } = await seeded()
                 await db

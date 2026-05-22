@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { database, count } from '../../src/index'
 import { makeUsers, makePosts, USERS_SEED } from '../_helpers'
 import { freshUsers } from './_fixtures'
-
 describe('insert inside a transaction', () => {
         it('transaction insert of USERS_SEED leaves three rows', async () => {
                 const { db, users } = freshUsers()
@@ -12,7 +11,6 @@ describe('insert inside a transaction', () => {
                 const rows = await db.select().from(users)
                 expect(rows.length).toBe(3)
         })
-
         it('transaction insert of one row leaves one row', async () => {
                 const { db, users } = freshUsers()
                 await db.transaction(async (tx) => {
@@ -21,7 +19,6 @@ describe('insert inside a transaction', () => {
                 const rows = await db.select().from(users)
                 expect(rows.length).toBe(1)
         })
-
         it('two tx.insert calls in one transaction accumulate to three rows', async () => {
                 const { db, users } = freshUsers()
                 await db.transaction(async (tx) => {
@@ -34,7 +31,6 @@ describe('insert inside a transaction', () => {
                 const rows = await db.select().from(users)
                 expect(rows.length).toBe(3)
         })
-
         it('two tx.insert calls in one transaction keep heap order', async () => {
                 const { db, users } = freshUsers()
                 await db.transaction(async (tx) => {
@@ -47,7 +43,6 @@ describe('insert inside a transaction', () => {
                 const rows = await db.select().from(users)
                 expect(rows.map((r: { id: number }) => r.id)).toEqual([1, 2, 3])
         })
-
         it('transaction insert is visible to a select inside the same transaction', async () => {
                 const { db, users } = freshUsers()
                 const seen = await db.transaction(async (tx) => {
@@ -56,7 +51,6 @@ describe('insert inside a transaction', () => {
                 })
                 expect((seen as unknown[]).length).toBe(3)
         })
-
         it('transaction insert with returning resolves rids inside the callback', async () => {
                 const { db, users } = freshUsers()
                 const rids = await db.transaction(async (tx) => {
@@ -64,7 +58,6 @@ describe('insert inside a transaction', () => {
                 })
                 expect((rids as unknown[]).length).toBe(3)
         })
-
         it.each([[1], [2], [4], [8]])('a transaction inserting %i rows leaves that many rows committed', async (n) => {
                 const { db, users } = freshUsers()
                 const rows = Array.from({ length: n }, (_v, i) => ({ id: i + 1, name: 1, score: 0 }))
@@ -74,7 +67,6 @@ describe('insert inside a transaction', () => {
                 const back = await db.select().from(users)
                 expect(back.length).toBe(n)
         })
-
         it('per-row tick transaction inserts one post per visited user', async () => {
                 const users = makeUsers()
                 const posts = makePosts()
@@ -89,8 +81,7 @@ describe('insert inside a transaction', () => {
                 const rows = await db.select().from(db.tables.posts)
                 expect(rows.length).toBe(3)
         })
-
-        it.skip('per-row tick transaction count matches the user count', async () => {
+        it('per-row tick transaction count matches the user count', async () => {
                 const users = makeUsers()
                 const posts = makePosts()
                 const db = database({ users, posts })
@@ -102,6 +93,6 @@ describe('insert inside a transaction', () => {
                 })
                 await runner.run()
                 const r = await db.select({ n: count() }).from(db.tables.posts)
-                expect(r.n).toBe(3)
+                expect(r[0].n).toBe(3)
         })
 })

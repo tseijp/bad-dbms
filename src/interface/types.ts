@@ -56,6 +56,7 @@ export interface InsertAst {
         table: Table
         values?: Record<string, number>[]
         returning?: boolean
+        conflict?: { action: 'nothing' | 'update'; set?: Record<string, SqlValue> }
 }
 export interface UpdateAst {
         op: 'Update'

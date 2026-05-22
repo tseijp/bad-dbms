@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, uint, float, text } from '../../src/index'
-
 describe('column types', () => {
         it.each([[0], [1], [-1], [-128], [127], [2147483647], [-2147483648]])('integer column stores and reads %i', async (v) => {
                 const t = table('itype', {
@@ -12,7 +11,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows[0].v).toBe(v)
         })
-
         it.each([[0], [1], [255], [65535], [4294967295]])('uint column stores and reads %i', async (v) => {
                 const t = table('utype', {
                         id: integer('id').primaryKey(),
@@ -23,7 +21,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows[0].v).toBe(v)
         })
-
         // All chosen values are exactly representable in float32, so a
         // correct store returns them verbatim under strict equality.
         it.each([[0], [1], [0.5], [1.25], [-2.5], [100.125], [-0.75], [-1], [2], [0.125], [-0.5], [8.5], [1024.25]])('float column stores and reads %f', async (v) => {
@@ -36,7 +33,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows[0].v).toBe(v)
         })
-
         // Correct spec: a text column stores and reads back string
         // values verbatim. bad-dbms is a numeric store and coerces text
         // through Number(); these expectations stay on the string spec.
@@ -50,7 +46,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows[0].v).toBe(v)
         })
-
         it('integer column preserves negative values across a multi-row insert', async () => {
                 const t = table('ineg', {
                         id: integer('id').primaryKey(),
@@ -65,7 +60,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows.map((r: { v: number }) => r.v)).toEqual([-10, -20, -30])
         })
-
         it('float column preserves fractional values across a multi-row insert', async () => {
                 const t = table('fmulti', {
                         id: integer('id').primaryKey(),
@@ -79,7 +73,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows[1].v).toBe(1.5)
         })
-
         it('uint column preserves values across a multi-row insert', async () => {
                 const t = table('umulti', {
                         id: integer('id').primaryKey(),
@@ -94,7 +87,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows.map((r: { v: number }) => r.v)).toEqual([100, 200, 4294967295])
         })
-
         it.each([
                 ['integer column a', 'a', -5],
                 ['uint column b', 'b', 9],
@@ -111,7 +103,6 @@ describe('column types', () => {
                 const rows = await db.select().from(db.tables.t)
                 expect(rows[0][key]).toBe(expected)
         })
-
         it('text column preserves strings across a multi-row insert', async () => {
                 const t = table('tmulti', {
                         id: integer('id').primaryKey(),

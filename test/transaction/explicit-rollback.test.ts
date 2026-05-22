@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt } from '../../src/index'
 import { fresh, seeded, amountsById } from './_fixtures'
-
 describe('an explicit tx.rollback aborts the transaction', () => {
         // Drizzle exposes tx.rollback(): calling it aborts the
         // transaction so none of its writes survive, without the
@@ -17,7 +16,6 @@ describe('an explicit tx.rollback aborts the transaction', () => {
                 const rows = await db.select().from(t)
                 expect(rows).toEqual([])
         })
-
         it('calling tx.rollback undoes an update made earlier in the body', async () => {
                 const { db, t } = await seeded()
                 await db
@@ -29,7 +27,6 @@ describe('an explicit tx.rollback aborts the transaction', () => {
                 const rows = await db.select().from(t)
                 expect(amountsById(rows)).toEqual([10, 20, 30])
         })
-
         it('a transaction that rolls back explicitly leaves the row count unchanged', async () => {
                 const { db, t } = await seeded()
                 await db

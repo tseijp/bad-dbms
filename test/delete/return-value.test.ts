@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, gte, lt } from '../../src/index'
 import { makeBoard, seededBoard } from './_fixtures'
-
 describe('the delete return value reports the rows removed', () => {
         // delete(...).where(...) without returning resolves to a
         // result describing how many rows changed. The count must
@@ -16,13 +15,11 @@ describe('the delete return value reports the rows removed', () => {
                 const result = await db.delete(t).where(pred(t))
                 expect(result).toMatchObject({ rowCount: expected })
         })
-
         it('a no-where delete reports every row as removed', async () => {
                 const { db, t } = await seededBoard()
                 const result = await db.delete(t)
                 expect(result).toMatchObject({ rowCount: 3 })
         })
-
         it('the reported count equals the drop in the surviving row count', async () => {
                 const { db, t } = await seededBoard()
                 const before = await db.select().from(t)

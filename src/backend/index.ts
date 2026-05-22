@@ -24,13 +24,13 @@ const handleInitAll = (catalog: ReturnType<typeof createCatalog>, ast: InitAllAs
         for (const k of Object.keys(tables)) catalog.registerTable(tables[k] as Parameters<typeof catalog.registerTable>[0])
         return []
 }
-export interface DatabaseConfig {
+export interface BackendConfig {
         fileAdapter?: FileAdapter
         pageSize?: number
         frameCount?: number
         ringCount?: number
 }
-export const createDatabase = (config: DatabaseConfig = {}) => {
+export const createBackend = (config: BackendConfig = {}) => {
         const _adapter = config.fileAdapter ?? createFileAdapter()
         const _file = createFile(_adapter)
         const _pageSize = config.pageSize ?? 4096
@@ -87,4 +87,4 @@ export const createDatabase = (config: DatabaseConfig = {}) => {
                 transam,
         }
 }
-export type Database = ReturnType<typeof createDatabase>
+export type Backend = ReturnType<typeof createBackend>

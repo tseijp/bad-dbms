@@ -1,6 +1,5 @@
 import { database, table, integer } from '../../src/index'
 import { makeUsers, makePosts, makeNodes, USERS_SEED, POSTS_SEED } from '../_helpers'
-
 // shared join-test fixtures and Drizzle-correct result readers.
 //
 // A joined select() resolves to an array of combined row objects. With a flat
@@ -8,9 +7,7 @@ import { makeUsers, makePosts, makeNodes, USERS_SEED, POSTS_SEED } from '../_hel
 // Drizzle keys each row by table name (`row.users`, `row.posts`). leftJoin
 // null-fills the unmatched right side. Row order is unspecified, so readers
 // sort before asserting where order is not the behaviour under test.
-
 export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? (r as any[]) : [])
-
 // the join builders live on the select builder; reached untyped so a missing
 // method is a runtime honest fail rather than a compile error. Expected
 // behaviour follows the correct Drizzle spec regardless of whether bad-dbms
@@ -19,7 +16,6 @@ export const innerJoin = (b: any, right: any, on: any) => b.innerJoin(right, on)
 export const leftJoin = (b: any, right: any, on: any) => b.leftJoin(right, on)
 export const rightJoin = (b: any, right: any, on: any) => b.rightJoin(right, on)
 export const fullJoin = (b: any, right: any, on: any) => b.fullJoin(right, on)
-
 // sorts joined rows by a key for order-independent assertions.
 export const by = (r: unknown, key: string): any[] =>
         rowsOf(r)
@@ -32,10 +28,8 @@ export const by = (r: unknown, key: string): any[] =>
                         if (bv === null || bv === undefined) return -1
                         return av < bv ? -1 : 1
                 })
-
 // the multiset of one column across joined rows.
 export const column = (r: unknown, key: string): any[] => rowsOf(r).map((row) => row[key])
-
 // builds one database holding seeded users and posts, the canonical join pair.
 // POSTS_SEED: posts 1,2 -> user 1 ; post 3 -> user 2 ; post 4 -> user 3.
 export const seedUsersPosts = async () => {
@@ -46,7 +40,6 @@ export const seedUsersPosts = async () => {
         await db.insert(posts).values(POSTS_SEED)
         return { db, users, posts }
 }
-
 // the same pair plus a fourth user who owns no post, so inner and left joins
 // diverge: user 4 has no matching post row.
 export const seedUsersPostsWithOrphan = async () => {
@@ -57,7 +50,6 @@ export const seedUsersPostsWithOrphan = async () => {
         await db.insert(posts).values(POSTS_SEED)
         return { db, users, posts }
 }
-
 // three tables for multi-join chaining: users own posts, posts carry tags.
 // tagRows: [tagId, postId, label]. POSTS_SEED posts are 1,2,3,4.
 export const seedThreeTables = async (tagRows: Array<[number, number, number]>) => {
@@ -76,7 +68,6 @@ export const seedThreeTables = async (tagRows: Array<[number, number, number]>) 
         }
         return { db, users, posts, tags }
 }
-
 // a parent/child chain in one nodes table for self-join scenarios.
 // {id:1,parentId:0} root, {id:2,parentId:1}, {id:3,parentId:2}.
 export const seedNodeChain = async () => {
@@ -89,13 +80,9 @@ export const seedNodeChain = async () => {
         ])
         return { db, nodes }
 }
-
 // builds a generic left/right table pair for matrix-driven join tests.
 // left  rows: [{ id, lv }]      right rows: [{ id, fk, rv }]
-export const seedPair = async (
-        left: Array<[number, number]>,
-        right: Array<[number, number, number]>
-) => {
+export const seedPair = async (left: Array<[number, number]>, right: Array<[number, number, number]>) => {
         const l = table('l', {
                 id: integer('id').primaryKey(),
                 lv: integer('lv'),

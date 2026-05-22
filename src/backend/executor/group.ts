@@ -8,8 +8,20 @@ interface AggState {
         seen: Set<unknown>
 }
 const initAgg = (_kind: string): AggState => ({ count: 0, sum: 0, val: undefined, seen: new Set() })
-const updateAgg = (state: AggState, kind: string, v: unknown, distinct: boolean) => {
+const orderKey = (v: unknown): unknown => (typeof v === 'string' && v !== '' && !isNaN(Number(v)) ? Number(v) : v)
+const cmpValue = (a: unknown, b: unknown): number => {
+        const an = a === null || a === undefined
+        const bn = b === null || b === undefined
+        if (an || bn) return an && bn ? 0 : an ? -1 : 1
+        const av = orderKey(a)
+        const bv = orderKey(b)
+        if ((av as number) < (bv as number)) return -1
+        if ((av as number) > (bv as number)) return 1
+        return 0
+}
+const updateAgg = (state: AggState, kind: string, v: unknown, distinct: boolean, hasField: boolean) => {
         if (kind === 'count') {
+                if (hasField && isNullish(v)) return
                 if (!distinct) return void state.count++
                 if (isNullish(v) || state.seen.has(v)) return
                 state.seen.add(v)
@@ -24,8 +36,8 @@ const updateAgg = (state: AggState, kind: string, v: unknown, distinct: boolean)
                 state.sum += Number(v)
                 return void state.count++
         }
-        if (kind === 'min') return void (state.val = state.val === undefined ? v : Math.min(state.val as number, v as number))
-        if (kind === 'max') return void (state.val = state.val === undefined ? v : Math.max(state.val as number, v as number))
+        if (kind === 'min') return void (state.val = state.val === undefined || cmpValue(v, state.val) < 0 ? v : state.val)
+        if (kind === 'max') return void (state.val = state.val === undefined || cmpValue(v, state.val) > 0 ? v : state.val)
 }
 const finalAgg = (state: AggState, kind: string): unknown => {
         if (kind === 'count') return state.count
@@ -51,7 +63,7 @@ export const createAggregate = (child: RowIterator, groupBy: string[], aggs: Agg
                         _groups.set(k, g)
                         _order.push(k)
                 }
-                for (let i = 0; i < aggs.length; i++) updateAgg(g.states[i], aggs[i].kind, r[aggs[i].field], !!aggs[i].distinct)
+                for (let i = 0; i < aggs.length; i++) updateAgg(g.states[i], aggs[i].kind, r[aggs[i].field], !!aggs[i].distinct, !!aggs[i].field)
         }
         child.close()
         const _out: Row[] = []
@@ -74,17 +86,6 @@ export const createAggregate = (child: RowIterator, groupBy: string[], aggs: Agg
                 },
                 close() {},
         }
-}
-const orderKey = (v: unknown): unknown => (typeof v === 'string' && v !== '' && !isNaN(Number(v)) ? Number(v) : v)
-const cmpValue = (a: unknown, b: unknown): number => {
-        const an = a === null || a === undefined
-        const bn = b === null || b === undefined
-        if (an || bn) return an && bn ? 0 : an ? -1 : 1
-        const av = orderKey(a)
-        const bv = orderKey(b)
-        if ((av as number) < (bv as number)) return -1
-        if ((av as number) > (bv as number)) return 1
-        return 0
 }
 export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
         const _buf: Row[] = []
