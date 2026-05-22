@@ -1,10 +1,9 @@
 import type { SQL, SqlValue, Row, PhysicalOp } from '../shared/types'
-import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinClause, JoinKind, ProjItem } from './types'
-import { createDatabase as createBackend } from '../backend/index'
+import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinKind, ProjItem } from './types'
+import { createBackend } from '../backend/index'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
 import { tableNameOf, stripRid } from '../shared/helper'
-export type { DatabaseConfig } from './types'
 type Backend = ReturnType<typeof createBackend>
 type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
 type RunFn = (ast: AnyAst) => unknown
