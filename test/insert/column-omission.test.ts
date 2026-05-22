@@ -32,7 +32,7 @@ describe('column omission', () => {
                 const { db, posts } = freshPosts()
                 await db.insert(posts).values({ id: 1, score: 5 })
                 const rows = await db.select().from(posts)
-                expect(rows[0].user_id).toBeNull()
+                expect(rows[0].userId).toBeNull()
         })
 
         it('omitting a no-default events column reads back null', async () => {

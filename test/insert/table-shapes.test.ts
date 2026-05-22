@@ -35,14 +35,14 @@ describe('other table shapes', () => {
                 const { db, posts } = freshPosts()
                 await db.insert(posts).values({ id: 1, userId: 5, score: 9 })
                 const rows = await db.select().from(posts)
-                expect(rows[0].user_id).toBe(5)
+                expect(rows[0].userId).toBe(5)
         })
 
         it('nodes table accepts a self-reference shaped row', async () => {
                 const { db, nodes } = freshNodes()
                 await db.insert(nodes).values({ id: 2, parentId: 1 })
                 const rows = await db.select().from(nodes)
-                expect(rows[0].parent_id).toBe(1)
+                expect(rows[0].parentId).toBe(1)
         })
 
         it('nodes table accepts multiple rows with parent links', async () => {

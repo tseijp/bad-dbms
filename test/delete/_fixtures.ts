@@ -20,11 +20,13 @@ export const makeBooks = (authors: ReturnType<typeof makeAuthors>) =>
         })
 
 // A self-referential tree so multi-level cascade can be attacked.
-export const makeNodes = () =>
-        table('nodes', {
+export const makeNodes = () => {
+        const nodes = table('nodes', {
                 id: integer('id').primaryKey(),
-                parentId: integer('parent_id'),
+                parentId: integer('parent_id').references(() => nodes.id, { onDelete: 'cascade' }),
         })
+        return nodes
+}
 
 // A plain board for the value-level scenarios.
 export const makeBoard = () =>

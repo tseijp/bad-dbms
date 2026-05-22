@@ -23,7 +23,7 @@ describe('a predicate preserves the row shape it filters', () => {
         it('a filtered post row keeps its userId and score untouched alongside its id', async () => {
                 const { db, posts } = await seedPosts()
                 const rows = await db.select().from(posts).where(eq(posts.id, 3))
-                expect(rows[0]).toMatchObject({ id: 3, user_id: 2, score: 9 })
+                expect(rows[0]).toMatchObject({ id: 3, userId: 2, score: 9 })
         })
 
         it('filtering changes which rows return but leaves every returned row the same shape', async () => {
