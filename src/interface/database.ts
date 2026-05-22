@@ -72,16 +72,6 @@ const resolveConflictSet = (set: Record<string, SqlValue> | undefined, ctx: Eval
 }
 const ROLLBACK = Symbol('rollback')
 const isRollback = (e: unknown): boolean => !!e && typeof e === 'object' && (e as { __rollback?: symbol }).__rollback === ROLLBACK
-const isConfig = (v: unknown): v is DatabaseConfig => {
-        if (!v || typeof v !== 'object') return false
-        const c = v as DatabaseConfig
-        return !!(c.execute || c.pageSize || c.fileAdapter || c.frameCount || c.ringCount || c.tables)
-}
-const normalizeArgs = (a?: unknown, b?: unknown): DatabaseConfig => {
-        if (!a) return {}
-        if (isConfig(a)) return b ? { ...a, tables: b as Record<string, Table> } : a
-        return { ...(isConfig(b) ? b : {}), tables: a as Record<string, Table> }
-}
 type Thenable<A, M> = M & { toAST(): A; then(r: (v: any) => any, j?: (e: unknown) => unknown): Promise<any>; catch(j: (e: unknown) => unknown): Promise<any> }
 const builder = <A extends AnyAst, M>(run: RunFn, ast: A, methods: (ast: A, self: () => any) => M): Thenable<A, M> => {
         let promise: Promise<unknown> | null = null
@@ -94,14 +84,12 @@ const builder = <A extends AnyAst, M>(run: RunFn, ast: A, methods: (ast: A, self
         }
         return self
 }
-export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>, maybeConfig?: DatabaseConfig | Record<string, Table>) => {
-        const _cfg = normalizeArgs(schemaOrConfig, maybeConfig)
-        const backend: Backend | null = _cfg.execute ? null : createBackend({ pageSize: _cfg.pageSize, frameCount: _cfg.frameCount, ringCount: _cfg.ringCount, fileAdapter: _cfg.fileAdapter })
+export const database = (tables: Record<string, Table>, config: DatabaseConfig = {}) => {
+        const backend: Backend | null = config.execute ? null : createBackend({ pageSize: config.pageSize, frameCount: config.frameCount, ringCount: config.ringCount, fileAdapter: config.fileAdapter })
         const _ctx: EvalCtx = { current: null, params: null }
-        const tables = _cfg.tables ?? {}
         const adapters: unknown[] = []
         if (backend) registerTables(backend, tables)
-        const _dispatch = (plan: PhysicalOp): unknown => (_cfg.execute ? _cfg.execute(plan) : backend ? backend.execute(plan) : [])
+        const _dispatch = (plan: PhysicalOp): unknown => (config.execute ? config.execute(plan) : backend ? backend.execute(plan) : [])
         const _rowsOf = async (plan: PhysicalOp): Promise<Row[]> => {
                 const r = await Promise.resolve(_dispatch(plan))
                 return (Array.isArray(r) ? (r as Row[]) : []).map(stripRid)
@@ -230,7 +218,7 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
                 use: (adapter: unknown) => (adapters.push(adapter), api),
                 all: (n: number) =>
                         Promise.resolve().then(() => {
-                                if (_cfg.execute) _cfg.execute({ op: 'InitAll', tables, count: n, adapters })
+                                if (config.execute) config.execute({ op: 'InitAll', tables, count: n, adapters })
                                 else if (backend) for (const key in tables) for (const row of generateInitRows(tables[key], n)) backend.catalog.insertRow(tableNameOf(tables[key]), row)
                                 return api
                         }),
