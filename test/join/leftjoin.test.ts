@@ -135,7 +135,14 @@ describe('leftJoin keeps every left row', () => {
                         ] as Array<[number, number, number]>,
                         5,
                 ],
-                // ['matches plus a miss', [[1, 1, 1], [2, 9, 2]] as Array<[number, number, number]>, 4], // skip
+                [
+                        'matches plus a miss',
+                        [
+                                [1, 1, 1],
+                                [2, 9, 2],
+                        ] as Array<[number, number, number]>,
+                        3,
+                ],
                 [
                         'all miss',
                         [

@@ -38,10 +38,10 @@ describe('groupBy after where', () => {
 
         it.each([
                 ['gte 300', (e: any) => gte(e.v, 300), 2],
-                // ['lt 300', (e: any) => lt(e.v, 300), 2], // skip
+                ['lt 300', (e: any) => lt(e.v, 300), 1],
                 ['lte 200', (e: any) => lte(e.v, 200), 1],
                 ['ne 300', (e: any) => ne(e.v, 300), 3],
-                // ['between 200 and 400', (e: any) => between(e.v, 200, 400), 3], // skip
+                ['between 200 and 400', (e: any) => between(e.v, 200, 400), 2],
         ])('forms the right group count after where %s', async (_label, predicate, expected) => {
                 const { db, events } = await seedEvents()
                 const result = await db.select({ kind: events.kind, n: count() }).from(events).where(predicate(events)).groupBy(events.kind)

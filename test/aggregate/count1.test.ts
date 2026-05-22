@@ -147,20 +147,20 @@ describe('count over a column with NULL values', () => {
                 expect(scalar(result, 'n')).toBe(5)
         })
 
-        it.skip('skips the NULL rows with count(column)', async () => {
+        it('skips the NULL rows with count(column)', async () => {
                 const { db, t } = await seedNullable([10, null, 30, null, 50])
                 const result = await db.select({ n: count(t.v) }).from(t)
                 expect(scalar(result, 'n')).toBe(3)
         })
 
-        it.skip('shows count() and count(column) diverge when a column has NULLs', async () => {
+        it('shows count() and count(column) diverge when a column has NULLs', async () => {
                 const { db, t } = await seedNullable([10, null, 30, null, 50])
                 const all = await db.select({ n: count() }).from(t)
                 const nonNull = await db.select({ n: count(t.v) }).from(t)
                 expect([scalar(all, 'n'), scalar(nonNull, 'n')]).toEqual([5, 3])
         })
 
-        it.skip.each([
+        it.each([
                 ['no nulls', [10, 20, 30] as Array<number | null>, 3],
                 ['one null', [10, null, 30] as Array<number | null>, 2],
                 ['all null', [null, null, null] as Array<number | null>, 0],

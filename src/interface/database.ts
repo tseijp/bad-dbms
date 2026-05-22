@@ -61,6 +61,15 @@ const compileSetters = (set: Record<string, SqlValue> | undefined, ctx: EvalCtx)
         }
         return out
 }
+const resolveConflictSet = (set: Record<string, SqlValue> | undefined, ctx: EvalCtx): Record<string, unknown> | undefined => {
+        if (!set) return undefined
+        const out: Record<string, unknown> = {}
+        for (const k in set) {
+                const v = set[k]
+                out[k] = isSqlValue(v) ? compileExpr(v, ctx)({}) : v
+        }
+        return out
+}
 const ROLLBACK = Symbol('rollback')
 const isRollback = (e: unknown): boolean => !!e && typeof e === 'object' && (e as { __rollback?: symbol }).__rollback === ROLLBACK
 const isConfig = (v: unknown): v is DatabaseConfig => {
@@ -102,11 +111,11 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
                 const table = tableNameOf(ast.table)
                 if (ast.op === 'Insert') {
                         const values = ast.values ?? []
-                        if (!_cfg.execute && backend) {
-                                const rids = backend.catalog.insertRows(table, values)
-                                return ast.returning ? rids : { rowCount: rids.length }
-                        }
-                        return _dispatch({ op: 'Insert', table, values, returning: !!ast.returning })
+                        const conflict = ast.conflict ? { action: ast.conflict.action, set: resolveConflictSet(ast.conflict.set, _ctx) } : undefined
+                        const plan: PhysicalOp = { op: 'Insert', table, values, returning: !!ast.returning, conflict }
+                        if (ast.returning) return _rowsOf(plan)
+                        const r = await Promise.resolve(_dispatch(plan))
+                        return (Array.isArray(r) ? r[0] : r) ?? { rowCount: 0, changes: 0 }
                 }
                 const predicate = ast.where ? compilePredicate(ast.where, _ctx) : () => true
                 const plan: PhysicalOp = ast.op === 'Update' ? { op: 'Update', table, predicate, setters: compileSetters(ast.set, _ctx), returning: !!ast.returning } : { op: 'Delete', table, predicate, returning: !!ast.returning }
@@ -138,6 +147,8 @@ export const database = (schemaOrConfig?: DatabaseConfig | Record<string, Table>
                         builder(_run, { op: 'Insert', table: t } as InsertAst, (ast, b) => ({
                                 values: (rows: Record<string, number> | Record<string, number>[]) => ((ast.values = Array.isArray(rows) ? rows : [rows]), b()),
                                 returning: () => ((ast.returning = true), b()),
+                                onConflictDoNothing: () => ((ast.conflict = { action: 'nothing' }), b()),
+                                onConflictDoUpdate: (cfg: { set: Record<string, SqlValue> }) => ((ast.conflict = { action: 'update', set: cfg?.set }), b()),
                         })),
                 update: (t: Table) =>
                         builder(_run, { op: 'Update', table: t } as UpdateAst, (ast, b) => ({

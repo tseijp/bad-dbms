@@ -176,7 +176,7 @@ describe('per-group min and max over a text column', () => {
                 [2, 'solo'],
         ]
 
-        it.skip('finds the lexicographically smallest label in a group', async () => {
+        it('finds the lexicographically smallest label in a group', async () => {
                 const { db, t } = await labelTable(labels)
                 const result = await db
                         .select({ g: t.g, lo: min(t.label) })
@@ -185,7 +185,7 @@ describe('per-group min and max over a text column', () => {
                 expect(groupWith(result, 'g', 0).lo).toBe('alpha')
         })
 
-        it.skip('finds the lexicographically largest label in a group', async () => {
+        it('finds the lexicographically largest label in a group', async () => {
                 const { db, t } = await labelTable(labels)
                 const result = await db
                         .select({ g: t.g, hi: max(t.label) })
@@ -194,7 +194,7 @@ describe('per-group min and max over a text column', () => {
                 expect(groupWith(result, 'g', 0).hi).toBe('delta')
         })
 
-        it.skip.each([
+        it.each([
                 [0, 'alpha', 'delta'],
                 [1, 'mike', 'zulu'],
                 [2, 'solo', 'solo'],
@@ -208,7 +208,7 @@ describe('per-group min and max over a text column', () => {
                 expect([row.lo, row.hi]).toEqual([lo, hi])
         })
 
-        it.skip('returns a string, not a numeric code, for a per-group text min', async () => {
+        it('returns a string, not a numeric code, for a per-group text min', async () => {
                 const { db, t } = await labelTable(labels)
                 const result = await db
                         .select({ g: t.g, lo: min(t.label) })
@@ -217,7 +217,7 @@ describe('per-group min and max over a text column', () => {
                 expect(typeof groupWith(result, 'g', 0).lo).toBe('string')
         })
 
-        it.skip('orders text extremes by lexicographic order, not insertion order', async () => {
+        it('orders text extremes by lexicographic order, not insertion order', async () => {
                 const { db, t } = await labelTable([
                         [0, 'mango'],
                         [0, 'apple'],

@@ -90,7 +90,7 @@ describe('insert inside a transaction', () => {
                 expect(rows.length).toBe(3)
         })
 
-        it.skip('per-row tick transaction count matches the user count', async () => {
+        it('per-row tick transaction count matches the user count', async () => {
                 const users = makeUsers()
                 const posts = makePosts()
                 const db = database({ users, posts })
@@ -102,6 +102,6 @@ describe('insert inside a transaction', () => {
                 })
                 await runner.run()
                 const r = await db.select({ n: count() }).from(db.tables.posts)
-                expect(r.n).toBe(3)
+                expect(r[0].n).toBe(3)
         })
 })

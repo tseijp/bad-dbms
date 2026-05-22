@@ -152,10 +152,10 @@ export const createCatalog = (deps: CatalogDeps) => {
                 for (let i = 0; i < rel.columns.length; i++) {
                         const col = rel.columns[i]
                         if (rel.codecs[i].nulls.has(rk)) {
-                                row[col.name] = null
+                                row[col.key] = null
                                 continue
                         }
-                        row[col.name] = decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
+                        row[col.key] = decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
                 }
                 return row
         }
@@ -223,7 +223,7 @@ export const createCatalog = (deps: CatalogDeps) => {
                         const def: Record<string, Partial<ColumnMeta>> = {}
                         for (const col of tableObj.$meta.columns) {
                                 const cd = col.$col
-                                def[cd.name] = fromColDescriptor(cd)
+                                def[cd.key ?? cd.name] = fromColDescriptor(cd)
                         }
                         return register(name, def)
                 },

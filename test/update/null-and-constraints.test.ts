@@ -159,7 +159,7 @@ describe('an update that collides the primary key is rejected', () => {
                 expect([...rows].map((r) => r.id).sort((a, b) => a - b)).toEqual([1, 3, 9])
         })
 
-        it.skip('a whole-table update that collapses every primary key onto one value rejects', async () => {
+        it('a whole-table update that collapses every primary key onto one value rejects', async () => {
                 const { db, t } = await seededTyped()
                 // setting every row's id to the same constant violates uniqueness
                 await expect(db.update(t).set({ id: 5 })).rejects.toBeDefined()

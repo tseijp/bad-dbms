@@ -109,6 +109,7 @@ export interface ColumnConfig {
 }
 export interface ColumnDescriptor extends ColumnConfig {
         name: string
+        key?: string
         type: ColumnType
         tableName?: string
 }
@@ -210,11 +211,16 @@ export interface DeleteOp {
         predicate?: RowPredicate
         returning?: boolean
 }
+export interface ConflictClause {
+        action: 'nothing' | 'update'
+        set?: Record<string, unknown>
+}
 export interface InsertOp {
         op: 'Insert'
         table: TableRef
         values: Row[]
         returning?: boolean
+        conflict?: ConflictClause
 }
 export type PhysicalOp = SeqScanOp | NamedScanOp | IndexScanOp | FilterOp | ProjectionOp | NestedLoopJoinOp | HashJoinOp | AggregateOp | SortOp | DistinctOp | LimitOp | UpdateOp | DeleteOp | InsertOp
 export type LogicalOp = 'Select' | 'Insert' | 'Update' | 'Delete' | 'InitAll'

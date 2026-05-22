@@ -8,7 +8,7 @@ import { freshUsers } from './_fixtures'
 // hold the Drizzle contract and fail honestly where it does not.
 
 describe('multi row insert', () => {
-        it.skip('a three-row insert resolves to a run-result with a changes count of 3', async () => {
+        it('a three-row insert resolves to a run-result with a changes count of 3', async () => {
                 const { db, users } = freshUsers()
                 const r = await db.insert(users).values(USERS_SEED)
                 expect(r).toMatchObject({ changes: 3 })
@@ -35,7 +35,7 @@ describe('multi row insert', () => {
                 expect(rows[1]).toMatchObject({ id: 2, name: 22, score: 20 })
         })
 
-        it.skip('an empty-array insert resolves to a run-result with a changes count of 0', async () => {
+        it('an empty-array insert resolves to a run-result with a changes count of 0', async () => {
                 const { db, users } = freshUsers()
                 const r = await db.insert(users).values([])
                 expect(r).toMatchObject({ changes: 0 })
@@ -48,7 +48,7 @@ describe('multi row insert', () => {
                 expect(rows.length).toBe(0)
         })
 
-        it.skip.each([[1], [2], [3], [5], [10], [13], [25]])('an array of %i rows resolves to a changes count of %i', async (n) => {
+        it.each([[1], [2], [3], [5], [10], [13], [25]])('an array of %i rows resolves to a changes count of %i', async (n) => {
                 const { db, users } = freshUsers()
                 const rows = Array.from({ length: n }, (_v, i) => ({ id: i + 1, name: i + 1, score: i }))
                 const r = await db.insert(users).values(rows)

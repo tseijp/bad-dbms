@@ -93,22 +93,22 @@ describe('groupBy produces one row per distinct key', () => {
         // of distinct key values regardless of how rows distribute across them.
         const shapes: Array<[string, number[], number]> = [
                 ['empty-ish single', [0], 1],
-                // ['two same', [0, 0], 1], // skip
+                ['two same', [0, 0], 1],
                 ['two distinct', [0, 1], 2],
-                // ['three same', [4, 4, 4], 1], // skip
+                ['three same', [4, 4, 4], 1],
                 ['three distinct', [1, 2, 3], 3],
-                // ['pair plus single', [0, 0, 1], 2], // skip
-                // ['two pairs', [0, 0, 1, 1], 2], // skip
-                // ['skewed quad', [9, 9, 9, 1], 2], // skip
+                ['pair plus single', [0, 0, 1], 2],
+                ['two pairs', [0, 0, 1, 1], 2],
+                ['skewed quad', [9, 9, 9, 1], 2],
                 ['five distinct', [1, 2, 3, 4, 5], 5],
-                // ['five into two', [0, 0, 0, 1, 1], 2], // skip
-                // ['five into three', [0, 0, 1, 1, 2], 3], // skip
-                // ['six into two', [7, 7, 7, 8, 8, 8], 2], // skip
-                // ['six into three', [1, 1, 2, 2, 3, 3], 3], // skip
-                // ['scattered six', [3, 1, 3, 2, 1, 3], 3], // skip
-                // ['eight into four', [0, 0, 1, 1, 2, 2, 3, 3], 4], // skip
-                // ['negatives as keys', [-1, -1, -2, -3], 3], // skip
-                // ['zero among positives', [0, 1, 0, 2, 0], 3], // skip
+                ['five into two', [0, 0, 0, 1, 1], 2],
+                ['five into three', [0, 0, 1, 1, 2], 3],
+                ['six into two', [7, 7, 7, 8, 8, 8], 2],
+                ['six into three', [1, 1, 2, 2, 3, 3], 3],
+                ['scattered six', [3, 1, 3, 2, 1, 3], 3],
+                ['eight into four', [0, 0, 1, 1, 2, 2, 3, 3], 4],
+                ['negatives as keys', [-1, -1, -2, -3], 3],
+                ['zero among positives', [0, 1, 0, 2, 0], 3],
                 ['ten distinct', [10, 20, 30, 40, 50, 60, 70, 80, 90, 100], 10],
         ]
 

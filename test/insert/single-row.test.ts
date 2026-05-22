@@ -9,7 +9,7 @@ import { freshUsers } from './_fixtures'
 // weakened back to { rowCount }.
 
 describe('single row insert', () => {
-        it.skip('a single-object insert resolves to a run-result with a changes count of 1', async () => {
+        it('a single-object insert resolves to a run-result with a changes count of 1', async () => {
                 const { db, users } = freshUsers()
                 const r = await db.insert(users).values({ id: 1, name: 11, score: 10 })
                 expect(r).toMatchObject({ changes: 1 })

@@ -5,7 +5,7 @@ import { freshPosts, freshEvents, freshNodes, freshTarget, freshUsers } from './
 describe('other table shapes', () => {
         // The run-result expectations follow the Drizzle / SQLite insert
         // contract: a `changes` count, not bad-dbms's invented { rowCount }.
-        it.skip('an events insert resolves to a run-result with a changes count of 5', async () => {
+        it('an events insert resolves to a run-result with a changes count of 5', async () => {
                 const { db, events } = freshEvents()
                 const r = await db.insert(events).values(EVENTS_SEED)
                 expect(r).toMatchObject({ changes: 5 })
@@ -25,7 +25,7 @@ describe('other table shapes', () => {
                 expect(rows[2]).toMatchObject({ id: 3, kind: 1, v: 300 })
         })
 
-        it.skip('a posts insert resolves to a run-result with a changes count of 4', async () => {
+        it('a posts insert resolves to a run-result with a changes count of 4', async () => {
                 const { db, posts } = freshPosts()
                 const r = await db.insert(posts).values(POSTS_SEED)
                 expect(r).toMatchObject({ changes: 4 })
@@ -56,7 +56,7 @@ describe('other table shapes', () => {
                 expect(rows.length).toBe(3)
         })
 
-        it.skip.each([
+        it.each([
                 ['users', () => freshTarget(freshUsers, 'users'), USERS_SEED],
                 ['posts', () => freshTarget(freshPosts, 'posts'), POSTS_SEED],
                 ['events', () => freshTarget(freshEvents, 'events'), EVENTS_SEED],

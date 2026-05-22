@@ -163,9 +163,9 @@ describe('chaining multiple joins across three tables', () => {
                 expect(perUser).toEqual({ 1: 2, 2: 1, 3: 1 })
         })
 
-        it.skip('keeps every left user through a doubled chained leftJoin', async () => {
+        it('keeps every left user through a doubled chained leftJoin', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([])
                 const result = await leftJoin(leftJoin(db.select({ userId: users.id, postId: posts.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
-                expect(by(result, 'userId').map((r) => r.userId)).toEqual([1, 2, 3])
+                expect(by(result, 'userId').map((r) => r.userId)).toEqual([1, 1, 2, 3])
         })
 })

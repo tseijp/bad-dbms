@@ -4,19 +4,19 @@ import { USERS_SEED, POSTS_SEED } from '../_helpers'
 import { freshUsers, freshUsersPosts } from './_fixtures'
 
 describe('insert then read consistency', () => {
-        it.skip('count aggregate after USERS_SEED equals 3', async () => {
+        it('count aggregate after USERS_SEED equals 3', async () => {
                 const { db, users } = freshUsers()
                 await db.insert(users).values(USERS_SEED)
                 const r = await db.select({ n: count() }).from(users)
-                expect(r.n).toBe(3)
+                expect(r[0].n).toBe(3)
         })
 
-        it.skip.each([[0], [1], [3], [7], [15]])('count aggregate after inserting %i rows equals %i', async (n) => {
+        it.each([[0], [1], [3], [7], [15]])('count aggregate after inserting %i rows equals %i', async (n) => {
                 const { db, users } = freshUsers()
                 const rows = Array.from({ length: n }, (_v, i) => ({ id: i + 1, name: 1, score: 0 }))
                 await db.insert(users).values(rows)
                 const r = await db.select({ n: count() }).from(users)
-                expect(r.n).toBe(n)
+                expect(r[0].n).toBe(n)
         })
 
         it.each([[1], [2], [3]])('where eq on inserted id %i returns exactly one row', async (id) => {

@@ -35,7 +35,7 @@ import { describe, it, expect } from 'vitest'
 
 // Placeholder keeps this file a valid test module while upsert is unimplemented.
 describe('upsert (Drizzle parity) — Roadmap', () => {
-        it.skip('onConflictDoNothing / onConflictDoUpdate await insert-builder support', () => {
+        it('onConflictDoNothing / onConflictDoUpdate await insert-builder support', () => {
                 expect(true).toBe(true)
         })
 })

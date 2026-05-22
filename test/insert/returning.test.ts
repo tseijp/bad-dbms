@@ -21,38 +21,38 @@ describe('insert with returning yields the inserted rows', () => {
                 expect(r.length).toBe(3)
         })
 
-        it.skip('a returned row is a full row object carrying its inserted column values', async () => {
+        it('a returned row is a full row object carrying its inserted column values', async () => {
                 const { db, users } = freshUsers()
                 const r = (await db.insert(users).values({ id: 1, name: 11, score: 10 }).returning()) as Record<string, number>[]
                 expect(r[0]).toEqual({ id: 1, name: 11, score: 10 })
         })
 
-        it.skip('returning enumerates the inserted rows in insertion order', async () => {
+        it('returning enumerates the inserted rows in insertion order', async () => {
                 const { db, users } = freshUsers()
                 const r = (await db.insert(users).values(USERS_SEED).returning()) as { id: number }[]
                 expect(r.map((row) => row.id)).toEqual([1, 2, 3])
         })
 
-        it.skip('every returned row exposes the schema column keys', async () => {
+        it('every returned row exposes the schema column keys', async () => {
                 const { db, users } = freshUsers()
                 const r = (await db.insert(users).values(USERS_SEED).returning()) as Record<string, number>[]
                 const keys = Object.keys(r[0]).sort()
                 expect(keys).toEqual(['id', 'name', 'score'])
         })
 
-        it.skip('a returned row deep-equals the literal that produced it', async () => {
+        it('a returned row deep-equals the literal that produced it', async () => {
                 const { db, users } = freshUsers()
                 const r = (await db.insert(users).values(USERS_SEED).returning()) as Record<string, number>[]
                 expect(r[1]).toEqual({ id: 2, name: 22, score: 20 })
         })
 
-        it.skip('an insert without returning resolves to a run-result, not a row array', async () => {
+        it('an insert without returning resolves to a run-result, not a row array', async () => {
                 const { db, users } = freshUsers()
                 const r = await db.insert(users).values({ id: 1, name: 11, score: 10 })
                 expect(r).toMatchObject({ changes: 1 })
         })
 
-        it.skip('an insert without returning does not resolve to an array', async () => {
+        it('an insert without returning does not resolve to an array', async () => {
                 const { db, users } = freshUsers()
                 const r = await db.insert(users).values({ id: 1, name: 11, score: 10 })
                 expect(Array.isArray(r)).toBe(false)
@@ -77,14 +77,14 @@ describe('insert with returning yields the inserted rows', () => {
                 expect(r).toEqual([])
         })
 
-        it.skip('the rows returned by returning equal the rows a follow-up select reads', async () => {
+        it('the rows returned by returning equal the rows a follow-up select reads', async () => {
                 const { db, users } = freshUsers()
                 const returned = (await db.insert(users).values(USERS_SEED).returning()) as Record<string, number>[]
                 const selected = (await db.select().from(users)) as Record<string, number>[]
                 expect(returned).toEqual(selected)
         })
 
-        it.skip('a returned row reflects the declared default of a column omitted from the insert', async () => {
+        it('a returned row reflects the declared default of a column omitted from the insert', async () => {
                 const { db, users } = freshUsers()
                 // score has a declared default; omitting it must surface the default in the returned row
                 const r = (await db.insert(users).values({ id: 1, name: 11 }).returning()) as { score: number }[]
