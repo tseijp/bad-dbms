@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { count, avg } from '../../src/index'
 import { seedEvents, seedPosts } from '../_helpers'
 import { groupWith, groupTable } from './helpers'
-
 // group feature: per-group avg. avg() inside a grouped query means each bucket
 // independently.
 //
@@ -11,7 +10,6 @@ import { groupWith, groupTable } from './helpers'
 // mixed count-and-avg group row pairs a numeric `n` with a string `a`. The
 // assertions below pin that Drizzle contract; bad-dbms returns JS numbers, so
 // they fail honestly. A non-integer group mean keeps its fractional part.
-
 describe('per-group avg', () => {
         it.each([
                 [0, '150'],
@@ -25,18 +23,44 @@ describe('per-group avg', () => {
                         .groupBy(events.kind)
                 expect(groupWith(result, 'kind', kind).a).toBe(expected)
         })
-
         it.each([
-                ['uniform group', [[0, 100], [0, 100], [1, 7]] as Array<[number, number]>, 0, '100'],
-                ['symmetric pair', [[3, 10], [3, 30]] as Array<[number, number]>, 3, '20'],
-                ['negatives', [[5, -20], [5, -40]] as Array<[number, number]>, 5, '-30'],
+                [
+                        'uniform group',
+                        [
+                                [0, 100],
+                                [0, 100],
+                                [1, 7],
+                        ] as Array<[number, number]>,
+                        0,
+                        '100',
+                ],
+                [
+                        'symmetric pair',
+                        [
+                                [3, 10],
+                                [3, 30],
+                        ] as Array<[number, number]>,
+                        3,
+                        '20',
+                ],
+                [
+                        'negatives',
+                        [
+                                [5, -20],
+                                [5, -40],
+                        ] as Array<[number, number]>,
+                        5,
+                        '-30',
+                ],
                 ['singleton', [[8, 42]] as Array<[number, number]>, 8, '42'],
         ])('averages the %s shape per group', async (_label, pairs, key, expected) => {
                 const { db, t } = await groupTable(pairs)
-                const result = await db.select({ g: t.g, a: avg(t.v) }).from(t).groupBy(t.g)
+                const result = await db
+                        .select({ g: t.g, a: avg(t.v) })
+                        .from(t)
+                        .groupBy(t.g)
                 expect(groupWith(result, 'g', key).a).toBe(expected)
         })
-
         it('averages each post group score independently', async () => {
                 const { db, posts } = await seedPosts()
                 const result = await db
@@ -45,7 +69,6 @@ describe('per-group avg', () => {
                         .groupBy(posts.userId)
                 expect(groupWith(result, 'userId', 1).a).toBe('6')
         })
-
         it('resolves a per-group avg to a string, not a JS number', async () => {
                 const { db, events } = await seedEvents()
                 const result = await db
@@ -54,7 +77,6 @@ describe('per-group avg', () => {
                         .groupBy(events.kind)
                 expect(typeof groupWith(result, 'kind', 0).a).toBe('string')
         })
-
         it('reads count and avg of every group with the count numeric and avg a string', async () => {
                 const { db, events } = await seedEvents()
                 const result = await db
@@ -63,18 +85,46 @@ describe('per-group avg', () => {
                         .groupBy(events.kind)
                 expect(groupWith(result, 'kind', 1)).toEqual({ kind: 1, n: 2, a: '350' })
         })
-
         // a non-integer group mean keeps its exact fractional part.
         it.each([
-                ['group of three', [[0, 1], [0, 1], [0, 2]] as Array<[number, number]>, 0, 1.3333333333333333],
-                ['group of two', [[1, 1], [1, 2]] as Array<[number, number]>, 1, 1.5],
-                ['group of four', [[2, 1], [2, 1], [2, 1], [2, 2]] as Array<[number, number]>, 2, 1.25],
+                [
+                        'group of three',
+                        [
+                                [0, 1],
+                                [0, 1],
+                                [0, 2],
+                        ] as Array<[number, number]>,
+                        0,
+                        1.3333333333333333,
+                ],
+                [
+                        'group of two',
+                        [
+                                [1, 1],
+                                [1, 2],
+                        ] as Array<[number, number]>,
+                        1,
+                        1.5,
+                ],
+                [
+                        'group of four',
+                        [
+                                [2, 1],
+                                [2, 1],
+                                [2, 1],
+                                [2, 2],
+                        ] as Array<[number, number]>,
+                        2,
+                        1.25,
+                ],
         ])('averages the %s to its exact fractional mean', async (_label, pairs, key, expected) => {
                 const { db, t } = await groupTable(pairs)
-                const result = await db.select({ g: t.g, a: avg(t.v) }).from(t).groupBy(t.g)
+                const result = await db
+                        .select({ g: t.g, a: avg(t.v) })
+                        .from(t)
+                        .groupBy(t.g)
                 expect(Number(groupWith(result, 'g', key).a)).toBeCloseTo(expected, 10)
         })
-
         // dense matrix: one fixed dataset with cleanly divisible group means,
         // each resolved as a Drizzle string.
         const meanData: Array<[number, number]> = [
@@ -89,7 +139,6 @@ describe('per-group avg', () => {
                 [4, 4],
                 [4, 8],
         ]
-
         it.each([
                 [0, '20'],
                 [1, '100'],
@@ -98,10 +147,12 @@ describe('per-group avg', () => {
                 [4, '6'],
         ])('averages group %i of the mean dataset to the string %s', async (key, expected) => {
                 const { db, t } = await groupTable(meanData)
-                const result = await db.select({ g: t.g, a: avg(t.v) }).from(t).groupBy(t.g)
+                const result = await db
+                        .select({ g: t.g, a: avg(t.v) })
+                        .from(t)
+                        .groupBy(t.g)
                 expect(groupWith(result, 'g', key).a).toBe(expected)
         })
-
         it.each([
                 [0, 2],
                 [1, 3],

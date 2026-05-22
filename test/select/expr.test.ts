@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { rowsOf, valuesOf, keysOf, seedUsers } from './helpers'
-
 // select rework: expression columns in a projection. A projected expression
 // is evaluated once per row and the projection key holds the computed value.
 // The select feature owns only that a projection CAN carry a computed column
@@ -13,26 +12,22 @@ import { rowsOf, valuesOf, keysOf, seedUsers } from './helpers'
 //   * a projection of only expression columns still returns one row per
 //     stored row and keys each row by exactly the expression aliases.
 // Expected values follow the correct Drizzle spec, never bad-dbms behaviour.
-
 describe('expression columns in a projection', () => {
         it('doubles every score through a multiply expression column', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ doubled: users.score.mul(2) }).from(users)
                 expect(valuesOf(rows, 'doubled')).toEqual([20, 40, 60])
         })
-
         it('keys an expression projection by its alias', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ doubled: users.score.mul(2) }).from(users)
                 expect(keysOf(rows)).toEqual(['doubled'])
         })
-
         it('produces a defined value for every expression-column row', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ doubled: users.score.mul(2) }).from(users)
                 expect(rowsOf(rows).every((r) => r.doubled !== undefined)).toBe(true)
         })
-
         // matrix: a single-expression projection over scores 10/20/30.
         it.each([
                 ['add 5', (u: any) => ({ x: u.score.add(5) }), [15, 25, 35]],
@@ -45,7 +40,6 @@ describe('expression columns in a projection', () => {
                 const rows = await db.select(project(users)).from(users)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
         })
-
         // matrix: expressions referencing two columns of the same row.
         it.each([
                 ['score plus id', (u: any) => ({ x: u.score.add(u.id) }), [11, 22, 33]],
@@ -57,7 +51,6 @@ describe('expression columns in a projection', () => {
                 const rows = await db.select(project(users)).from(users)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
         })
-
         // matrix: composed expression chains in a projection.
         it.each([
                 ['add then mul', (u: any) => ({ x: u.score.add(1).mul(2) }), [22, 42, 62]],
@@ -69,45 +62,35 @@ describe('expression columns in a projection', () => {
                 const rows = await db.select(project(users)).from(users)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
         })
-
         it('mixes a plain column and an expression column in one projection', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ id: users.id, bonus: users.score.add(1) }).from(users)
                 expect(rowsOf(rows)[0]).toEqual({ id: 1, bonus: 11 })
         })
-
         it('keys a mixed plain-and-expression projection by both aliases', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ id: users.id, bonus: users.score.add(1) }).from(users)
                 expect(keysOf(rows)).toEqual(['bonus', 'id'])
         })
-
         it('keeps the row count unchanged when a projection is all expressions', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ d: users.score.mul(2) }).from(users)
                 expect(rowsOf(rows)).toHaveLength(3)
         })
-
         it('projects two independent expression columns side by side', async () => {
                 const { db, users } = await seedUsers()
-                const rows = await db
-                        .select({ twice: users.score.mul(2), more: users.score.add(100) })
-                        .from(users)
+                const rows = await db.select({ twice: users.score.mul(2), more: users.score.add(100) }).from(users)
                 expect(rowsOf(rows)[0]).toEqual({ twice: 20, more: 110 })
         })
-
         it.each([
                 [0, { twice: 20, more: 110 }],
                 [1, { twice: 40, more: 120 }],
                 [2, { twice: 60, more: 130 }],
         ])('reads row %i of a two-expression projection exactly', async (index, expected) => {
                 const { db, users } = await seedUsers()
-                const rows = await db
-                        .select({ twice: users.score.mul(2), more: users.score.add(100) })
-                        .from(users)
+                const rows = await db.select({ twice: users.score.mul(2), more: users.score.add(100) }).from(users)
                 expect(rowsOf(rows)[index]).toEqual(expected)
         })
-
         it('lets a user read raw then derived scores across two queries', async () => {
                 const { db, users } = await seedUsers()
                 const raw = await db.select({ score: users.score }).from(users)
@@ -117,7 +100,6 @@ describe('expression columns in a projection', () => {
                         [30, 60, 90],
                 ])
         })
-
         it('seeds, projects a derived column, updates a row, then re-derives', async () => {
                 const { db, users } = await seedUsers()
                 const before = await db.select({ d: users.score.mul(2) }).from(users)

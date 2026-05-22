@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-
 // Roadmap: upsert (onConflictDoNothing / onConflictDoUpdate) is not yet
 // exposed on the insert builder (makeInsert only has values/returning/then).
 // These Drizzle-parity scenarios stay commented out until the API exists.
@@ -32,7 +31,6 @@ import { describe, it, expect } from 'vitest'
 //                 expect(rows.length).toBe(2)
 //         })
 // })
-
 // Placeholder keeps this file a valid test module while upsert is unimplemented.
 describe('upsert (Drizzle parity) — Roadmap', () => {
         it('onConflictDoNothing / onConflictDoUpdate await insert-builder support', () => {

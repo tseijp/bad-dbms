@@ -2,32 +2,27 @@ import { describe, it, expect } from 'vitest'
 import { count } from '../../src/index'
 import { seedEvents, seedPosts, EVENTS_SEED } from '../_helpers'
 import { rowsOf, byKey, groupTable, keyTable } from './helpers'
-
 // group feature: groupBy buckets rows by a key value and yields one output
 // row per distinct group. Expectations follow the correct Drizzle / SQL spec.
 // groupBy collapses rows even when the projection carries no aggregate;
 // bad-dbms gates the bucketing on an aggregate being present, so the
 // aggregate-free cases fail honestly and are never weakened to pass.
-
 describe('groupBy produces one row per distinct key', () => {
         it('buckets the five events into three kind groups', async () => {
                 const { db, events } = await seedEvents()
                 const result = await db.select({ kind: events.kind, n: count() }).from(events).groupBy(events.kind)
                 expect(rowsOf(result)).toHaveLength(3)
         })
-
         it('returns the three distinct event kinds as the group keys', async () => {
                 const { db, events } = await seedEvents()
                 const result = await db.select({ kind: events.kind, n: count() }).from(events).groupBy(events.kind)
                 expect(byKey(result, 'kind').map((r) => r.kind)).toEqual([0, 1, 2])
         })
-
         it('buckets the four posts into three userId groups', async () => {
                 const { db, posts } = await seedPosts()
                 const result = await db.select({ userId: posts.userId, n: count() }).from(posts).groupBy(posts.userId)
                 expect(rowsOf(result)).toHaveLength(3)
         })
-
         it('collapses rows sharing one key into a single group', async () => {
                 const { db, t } = await groupTable([
                         [0, 1],
@@ -38,7 +33,6 @@ describe('groupBy produces one row per distinct key', () => {
                 const result = await db.select({ g: t.g, n: count() }).from(t).groupBy(t.g)
                 expect(rowsOf(result)).toHaveLength(1)
         })
-
         it('gives every uniquely-keyed row its own group', async () => {
                 const { db, t } = await groupTable([
                         [1, 9],
@@ -49,7 +43,6 @@ describe('groupBy produces one row per distinct key', () => {
                 const result = await db.select({ g: t.g, n: count() }).from(t).groupBy(t.g)
                 expect(rowsOf(result)).toHaveLength(4)
         })
-
         it.each([
                 ['one big group', [0, 0, 0, 0, 0], 1],
                 ['two even groups', [0, 0, 1, 1], 2],
@@ -62,32 +55,27 @@ describe('groupBy produces one row per distinct key', () => {
                 const result = await db.select({ g: t.g, n: count() }).from(t).groupBy(t.g)
                 expect(rowsOf(result)).toHaveLength(expected)
         })
-
         it.skip('collapses an aggregate-free projection down to the distinct keys', async () => {
                 const { db, t } = await keyTable([0, 0, 1, 1, 1, 2])
                 const result = await db.select({ g: t.g }).from(t).groupBy(t.g)
                 expect(rowsOf(result)).toHaveLength(3)
         })
-
         it.skip('returns the distinct keys of an aggregate-free grouped read', async () => {
                 const { db, t } = await keyTable([3, 1, 3, 2, 1, 3])
                 const result = await db.select({ g: t.g }).from(t).groupBy(t.g)
                 expect(byKey(result, 'g').map((r) => r.g)).toEqual([1, 2, 3])
         })
-
         it('keeps the group key column present on every grouped row', async () => {
                 const { db, events } = await seedEvents()
                 const result = await db.select({ kind: events.kind, n: count() }).from(events).groupBy(events.kind)
                 expect(rowsOf(result).every((r) => 'kind' in r)).toBe(true)
         })
-
         it('counts each row of EVENTS_SEED into exactly one group', async () => {
                 const { db, events } = await seedEvents()
                 const result = await db.select({ kind: events.kind, n: count() }).from(events).groupBy(events.kind)
                 const total = rowsOf(result).reduce((acc, r) => acc + r.n, 0)
                 expect(total).toBe(EVENTS_SEED.length)
         })
-
         // dense matrix: a wide range of key-array shapes paired with the number
         // of distinct groups they form. The number of groups equals the number
         // of distinct key values regardless of how rows distribute across them.
@@ -111,19 +99,16 @@ describe('groupBy produces one row per distinct key', () => {
                 ['zero among positives', [0, 1, 0, 2, 0], 3],
                 ['ten distinct', [10, 20, 30, 40, 50, 60, 70, 80, 90, 100], 10],
         ]
-
         it.each(shapes)('forms %s into the right number of groups (count proj)', async (_label, keys, groups) => {
                 const { db, t } = await keyTable(keys)
                 const result = await db.select({ g: t.g, n: count() }).from(t).groupBy(t.g)
                 expect(rowsOf(result)).toHaveLength(groups)
         })
-
         it.each(shapes)('collapses %s to its distinct keys (aggregate-free proj)', async (_label, keys, groups) => {
                 const { db, t } = await keyTable(keys)
                 const result = await db.select({ g: t.g }).from(t).groupBy(t.g)
                 expect(rowsOf(result)).toHaveLength(groups)
         })
-
         it.each(shapes)('returns the sorted distinct keys of %s', async (_label, keys, _groups) => {
                 const { db, t } = await keyTable(keys)
                 const result = await db.select({ g: t.g, n: count() }).from(t).groupBy(t.g)

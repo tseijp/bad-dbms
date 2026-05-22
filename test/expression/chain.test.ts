@@ -1,35 +1,29 @@
 import { describe, it, expect } from 'vitest'
 import { column, seedUsers } from './helpers'
-
 // expression feature: composed expression chains evaluate strictly
 // left-to-right with no operator-precedence re-ordering. a.add(1).mul(2) is
 // (a + 1) * 2. Expected values follow the correct Drizzle / SQL semantics.
-
 describe('composed expression chains evaluate left-to-right', () => {
         it('applies add then mul in chain order', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: users.score.add(1).mul(2) }).from(users)
                 expect(column(rows, 'x')).toEqual([22, 42, 62])
         })
-
         it('applies mul then add in chain order', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: users.score.mul(2).add(1) }).from(users)
                 expect(column(rows, 'x')).toEqual([21, 41, 61])
         })
-
         it('evaluates a three-step chain mixing two columns and a literal', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: users.score.add(users.id).sub(5) }).from(users)
                 expect(column(rows, 'x')).toEqual([6, 17, 28])
         })
-
         it('evaluates a divide-then-multiply chain across two columns', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: users.score.div(10).mul(users.id) }).from(users)
                 expect(column(rows, 'x')).toEqual([1, 4, 9])
         })
-
         // dense matrix: a chain over score 10 / 20 / 30 evaluated strictly
         // left-to-right, with no operator-precedence re-ordering.
         it.each([
@@ -46,7 +40,6 @@ describe('composed expression chains evaluate left-to-right', () => {
                 const rows = await db.select({ x: build(users.score) }).from(users)
                 expect(column(rows, 'x')).toEqual(expected)
         })
-
         it('proves chaining order matters by comparing two orderings', async () => {
                 const { db, users } = await seedUsers()
                 const addFirst = await db.select({ x: users.score.add(1).mul(2) }).from(users)
@@ -56,7 +49,6 @@ describe('composed expression chains evaluate left-to-right', () => {
                         [21, 41, 61],
                 ])
         })
-
         it('keeps a long chain stable across a re-read of the same query', async () => {
                 const { db, users } = await seedUsers()
                 const first = await db.select({ x: users.score.add(5).mul(2).sub(10) }).from(users)

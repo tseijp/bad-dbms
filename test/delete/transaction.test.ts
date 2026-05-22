@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, ne, gt, and, between } from '../../src/index'
 import { seededBoard, idsOf } from './_fixtures'
-
 describe('a delete inside a transaction', () => {
         // A delete within a transaction lands and is visible after it,
         // and a failing transaction body rolls the delete back.
@@ -13,7 +12,6 @@ describe('a delete inside a transaction', () => {
                 const rows = await db.select().from(t)
                 expect(idsOf(rows)).toEqual([2, 3])
         })
-
         it('a delete is rolled back when its transaction body throws', async () => {
                 const { db, t } = await seededBoard()
                 const attempt = db.transaction(async (tx) => {
@@ -25,7 +23,6 @@ describe('a delete inside a transaction', () => {
                 // the throw must undo the delete: every row should remain
                 expect(idsOf(rows)).toEqual([1, 2, 3])
         })
-
         it('a per-row tick deletes every visited row whose score clears a cutoff', async () => {
                 const { db, t } = await seededBoard()
                 const runner = db.transaction((tx, c) => {
@@ -36,7 +33,6 @@ describe('a delete inside a transaction', () => {
                 const rows = await db.select().from(t)
                 expect(idsOf(rows)).toEqual([1])
         })
-
         it('a transactional delete is visible to a read inside the same transaction', async () => {
                 const { db, t } = await seededBoard()
                 const seen = await db.transaction(async (tx) => {
@@ -45,7 +41,6 @@ describe('a delete inside a transaction', () => {
                 })
                 expect(idsOf(seen as { id: number }[])).toEqual([2])
         })
-
         it('a between-driven delete inside a transaction removes the matched band', async () => {
                 const { db, t } = await seededBoard()
                 await db.transaction(async (tx) => {

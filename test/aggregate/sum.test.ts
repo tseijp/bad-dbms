@@ -3,7 +3,6 @@ import { database } from '../../src/index'
 import { sum, eq, gt } from '../../src/index'
 import { makeUsers, seedUsers, USERS_SEED } from '../_helpers'
 import { scalar, numTable } from './helpers'
-
 // aggregate feature: sum over varying datasets.
 //
 // rework-3 audit: the numeric `toBe(n)` assertions below agree with bad-dbms
@@ -15,20 +14,17 @@ import { scalar, numTable } from './helpers'
 // The numeric-value cases stay (they pin the arithmetic); the string-type
 // cases below attack the Drizzle return-type contract bad-dbms is expected to
 // miss. Expected values follow the correct Drizzle spec.
-
 describe('sum over varying datasets', () => {
         it('sums the three seeded user scores to sixty', async () => {
                 const { db, users } = await seedUsers()
                 const result = await db.select({ s: sum(users.score) }).from(users)
                 expect(scalar(result, 's')).toBe('60')
         })
-
         it('sums an empty table to NULL, never zero', async () => {
                 const { db, t } = await numTable([])
                 const result = await db.select({ s: sum(t.v) }).from(t)
                 expect(scalar(result, 's')).toBeNull()
         })
-
         it.each([
                 ['single positive', [7], '7'],
                 ['two positives', [10, 20], '30'],
@@ -42,7 +38,6 @@ describe('sum over varying datasets', () => {
                 const result = await db.select({ s: sum(t.v) }).from(t)
                 expect(scalar(result, 's')).toBe(expected)
         })
-
         it('sums a where-filtered single row of the user seed', async () => {
                 const { db, users } = await seedUsers()
                 const result = await db
@@ -51,7 +46,6 @@ describe('sum over varying datasets', () => {
                         .where(eq(users.id, 2))
                 expect(scalar(result, 's')).toBe('20')
         })
-
         it('sums the high-score subset after a predicate trims the table', async () => {
                 const { db, users } = await seedUsers()
                 const result = await db
@@ -60,7 +54,6 @@ describe('sum over varying datasets', () => {
                         .where(gt(users.score, 15))
                 expect(scalar(result, 's')).toBe('50')
         })
-
         it('sums to NULL when a predicate matches no row', async () => {
                 const { db, users } = await seedUsers()
                 const result = await db
@@ -69,7 +62,6 @@ describe('sum over varying datasets', () => {
                         .where(gt(users.score, 999))
                 expect(scalar(result, 's')).toBeNull()
         })
-
         it('seeds, sums, inserts another row, then re-sums to the new total', async () => {
                 const users = makeUsers()
                 const db = database({ users })
@@ -79,7 +71,6 @@ describe('sum over varying datasets', () => {
                 const after = await db.select({ s: sum(users.score) }).from(users)
                 expect([scalar(before, 's'), scalar(after, 's')]).toEqual(['60', '100'])
         })
-
         // dense data-driven coverage: a run of consecutive integers 1..n sums
         // to n*(n+1)/2. Each row is a worked example a user could reproduce.
         it.each([
@@ -100,7 +91,6 @@ describe('sum over varying datasets', () => {
                 const result = await db.select({ s: sum(t.v) }).from(t)
                 expect(scalar(result, 's')).toBe(String(expected))
         })
-
         // a table holding n copies of k sums to n*k.
         it.each([
                 [3, 10, 30],
@@ -116,7 +106,6 @@ describe('sum over varying datasets', () => {
                 const result = await db.select({ s: sum(t.v) }).from(t)
                 expect(scalar(result, 's')).toBe(String(expected))
         })
-
         // a where(gt(v, threshold)) trims the run 1..10 before summing.
         it.each([
                 [0, 55],
@@ -133,20 +122,17 @@ describe('sum over varying datasets', () => {
                         .where(gt(t.v, threshold))
                 expect(expected === null ? scalar(result, 's') : Number(scalar(result, 's'))).toBe(expected)
         })
-
         // Drizzle's sum() resolves to a string, not a JS number.
         it('resolves sum to a string, the Drizzle numeric representation', async () => {
                 const { db, users } = await seedUsers()
                 const result = await db.select({ s: sum(users.score) }).from(users)
                 expect(typeof scalar(result, 's')).toBe('string')
         })
-
         it('resolves the seeded user score sum to the string "60"', async () => {
                 const { db, users } = await seedUsers()
                 const result = await db.select({ s: sum(users.score) }).from(users)
                 expect(scalar(result, 's')).toBe('60')
         })
-
         it.each([
                 ['two values', [10, 20], '30'],
                 ['five values', [1, 2, 3, 4, 5], '15'],

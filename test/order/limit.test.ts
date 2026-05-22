@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
 import { makeScored, fresh, seqOf } from './_fixtures'
-
 describe('limit keeps the top of an ordered result', () => {
         // A reader who only wants the top few of a sorted board reaches
         // for limit. The window is taken after the sort, so it is the
@@ -13,7 +12,6 @@ describe('limit keeps the top of an ordered result', () => {
                 { id: 4, score: 30 },
                 { id: 5, score: 70 },
         ]
-
         it.each([
                 [1, [10]],
                 [2, [10, 30]],
@@ -26,7 +24,6 @@ describe('limit keeps the top of an ordered result', () => {
                 const rows = await db.select().from(t).orderBy(asc(t.score)).limit(n)
                 expect(seqOf(rows, 'score')).toEqual(expected)
         })
-
         it.each([
                 [1, [90]],
                 [2, [90, 70]],
@@ -37,28 +34,24 @@ describe('limit keeps the top of an ordered result', () => {
                 const rows = await db.select().from(t).orderBy(desc(t.score)).limit(n)
                 expect(seqOf(rows, 'score')).toEqual(expected)
         })
-
         it('a limit of zero on an ordered board returns an empty result', async () => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.score)).limit(0)
                 expect(rows).toEqual([])
         })
-
         it('a limit larger than the row count returns the whole ordered board', async () => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.score)).limit(99)
                 expect(seqOf(rows, 'score')).toEqual([10, 30, 50, 70, 90])
         })
-
         it('a limit equal to the row count returns every row still in sorted order', async () => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.score)).limit(5)
                 expect(seqOf(rows, 'id')).toEqual([2, 4, 1, 5, 3])
         })
-
         it('a limited top-N is a genuine prefix of the full ordered result', async () => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(board)
@@ -66,7 +59,6 @@ describe('limit keeps the top of an ordered result', () => {
                 const top = await db.select().from(t).orderBy(asc(t.score)).limit(3)
                 expect(seqOf(top, 'id')).toEqual(seqOf(full, 'id').slice(0, 3))
         })
-
         it('limit on an empty table is still an empty result', async () => {
                 const { db, t } = fresh(makeScored)
                 const rows = await db.select().from(t).orderBy(asc(t.score)).limit(3)

@@ -1,13 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt } from '../../src/index'
 import { rowsOf, by, column, innerJoin, leftJoin, seedThreeTables } from './helpers'
-
 // join feature: chaining more than one join. Drizzle lets a query join a
 // third table onto the result of an earlier join: from(users).innerJoin(posts,
 // ...).innerJoin(tags, ...). Each chained join further combines rows.
 // Expectations follow the correct Drizzle spec; a missing builder fails
 // honestly at runtime and tests are never weakened to the implementation.
-
 describe('chaining multiple joins across three tables', () => {
         it('joins users to posts to tags in one chained query', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([
@@ -19,7 +17,6 @@ describe('chaining multiple joins across three tables', () => {
                 const result = await innerJoin(innerJoin(db.select({ userId: users.id, postId: posts.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(rowsOf(result)).toHaveLength(4)
         })
-
         it('expands a chained join once per tag on each post', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([
                         [1, 1, 100],
@@ -29,37 +26,31 @@ describe('chaining multiple joins across three tables', () => {
                 const result = await innerJoin(innerJoin(db.select({ userId: users.id, postId: posts.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(rowsOf(result)).toHaveLength(3)
         })
-
         it('projects columns from all three chained tables', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([[1, 1, 100]])
                 const result = await innerJoin(innerJoin(db.select({ name: users.name, postScore: posts.score, label: tags.label }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(Object.keys(rowsOf(result)[0]).sort()).toEqual(['label', 'name', 'postScore'])
         })
-
         it('reads the matched row of a three-table chain end to end', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([[1, 1, 100]])
                 const result = await innerJoin(innerJoin(db.select({ userId: users.id, postId: posts.id, label: tags.label }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(rowsOf(result)[0]).toEqual({ userId: 1, postId: 1, label: 100 })
         })
-
         it('drops rows of an inner chain when the third table has no match', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([[1, 9, 100]])
                 const result = await innerJoin(innerJoin(db.select({ userId: users.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(rowsOf(result)).toEqual([])
         })
-
         it('keeps the inner pairs while a chained leftJoin null-fills missing tags', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([[1, 1, 100]])
                 const result = await leftJoin(innerJoin(db.select({ userId: users.id, postId: posts.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(rowsOf(result)).toHaveLength(4)
         })
-
         it('null-fills the tag id on a chained leftJoin row whose post has no tag', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([[1, 1, 100]])
                 const result = await leftJoin(innerJoin(db.select({ postId: posts.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(rowsOf(result).find((row) => row.postId === 4).tagId).toBeNull()
         })
-
         it('narrows a three-table chain with a where on the first table', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([
                         [1, 1, 100],
@@ -70,7 +61,6 @@ describe('chaining multiple joins across three tables', () => {
                 const result = await innerJoin(innerJoin(db.select({ userId: users.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id)).where(eq(users.id, 1))
                 expect(rowsOf(result)).toHaveLength(2)
         })
-
         // dense matrix: a fixed users-posts inner join chained to a varying
         // tags table. The chained inner-join row count equals the number of
         // tag rows whose postId points at one of posts 1..4.
@@ -128,7 +118,6 @@ describe('chaining multiple joins across three tables', () => {
                 const result = await innerJoin(innerJoin(db.select({ userId: users.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect(rowsOf(result)).toHaveLength(expected)
         })
-
         it('seeds three tables, chains the joins, adds a tag, then re-counts', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([[1, 1, 100]])
                 const before = await innerJoin(innerJoin(db.select({ userId: users.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
@@ -136,7 +125,6 @@ describe('chaining multiple joins across three tables', () => {
                 const after = await innerJoin(innerJoin(db.select({ userId: users.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))
                 expect([rowsOf(before).length, rowsOf(after).length]).toEqual([1, 2])
         })
-
         it('filters a chained join on the third table column', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([
                         [1, 1, 100],
@@ -147,7 +135,6 @@ describe('chaining multiple joins across three tables', () => {
                 const result = await innerJoin(innerJoin(db.select({ userId: users.id, label: tags.label }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id)).where(gt(tags.label, 200))
                 expect(rowsOf(result)).toHaveLength(2)
         })
-
         it('groups a three-table chain by user to count tags per user', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([
                         [1, 1, 1],
@@ -162,7 +149,6 @@ describe('chaining multiple joins across three tables', () => {
                 }, {})
                 expect(perUser).toEqual({ 1: 2, 2: 1, 3: 1 })
         })
-
         it('keeps every left user through a doubled chained leftJoin', async () => {
                 const { db, users, posts, tags } = await seedThreeTables([])
                 const result = await leftJoin(leftJoin(db.select({ userId: users.id, postId: posts.id, tagId: tags.id }).from(users), posts, eq(posts.userId, users.id)), tags, eq(tags.postId, posts.id))

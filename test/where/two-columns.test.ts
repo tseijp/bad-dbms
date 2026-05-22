@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { eq, gt, gte, lt, and, not } from '../../src/index'
 import { seedPosts } from '../_helpers'
 import { idsOf } from './_fixtures'
-
 describe('predicates relating two columns of the same row', () => {
         // Each post carries id, userId and score. A reader can compare
         // two of a row's own columns instead of comparing one to a
@@ -19,7 +18,6 @@ describe('predicates relating two columns of the same row', () => {
                         .where(not(gt(posts.score, posts.id)))
                 expect(idsOf(stale)).toEqual([4])
         })
-
         it('finding the post a user authored under their own id isolates the self-owned row', async () => {
                 const { db, posts } = await seedPosts()
                 const selfOwned = await db.select().from(posts).where(eq(posts.userId, posts.id))
@@ -30,7 +28,6 @@ describe('predicates relating two columns of the same row', () => {
                         .where(not(eq(posts.userId, posts.id)))
                 expect(idsOf(delegated)).toEqual([2, 3, 4])
         })
-
         it('a column-pair comparison and its negation rerun on the seed recover every post', async () => {
                 const { db, posts } = await seedPosts()
                 const greater = await db.select().from(posts).where(gt(posts.score, posts.id))
@@ -40,13 +37,11 @@ describe('predicates relating two columns of the same row', () => {
                         .where(not(gt(posts.score, posts.id)))
                 expect(idsOf([...greater, ...notGreater])).toEqual([1, 2, 3, 4])
         })
-
         it('posts whose score covers their owning user id turn out to be every post', async () => {
                 const { db, posts } = await seedPosts()
                 const covered = await db.select().from(posts).where(gte(posts.score, posts.userId))
                 expect(idsOf(covered)).toEqual([1, 2, 3, 4])
         })
-
         it('layering a literal cutoff onto a column-pair predicate drills into the popular posts', async () => {
                 const { db, posts } = await seedPosts()
                 const popular = await db.select().from(posts).where(gt(posts.score, posts.id))
@@ -57,7 +52,6 @@ describe('predicates relating two columns of the same row', () => {
                         .where(and(gt(posts.score, posts.id), gt(posts.score, 6)))
                 expect(idsOf(veryPopular)).toEqual([2, 3])
         })
-
         it('a strict less-than between two columns of the seed finds no row where the order flips', async () => {
                 const { db, posts } = await seedPosts()
                 const flipped = await db.select().from(posts).where(lt(posts.score, posts.id))

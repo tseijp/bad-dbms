@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { count, sum, avg, min, max } from '../../src/index'
 import { seedEvents } from '../_helpers'
 import { groupWith, groupTable, labelTable } from './helpers'
-
 // group feature: per-group min and max. Each bucket reports its own extremes.
 //
 // review note: per-group min/max over an INTEGER column returns a number in
@@ -12,7 +11,6 @@ import { groupWith, groupTable, labelTable } from './helpers'
 // largest STRING. bad-dbms stores text internally as u32, so a per-group
 // text min/max fails honestly. The `per-group min/max over a text column`
 // describe below pins that contract.
-
 describe('per-group min and max', () => {
         it('finds the min and max of the kind-0 event group', async () => {
                 const { db, events } = await seedEvents()
@@ -22,7 +20,6 @@ describe('per-group min and max', () => {
                         .groupBy(events.kind)
                 expect(groupWith(result, 'kind', 0)).toEqual({ kind: 0, lo: 100, hi: 200 })
         })
-
         it.each([
                 [0, 100, 200],
                 [1, 300, 400],
@@ -36,7 +33,6 @@ describe('per-group min and max', () => {
                 const row = groupWith(result, 'kind', kind)
                 expect([row.lo, row.hi]).toEqual([lo, hi])
         })
-
         it.each([
                 [
                         'spread group',
@@ -80,7 +76,6 @@ describe('per-group min and max', () => {
                 const row = groupWith(result, 'g', key)
                 expect([row.lo, row.hi]).toEqual([lo, hi])
         })
-
         // rework-3 audit: a mixed-aggregate group row pins the Drizzle return
         // contract — `n` numeric, `s` and `a` strings, `lo` and `hi` the
         // column's own numeric type. bad-dbms returns every aggregate as a
@@ -100,7 +95,6 @@ describe('per-group min and max', () => {
                         .groupBy(events.kind)
                 expect(groupWith(result, 'kind', 0)).toEqual({ kind: 0, n: 2, s: '300', a: '150', lo: 100, hi: 200 })
         })
-
         // dense matrix: one fixed dataset, per-group min and max for every key.
         const rangeData: Array<[number, number]> = [
                 [0, 50],
@@ -115,7 +109,6 @@ describe('per-group min and max', () => {
                 [4, 0],
                 [4, 100],
         ]
-
         it.each([
                 [0, 10],
                 [1, -30],
@@ -130,7 +123,6 @@ describe('per-group min and max', () => {
                         .groupBy(t.g)
                 expect(groupWith(result, 'g', key).lo).toBe(expected)
         })
-
         it.each([
                 [0, 90],
                 [1, -1],
@@ -145,7 +137,6 @@ describe('per-group min and max', () => {
                         .groupBy(t.g)
                 expect(groupWith(result, 'g', key).hi).toBe(expected)
         })
-
         it.each([
                 [0, 10, 90],
                 [1, -30, -1],
@@ -162,7 +153,6 @@ describe('per-group min and max', () => {
                 expect([row.lo, row.hi]).toEqual([lo, hi])
         })
 })
-
 describe('per-group min and max over a text column', () => {
         // SQL MIN/MAX on a text column return the lexicographically smallest /
         // largest string. bad-dbms stores text internally as u32, so these
@@ -175,7 +165,6 @@ describe('per-group min and max over a text column', () => {
                 [1, 'mike'],
                 [2, 'solo'],
         ]
-
         it('finds the lexicographically smallest label in a group', async () => {
                 const { db, t } = await labelTable(labels)
                 const result = await db
@@ -184,7 +173,6 @@ describe('per-group min and max over a text column', () => {
                         .groupBy(t.g)
                 expect(groupWith(result, 'g', 0).lo).toBe('alpha')
         })
-
         it('finds the lexicographically largest label in a group', async () => {
                 const { db, t } = await labelTable(labels)
                 const result = await db
@@ -193,7 +181,6 @@ describe('per-group min and max over a text column', () => {
                         .groupBy(t.g)
                 expect(groupWith(result, 'g', 0).hi).toBe('delta')
         })
-
         it.each([
                 [0, 'alpha', 'delta'],
                 [1, 'mike', 'zulu'],
@@ -207,7 +194,6 @@ describe('per-group min and max over a text column', () => {
                 const row = groupWith(result, 'g', key)
                 expect([row.lo, row.hi]).toEqual([lo, hi])
         })
-
         it('returns a string, not a numeric code, for a per-group text min', async () => {
                 const { db, t } = await labelTable(labels)
                 const result = await db
@@ -216,7 +202,6 @@ describe('per-group min and max over a text column', () => {
                         .groupBy(t.g)
                 expect(typeof groupWith(result, 'g', 0).lo).toBe('string')
         })
-
         it('orders text extremes by lexicographic order, not insertion order', async () => {
                 const { db, t } = await labelTable([
                         [0, 'mango'],

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { eq, gt, lt, and } from '../../src/index'
 import { seedUsers } from '../_helpers'
 import { idsOf } from './_fixtures'
-
 describe('where used inside a transaction', () => {
         // A reader running filtered reads within a transaction expects
         // the predicate to behave exactly as it does outside one. Each
@@ -15,7 +14,6 @@ describe('where used inside a transaction', () => {
                 })
                 expect(idsOf(found as { id: number }[])).toEqual([2])
         })
-
         it('a transactional score-band read returns the in-band users', async () => {
                 const { db, users } = await seedUsers()
                 const found = await db.transaction(async (tx) => {
@@ -26,7 +24,6 @@ describe('where used inside a transaction', () => {
                 })
                 expect(idsOf(found as { id: number }[])).toEqual([1, 2])
         })
-
         it('the same cutoff produces the same survivors inside and outside a transaction', async () => {
                 const { db, users } = await seedUsers()
                 const outside = await db.select().from(users).where(gt(users.score, 15))
@@ -35,7 +32,6 @@ describe('where used inside a transaction', () => {
                 })
                 expect(idsOf(inside as { id: number }[])).toEqual(idsOf(outside))
         })
-
         it('two filtered reads in one transaction each apply only their own predicate', async () => {
                 const { db, users } = await seedUsers()
                 const pair = await db.transaction(async (tx) => {
@@ -46,7 +42,6 @@ describe('where used inside a transaction', () => {
                 const { low, high } = pair as { low: { id: number }[]; high: { id: number }[] }
                 expect([idsOf(low), idsOf(high)]).toEqual([[1], [3]])
         })
-
         it('a transactional filter then its complement recover the whole table', async () => {
                 const { db, users } = await seedUsers()
                 const halves = await db.transaction(async (tx) => {

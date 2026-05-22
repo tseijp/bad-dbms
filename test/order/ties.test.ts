@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
 import { makeScored, fresh, seqOf } from './_fixtures'
-
 describe('a sort key with ties preserves every tied row', () => {
         // When several rows share the sort value, a sort must keep all
         // of them — it groups equal keys, it never collapses them.
@@ -17,7 +16,6 @@ describe('a sort key with ties preserves every tied row', () => {
                 const rows = await db.select().from(t).orderBy(asc(t.score))
                 expect(rows.length).toBe(4)
         })
-
         it('a constant sort key leaves every row present and every score equal', async () => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values([
@@ -28,7 +26,6 @@ describe('a sort key with ties preserves every tied row', () => {
                 const rows = await db.select().from(t).orderBy(asc(t.score))
                 expect(seqOf(rows, 'score')).toEqual([5, 5, 5])
         })
-
         it('partly-tied scores still sort the distinct values into order', async () => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values([
@@ -41,7 +38,6 @@ describe('a sort key with ties preserves every tied row', () => {
                 const rows = await db.select().from(t).orderBy(asc(t.score))
                 expect(seqOf(rows, 'score')).toEqual([10, 10, 20, 30, 30])
         })
-
         it('a tied descending sort places every high-score row before every low-score row', async () => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values([
