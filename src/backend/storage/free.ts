@@ -1,4 +1,4 @@
-import type { FreeSpaceMap, StorageManager } from '../types'
+import type { FreeSpaceMap } from '../types'
 const GRAN = 16
 const forkKey = (relId: number, forkId: number) => `${relId}/${forkId}`
 interface FsmStore {
@@ -12,8 +12,7 @@ const ensureCapacity = (s: FsmStore, n: number) => {
         const leaf = new Uint8Array(Math.max(n, s.leaf.length * 2 + 8))
         leaf.set(s.leaf)
         s.leaf = leaf
-        const upperLen = Math.ceil(n / 8)
-        const upper = new Uint8Array(Math.max(upperLen, s.upper.length * 2 + 8))
+        const upper = new Uint8Array(Math.max(Math.ceil(n / 8), s.upper.length * 2 + 8))
         upper.set(s.upper)
         s.upper = upper
 }
@@ -25,11 +24,7 @@ const recomputeUpper = (s: FsmStore, idx: number) => {
         for (let i = base; i < end; i++) if (s.leaf[i] > m) m = s.leaf[i]
         s.upper[group] = m
 }
-export interface FreeSpaceMapOptions {
-        smgr: StorageManager
-}
-export const createFreeSpaceMap = (opts: FreeSpaceMapOptions): FreeSpaceMap => {
-        const _smgr = opts.smgr
+export const createFreeSpaceMap = (): FreeSpaceMap => {
         const _stores = new Map<string, FsmStore>()
         const _getStore = (relId: number, forkId: number): FsmStore => {
                 const k = forkKey(relId, forkId)
@@ -56,18 +51,8 @@ export const createFreeSpaceMap = (opts: FreeSpaceMapOptions): FreeSpaceMap => {
                         const s = _getStore(relId, forkId)
                         if (blockNo >= s.nBlocks) s.nBlocks = blockNo + 1
                         ensureCapacity(s, s.nBlocks)
-                        const v = Math.min(255, Math.floor(freeBytes / GRAN))
-                        s.leaf[blockNo] = v
+                        s.leaf[blockNo] = Math.min(255, Math.floor(freeBytes / GRAN))
                         recomputeUpper(s, blockNo)
-                },
-                extend(relId: number, forkId: number) {
-                        const s = _getStore(relId, forkId)
-                        const blockNo = _smgr.extend(relId, forkId)
-                        if (blockNo >= s.nBlocks) s.nBlocks = blockNo + 1
-                        ensureCapacity(s, s.nBlocks)
-                        s.leaf[blockNo] = 255
-                        recomputeUpper(s, blockNo)
-                        return blockNo
                 },
         }
 }

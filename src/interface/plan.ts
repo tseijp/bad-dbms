@@ -23,10 +23,8 @@ const aggsOf = (projection?: ProjItem[]): AggSpec[] => {
         }
         return out
 }
-const rewriteHaving = (node: unknown, projection?: ProjItem[]): SqlNode | undefined => {
-        if (!node || typeof node !== 'object') return undefined
-        const n = nodeOf(node as SQL | SqlNode)
-        if (!n) return undefined
+const rewriteHaving = (node: SQL | SqlNode, projection?: ProjItem[]): SqlNode => {
+        const n = nodeOf(node)
         if (n.type === 'aggregate') {
                 const alias = aliasOf(projection, (p) => aggSig(p) === aggSig(n))
                 if (!alias) return { type: 'literal', value: undefined }
@@ -81,9 +79,10 @@ const projector = (p: ProjItem, ctx: EvalCtx): ProjectorSpec => {
         }
 }
 const projection = (child: PhysicalOp, projectors: ProjectorSpec[]): PhysicalOp => ({ op: 'Projection', child, fields: projectors.map((p) => p.alias), projectors })
-const planAggregate = (child: PhysicalOp, ast: SelectAst, aggs: AggSpec[], ctx: EvalCtx, isJoin: boolean): PhysicalOp => {
+const planAggregate = (child: PhysicalOp, ast: SelectAst, aggsIn: AggSpec[], ctx: EvalCtx, isJoin: boolean): PhysicalOp => {
         const groupBy = (ast.groupBy ?? []).map(colNameOf)
         let plan = child
+        let aggs = aggsIn
         if (isJoin) {
                 const pre: ProjectorSpec[] = (ast.groupBy ?? []).map((g, i) => ({ alias: groupBy[i], eval: compileNode(g as SQL, ctx) }))
                 const aggNodes = (ast.projection ?? []).map((p) => nodeOf(p.expr)).filter((n): n is Extract<SqlNode, { type: 'aggregate' }> => n.type === 'aggregate')
@@ -120,8 +119,6 @@ export const planSelect = (ast: SelectAst, baseCtx: EvalCtx): { plan: PhysicalOp
                 const resolve = (n: SqlNode): string | undefined => {
                         if (n.type === 'aggregate') return aliasOf(ast.projection, (p) => aggSig(p) === aggSig(n))
                         if (n.type === 'column') return aliasOf(ast.projection, (p) => p.type === 'column' && p.name === n.name) ?? (isJoin && !flat ? undefined : n.name)
-                        if (n.type === 'currentTuple') return n.col
-                        if (n.type === 'identifier') return n.name
                         return undefined
                 }
                 plan = { op: 'Sort', child: plan, keys: sortKeys(ast.orderBy, resolve, flat ? baseCtx : ctx) }

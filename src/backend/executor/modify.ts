@@ -2,7 +2,7 @@ import type { UpdateOp, DeleteOp, InsertOp, Row, RowSetter } from '../../shared/
 import type { Catalog } from '../catalog'
 import type { RelationDescriptor, RowIterator, Rid } from '../types'
 import { tableNameOf, buildRow, collectRids, fromRows, compilePredicate, stripRid } from './utils'
-const colIndexOf = (rel: RelationDescriptor, name: string): number => rel.columns.findIndex((c) => c.name === name || c.key === name)
+const colIndexOf = (rel: RelationDescriptor, name: string): number => rel.columns.findIndex((c) => c.name === name)
 export const createUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
         const _rel = catalog.resolve(tableNameOf(ast.table))
         const _pred = compilePredicate(ast.predicate)
@@ -31,12 +31,12 @@ const cascadeFrom = (catalog: Catalog, parent: RelationDescriptor, parentRows: R
                 for (let ci = 0; ci < child.columns.length; ci++) {
                         const ref = child.columns[ci].references
                         if (!ref || ref.table !== parent.name || ref.onDelete !== 'cascade') continue
-                        const refCol = parent.columns.find((c) => c.name === ref.column || c.key === ref.column)
-                        const targets = new Set(parentRows.map((r) => r[refCol ? refCol.key : ref.column]))
+                        const refCol = parent.columns.find((c) => c.name === ref.column)
+                        const targets = new Set(parentRows.map((r) => r[refCol ? refCol.name : ref.column]))
                         const victims: Rid[] = []
                         child.heaps[0].scan((rid: Rid) => {
                                 const row = buildRow(catalog, child, rid)
-                                if (targets.has(row[child.columns[ci].key])) victims.push(rid)
+                                if (targets.has(row[child.columns[ci].name])) victims.push(rid)
                         })
                         if (victims.length === 0) continue
                         const childRows = victims.map((rid) => buildRow(catalog, child, rid))
@@ -66,12 +66,12 @@ const findConflictRid = (catalog: Catalog, rel: RelationDescriptor, row: Row): R
         let hit: Rid | null = null
         for (const col of keyCols) {
                 if (hit) break
-                const want = row[col.key]
+                const want = row[col.name]
                 if (want === undefined || want === null) continue
                 rel.heaps[0].scan((rid: Rid) => {
                         if (hit) return false
                         const existing = buildRow(catalog, rel, rid)
-                        if (existing[col.key] === want) hit = rid
+                        if (existing[col.name] === want) hit = rid
                 })
         }
         return hit
