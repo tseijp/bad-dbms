@@ -87,7 +87,7 @@ export interface ColumnDescriptor extends ColumnConfig {
         tableName?: string
 }
 export type Rid = readonly [number, number]
-export type AdapterKind = 'memory' | 'nodejs' | 'bun' | 'deno' | 'browser' | 'cloudflare-worker' | 'vercel' | 'netlify' | 'fastly' | 'aws-lambda' | 'lambda-edge'
+export type AdapterKind = 'memory' | 'nodejs' | 'bun' | 'deno' | 'browser' | 'cloudflare' | 'vercel' | 'netlify' | 'fastly' | 'aws-lambda' | 'lambda-edge'
 export interface AdapterOptions {
         dir?: string
         rootName?: string

@@ -6,7 +6,7 @@ export const createAdapter = async (kind: AdapterKind, opts: AdapterOptions = {}
         if (kind === 'bun') return (await import('./bun')).createBunAdapter(opts.dir)
         if (kind === 'deno') return (await import('./deno')).createDenoAdapter(opts.dir)
         if (kind === 'browser') return (await import('./browser')).createBrowserAdapter(opts.rootName)
-        if (kind === 'cloudflare-worker') return (await import('./cloudfalre-worker')).createCloudflareWorkerAdapter(opts.kv)
+        if (kind === 'cloudflare') return (await import('./cloudflare')).createCloudflareAdapter(opts.kv)
         if (kind === 'vercel') return (await import('./vercel')).createVercelAdapter(opts.kv)
         if (kind === 'netlify') return (await import('./netlify')).createNetlifyAdapter(opts.store)
         if (kind === 'fastly') return (await import('./fastly')).createFastlyAdapter(opts.store)

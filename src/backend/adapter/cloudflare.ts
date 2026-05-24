@@ -1,6 +1,6 @@
 import type { FileAdapter } from '../../shared/types'
 
-export const createCloudflareWorkerAdapter = (kv: any): FileAdapter => ({
+export const createCloudflareAdapter = (kv: any): FileAdapter => ({
         async get(key) {
                 const buf = await kv.get(key, 'arrayBuffer').catch(() => undefined)
                 if (!buf) return undefined
