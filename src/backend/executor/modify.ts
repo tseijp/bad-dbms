@@ -14,7 +14,6 @@ export const createUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
                 if (!_pred(row)) continue
                 for (const k of Object.keys(_setters)) {
                         const colIdx = colIndexOf(_rel, k)
-                        if (colIdx < 0) continue
                         catalog.writeCell(_rel, colIdx, rid, _setters[k](row))
                 }
                 _changed.push(buildRow(catalog, _rel, rid))
@@ -59,50 +58,4 @@ export const createDelete = (catalog: Catalog, ast: DeleteOp): RowIterator => {
         if (_removed.length > 0) cascadeFrom(catalog, _rel, _removed)
         if (ast.returning) return fromRows(_removed.map((r) => ({ ...r })))
         return fromRows([{ rowCount: _removed.length, changes: _removed.length, deleted: _removed.length }])
-}
-const findConflictRid = (catalog: Catalog, rel: RelationDescriptor, row: Row): Rid | null => {
-        const keyCols = rel.columns.filter((c) => c.isPrimary || c.isUnique)
-        if (keyCols.length === 0) return null
-        let hit: Rid | null = null
-        for (const col of keyCols) {
-                if (hit) break
-                const want = row[col.name]
-                if (want === undefined || want === null) continue
-                rel.heaps[0].scan((rid: Rid) => {
-                        if (hit) return false
-                        const existing = buildRow(catalog, rel, rid)
-                        if (existing[col.name] === want) hit = rid
-                })
-        }
-        return hit
-}
-const applyConflictUpdate = (catalog: Catalog, rel: RelationDescriptor, rid: Rid, set: Record<string, unknown>) => {
-        for (const k of Object.keys(set)) {
-                const colIdx = colIndexOf(rel, k)
-                if (colIdx < 0) continue
-                catalog.writeCell(rel, colIdx, rid, set[k])
-        }
-}
-export const createInsert = (catalog: Catalog, ast: InsertOp): RowIterator => {
-        const _name = tableNameOf(ast.table)
-        const _rel = catalog.resolve(_name)
-        const _rows: Row[] = ast.values || []
-        if (!ast.conflict) {
-                const rids = catalog.insertRows(_name, _rows)
-                if (ast.returning) return fromRows(rids.map((rid) => stripRid(buildRow(catalog, _rel, rid))))
-                return fromRows([{ rowCount: rids.length, changes: rids.length }])
-        }
-        const _conflict = ast.conflict
-        const _result: Rid[] = []
-        for (const row of _rows) {
-                const clash = findConflictRid(catalog, _rel, row)
-                if (clash) {
-                        if (_conflict.action === 'update') applyConflictUpdate(catalog, _rel, clash, _conflict.set ?? row)
-                        _result.push(clash)
-                        continue
-                }
-                _result.push(catalog.insertRow(_name, row))
-        }
-        if (ast.returning) return fromRows(_result.map((rid) => stripRid(buildRow(catalog, _rel, rid))))
-        return fromRows([{ rowCount: _result.length, changes: _result.length }])
 }
