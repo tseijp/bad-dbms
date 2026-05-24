@@ -50,11 +50,11 @@ interface AggGroup {
         key: unknown[]
         states: AggState[]
 }
-export const createAggregate = (child: RowIterator, groupBy: string[], aggs: AggSpec[]): RowIterator => {
+export const createAggregate = async (child: RowIterator, groupBy: string[], aggs: AggSpec[]): Promise<RowIterator> => {
         const _groups = new Map<string, AggGroup>()
         const _order: string[] = []
         while (true) {
-                const r = child.next()
+                const r = await child.next()
                 if (r === null) break
                 const k = groupBy.map((g) => r[g]).join('|')
                 let g = _groups.get(k)
@@ -81,16 +81,16 @@ export const createAggregate = (child: RowIterator, groupBy: string[], aggs: Agg
         }
         let _i = 0
         return {
-                next() {
+                async next() {
                         return _i < _out.length ? _out[_i++] : null
                 },
                 close() {},
         }
 }
-export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => {
+export const createSort = async (child: RowIterator, keys: SortKey[]): Promise<RowIterator> => {
         const _buf: Row[] = []
         while (true) {
-                const r = child.next()
+                const r = await child.next()
                 if (r === null) break
                 _buf.push(r)
         }
@@ -106,7 +106,7 @@ export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => 
         })
         let _i = 0
         return {
-                next() {
+                async next() {
                         return _i < _buf.length ? _buf[_i++] : null
                 },
                 close() {},
@@ -115,9 +115,9 @@ export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => 
 export const createDistinct = (child: RowIterator): RowIterator => {
         const _seen = new Set<string>()
         return {
-                next() {
+                async next() {
                         while (true) {
-                                const r = child.next()
+                                const r = await child.next()
                                 if (r === null) return null
                                 let k = ''
                                 for (const key of Object.keys(r).sort()) k += key + ' ' + String(r[key]) + ' '
@@ -135,10 +135,10 @@ export const createLimit = (child: RowIterator, limit?: number, offset = 0): Row
         let _skipped = 0
         let _produced = 0
         return {
-                next() {
+                async next() {
                         while (true) {
                                 if (limit !== undefined && _produced >= limit) return null
-                                const r = child.next()
+                                const r = await child.next()
                                 if (r === null) return null
                                 if (_skipped < offset) {
                                         _skipped++

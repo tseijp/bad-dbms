@@ -20,12 +20,12 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
         for (let i = 0; i < frameCount; i++) _frames.push(makeFrame(pageSize))
         const _lookup = new Map<string, Frame>()
         let _clockHand = 0
-        const _flush = (f: Frame) => {
+        const _flush = async (f: Frame) => {
                 if (!f.valid || !f.dirty) return
-                smgr.write(f.relId, f.forkId, f.blockNo, f.bytes)
+                await smgr.write(smgr.open(f.relId), f.forkId, f.blockNo, f.bytes)
                 f.dirty = false
         }
-        const _evict = (): Frame => {
+        const _evict = async (): Promise<Frame> => {
                 for (let i = 0; i < frameCount * 3; i++) {
                         const f = _frames[_clockHand]
                         _clockHand = (_clockHand + 1) % frameCount
@@ -35,41 +35,39 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                                 f.usage--
                                 continue
                         }
-                        _flush(f)
+                        await _flush(f)
                         _lookup.delete(keyOf(f.relId, f.forkId, f.blockNo))
                         return f
                 }
                 const f = _frames[_clockHand]
-                _flush(f)
+                await _flush(f)
                 return f
         }
-        const _load = (frame: Frame, relId: number, forkId: number, blockNo: number) => {
-                frame.bytes.set(smgr.read(relId, forkId, blockNo))
-                frame.relId = relId
-                frame.forkId = forkId
-                frame.blockNo = blockNo
-                frame.valid = true
-                frame.usage = 1
-                frame.pinCount = 0
-                frame.dirty = false
-                _lookup.set(keyOf(relId, forkId, blockNo), frame)
-        }
         return {
-                pin(relId: number, forkId: number, blockNo: number) {
+                async pin(relId, forkId, blockNo) {
                         const cached = _lookup.get(keyOf(relId, forkId, blockNo))
                         if (cached) {
                                 cached.pinCount++
                                 if (cached.usage < 5) cached.usage++
                                 return cached
                         }
-                        const victim = _evict()
-                        _load(victim, relId, forkId, blockNo)
+                        const victim = await _evict()
+                        victim.bytes.set(await smgr.read(smgr.open(relId), forkId, blockNo))
+                        victim.relId = relId
+                        victim.forkId = forkId
+                        victim.blockNo = blockNo
+                        victim.valid = true
+                        victim.usage = 1
+                        victim.pinCount = 0
+                        victim.dirty = false
+                        _lookup.set(keyOf(relId, forkId, blockNo), victim)
                         victim.pinCount = 1
                         return victim
                 },
-                unpin(frame: Frame, dirty?: boolean) {
+                async unpin(frame, dirty) {
                         if (dirty) frame.dirty = true
                         if (frame.pinCount > 0) frame.pinCount--
+                        if (frame.pinCount === 0 && frame.dirty) await _flush(frame)
                 },
         }
 }

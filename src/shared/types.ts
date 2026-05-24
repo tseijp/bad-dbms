@@ -87,10 +87,20 @@ export interface ColumnDescriptor extends ColumnConfig {
         tableName?: string
 }
 export type Rid = readonly [number, number]
+export type AdapterKind = 'memory' | 'nodejs' | 'bun' | 'deno' | 'browser' | 'cloudflare' | 'vercel' | 'netlify' | 'fastly' | 'aws-lambda' | 'lambda-edge'
+export interface AdapterOptions {
+        dir?: string
+        rootName?: string
+        kv?: any
+        store?: any
+        s3?: any
+        bucket?: string
+}
 export interface FileAdapter {
-        read(id: string, offset: number, length: number): Uint8Array
-        write(id: string, offset: number, bytes: Uint8Array): void
-        exists?(id: string): boolean
+        get(key: string): Promise<Uint8Array | undefined>
+        put(key: string, bytes: Uint8Array): Promise<void>
+        delete(key: string): Promise<void>
+        list(prefix: string): Promise<string[]>
 }
 export type Row = Record<string, unknown>
 export type RowPredicate = (row: Row) => boolean

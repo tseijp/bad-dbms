@@ -1,5 +1,5 @@
-import type { SQL, SqlNode, SqlValue, ExprMethods, ColumnDescriptor, FileAdapter, JoinKind } from '../shared/types'
-export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind } from '../shared/types'
+import type { SQL, SqlNode, SqlValue, ExprMethods, ColumnDescriptor, FileAdapter, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
+export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
 export interface Column<T = number | string | boolean> extends SQL<T>, ExprMethods {
         $col: ColumnDescriptor
         primaryKey(): Column<T>
@@ -25,7 +25,9 @@ export interface DatabaseConfig {
         execute?: (ast: unknown) => unknown
         pageSize?: number
         frameCount?: number
-        fileAdapter?: FileAdapter
+        file?: FileAdapter
+        adapter?: AdapterKind
+        adapterOptions?: AdapterOptions
 }
 export type ProjItem = { alias: string; expr: SQL | SqlNode }
 export interface JoinClause {

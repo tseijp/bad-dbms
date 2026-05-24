@@ -43,24 +43,29 @@ export interface Frame {
         valid: boolean
         dirty: boolean
 }
-export interface FileHandle {
-        read(id: string, offset: number, length: number): Uint8Array
-        write(id: string, offset: number, bytes: Uint8Array): void
-        exists(id: string): boolean
+export interface BufferPool {
+        pin(relId: number, forkId: number, blockNo: number): Promise<Frame>
+        unpin(frame: Frame, dirty?: boolean): Promise<void>
 }
-export interface SmgrHandle {
+export interface ForkState {
         fid: string
         nBlocks: number
+        known: boolean
 }
-export interface BufferPool {
-        pin(relId: number, forkId: number, blockNo: number): Frame
-        unpin(frame: Frame, dirty?: boolean): void
+export interface SMgrRelation {
+        relId: number
+        forks: ForkState[]
 }
 export interface StorageManager {
-        read(relId: number, forkId: number, blockNo: number): Uint8Array
-        write(relId: number, forkId: number, blockNo: number, bytes: Uint8Array): void
-        extend(relId: number, forkId: number): number
-        nBlocks(relId: number, forkId: number): number
+        open(relId: number): SMgrRelation
+        create(rel: SMgrRelation, forkId: number): Promise<void>
+        exists(rel: SMgrRelation, forkId: number): Promise<boolean>
+        unlink(rel: SMgrRelation, forkId: number): Promise<void>
+        read(rel: SMgrRelation, forkId: number, blockNo: number): Promise<Uint8Array>
+        write(rel: SMgrRelation, forkId: number, blockNo: number, bytes: Uint8Array): Promise<void>
+        extend(rel: SMgrRelation, forkId: number): Promise<number>
+        nBlocks(rel: SMgrRelation, forkId: number): Promise<number>
+        truncate(rel: SMgrRelation, forkId: number, blockNo: number): Promise<void>
 }
 export interface FreeSpaceMap {
         findPage(relId: number, forkId: number, neededBytes: number): number
@@ -100,23 +105,23 @@ export interface RelationDescriptor {
         codecs: ColumnCodec[]
 }
 export interface HeapHandle {
-        insert(value: number): Rid
-        read(rid: Rid): number | undefined
-        update(rid: Rid, value: number): Rid
-        delete(rid: Rid): void
-        scan(emit: (rid: Rid, value: number) => boolean | void): void
-        bulkLoad(values: number[]): Rid[]
+        insert(value: number): Promise<Rid>
+        read(rid: Rid): Promise<number | undefined>
+        update(rid: Rid, value: number): Promise<Rid>
+        delete(rid: Rid): Promise<void>
+        scan(emit: (rid: Rid, value: number) => boolean | void | Promise<boolean | void>): Promise<void>
+        bulkLoad(values: number[]): Promise<Rid[]>
 }
 export interface NBTreeHandle {
-        insert(key: number, rid: Rid): void
-        search(key: number): Rid | undefined
-        forward(start: number, end: number, emit: (rid: Rid) => boolean | void): void
-        backward(start: number, end: number, emit: (rid: Rid) => boolean | void): void
-        bulkLoad(sortedEntries: Array<[number, Rid]>): void
-        vacuum(): number
+        insert(key: number, rid: Rid): Promise<void>
+        search(key: number): Promise<Rid | undefined>
+        forward(start: number, end: number, emit: (rid: Rid) => boolean | void | Promise<boolean | void>): Promise<void>
+        backward(start: number, end: number, emit: (rid: Rid) => boolean | void | Promise<boolean | void>): Promise<void>
+        bulkLoad(sortedEntries: Array<[number, Rid]>): Promise<void>
+        vacuum(): Promise<number>
 }
 export type AccessIndex = NBTreeHandle
 export interface RowIterator {
-        next(): Record<string, unknown> | null
+        next(): Promise<Record<string, unknown> | null>
         close(): void
 }
