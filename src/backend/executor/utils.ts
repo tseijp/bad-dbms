@@ -8,12 +8,6 @@ export const collectRids = (firstHeap: { scan(emit: (rid: Rid) => boolean | void
         firstHeap.scan((rid: Rid) => void rids.push(rid))
         return rids
 }
-export const EMPTY_ITER: RowIterator = {
-        next() {
-                return null
-        },
-        close() {},
-}
 export const fromRows = (rows: Row[]): RowIterator => {
         let _i = 0
         return {
