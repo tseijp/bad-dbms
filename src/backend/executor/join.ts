@@ -8,16 +8,9 @@ export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, righ
                 _rightBuf.push(r as JoinRow)
         }
         right.close()
-        const _keepLeft = kind === 'left' || kind === 'full'
-        const _keepRight = kind === 'right' || kind === 'full'
         const _rightMatched = new Array<boolean>(_rightBuf.length).fill(false)
         const _out: JoinRow[] = []
         const _leftKeys = new Set<string>()
-        const _nulled = (keys: Iterable<string>): JoinRow => {
-                const o: JoinRow = {}
-                for (const k of keys) o[k] = null
-                return o
-        }
         let _leftRow = left.next()
         while (_leftRow !== null) {
                 const lj = _leftRow as JoinRow
@@ -30,14 +23,16 @@ export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, righ
                         _rightMatched[j] = true
                         matched = true
                 }
-                if (!matched && _keepLeft) _out.push({ ...lj, [rightName]: null })
+                if (!matched && (kind === 'left' || kind === 'full')) _out.push({ ...lj, [rightName]: null })
                 _leftRow = left.next()
         }
         left.close()
-        if (_keepRight)
+        if (kind === 'right' || kind === 'full')
                 for (let j = 0; j < _rightBuf.length; j++) {
                         if (_rightMatched[j]) continue
-                        _out.push({ ..._nulled(_leftKeys), ..._rightBuf[j] })
+                        const nulled: JoinRow = {}
+                        for (const k of _leftKeys) nulled[k] = null
+                        _out.push({ ...nulled, ..._rightBuf[j] })
                 }
         let _i = 0
         return {

@@ -4,7 +4,7 @@ import type { RowIterator } from '../types'
 import { createSeqScan, createNamedScan, createFilter, createProjection } from './scan'
 import { createNestedLoopJoin } from './join'
 import { createAggregate, createSort, createDistinct, createLimit } from './group'
-import { createUpdate, createDelete } from './modify'
+import { createUpdate, createDelete, createInsert } from './modify'
 const build = (catalog: Catalog, ast: PhysicalOp): RowIterator => {
         if (!ast || !ast.op) throw new Error(`error: no ast or op`)
         if (ast.op === 'SeqScan') return createSeqScan(catalog, ast)
@@ -18,6 +18,7 @@ const build = (catalog: Catalog, ast: PhysicalOp): RowIterator => {
         if (ast.op === 'Limit') return createLimit(build(catalog, ast.child), ast.limit, ast.offset)
         if (ast.op === 'Update') return createUpdate(catalog, ast)
         if (ast.op === 'Delete') return createDelete(catalog, ast)
+        if (ast.op === 'Insert') return createInsert(catalog, ast)
         throw new Error(`error: no ast op match`)
 }
 export const createExecutor = ({ catalog }: { catalog: Catalog }) => ({

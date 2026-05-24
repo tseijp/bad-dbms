@@ -92,9 +92,8 @@ export const compileNode = (input: NodeInput, ctx: EvalCtx): Compiled => {
                 return (row) => items.map((fn) => fn(row))
         }
         if (node.type === 'unop') {
-                const arg = compileNode(node.args[0], ctx)
                 const fn = UNOP[node.op] ?? (() => undefined)
-                return (row) => fn(arg(row))
+                return ((arg) => (row) => fn(arg(row)))(compileNode(node.args[0], ctx))
         }
         if (node.type === 'func') {
                 const args = node.args.map((a) => compileNode(a, ctx))

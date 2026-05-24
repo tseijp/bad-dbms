@@ -112,12 +112,6 @@ export const createSort = (child: RowIterator, keys: SortKey[]): RowIterator => 
                 close() {},
         }
 }
-const rowKey = (row: Row): string => {
-        const keys = Object.keys(row).sort()
-        let s = ''
-        for (const k of keys) s += k + ' ' + String(row[k]) + ' '
-        return s
-}
 export const createDistinct = (child: RowIterator): RowIterator => {
         const _seen = new Set<string>()
         return {
@@ -125,7 +119,8 @@ export const createDistinct = (child: RowIterator): RowIterator => {
                         while (true) {
                                 const r = child.next()
                                 if (r === null) return null
-                                const k = rowKey(r)
+                                let k = ''
+                                for (const key of Object.keys(r).sort()) k += key + ' ' + String(r[key]) + ' '
                                 if (_seen.has(k)) continue
                                 _seen.add(k)
                                 return r

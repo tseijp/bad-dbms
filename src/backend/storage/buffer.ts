@@ -35,8 +35,7 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                 return _frames[_clockHand]
         }
         const _load = (frame: Frame, relId: number, forkId: number, blockNo: number) => {
-                const data = smgr.read(relId, forkId, blockNo)
-                frame.bytes.set(data)
+                frame.bytes.set(smgr.read(relId, forkId, blockNo))
                 frame.relId = relId
                 frame.forkId = forkId
                 frame.blockNo = blockNo
@@ -47,8 +46,7 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
         }
         return {
                 pin(relId: number, forkId: number, blockNo: number) {
-                        const k = keyOf(relId, forkId, blockNo)
-                        const cached = _lookup.get(k)
+                        const cached = _lookup.get(keyOf(relId, forkId, blockNo))
                         if (cached) {
                                 cached.pinCount++
                                 if (cached.usage < 5) cached.usage++

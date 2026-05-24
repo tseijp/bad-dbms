@@ -5,18 +5,7 @@ import { createFreeSpaceMap } from './storage/free'
 import { createCatalog } from './catalog'
 import { createExecutor } from './executor'
 import type { Row, ExecuteAst } from '../shared/types'
-import type { FileAdapter, RowIterator } from './types'
-const drain = (iter: RowIterator): Row[] => {
-        const out: Row[] = []
-        if (!iter || typeof iter.next !== 'function') return out
-        while (true) {
-                const r = iter.next()
-                if (r === null || r === undefined) break
-                out.push(r)
-        }
-        iter.close()
-        return out
-}
+import type { FileAdapter } from './types'
 export interface BackendConfig {
         fileAdapter?: FileAdapter
         pageSize?: number
@@ -27,7 +16,6 @@ export const createBackend = ({ fileAdapter = createFileAdapter(), pageSize = 40
         const buffer = createBufferPool({ smgr, frameCount, pageSize })
         const fsm = createFreeSpaceMap()
         const catalog = createCatalog({ buffer, smgr, fsm })
-        const _executor = createExecutor({ catalog })
         return {
                 buffer,
                 smgr,
@@ -35,7 +23,16 @@ export const createBackend = ({ fileAdapter = createFileAdapter(), pageSize = 40
                 catalog,
                 async execute(ast: ExecuteAst): Promise<Row[]> {
                         if (!ast || !ast.op) return []
-                        return drain(_executor.execute(ast))
+                        const iter = createExecutor({ catalog }).execute(ast)
+                        const out: Row[] = []
+                        if (!iter || typeof iter.next !== 'function') return out
+                        while (true) {
+                                const r = iter.next()
+                                if (r === null || r === undefined) break
+                                out.push(r)
+                        }
+                        iter.close()
+                        return out
                 },
         }
 }

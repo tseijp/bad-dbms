@@ -56,53 +56,42 @@ type Slot = { value: unknown; isNull: boolean }
 export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
         const _relations = new Map<string, RelationDescriptor>()
         let _nextRelId = 1
-        const _makeHeap = (relId: number, col: ColumnMeta): HeapHandle => createHeap({ buffer, smgr, fsm, relId: storageRelOf(relId, col.forkId), valueSize: col.byteSize, valueType: col.type })
-        const _makeIndex = (relId: number, indexForkId: number): AccessIndex => createNBTree({ buffer, smgr, fsm, relId: storageRelOf(relId, indexForkId), forkId: 0 })
         const resolve = (name: string): RelationDescriptor => {
                 const rel = _relations.get(name)
                 if (!rel) throw new Error(`relation not found: ${name}`)
                 return rel
         }
-        const _columnValues = (rel: RelationDescriptor, colIdx: number): unknown[] => {
-                const col = rel.columns[colIdx]
-                const codec = rel.codecs[colIdx]
-                const out: unknown[] = []
-                rel.heaps[0].scan((rid: Rid) => {
-                        if (codec.nulls.has(ridKey(rid))) return
-                        out.push(decodeCell(col, codec, rel.heaps[colIdx].read(rid)))
-                })
-                return out
-        }
-        const _checkBatch = (rel: RelationDescriptor, batch: Slot[][]): void => {
+        const insertRows = (relName: string, rows: Row[]): Rid[] => {
+                const rel = resolve(relName)
+                const batch = rows.map((row) => rel.columns.map((col) => resolveInsertValue(col, row)))
                 rel.columns.forEach((col, i) => {
                         const unique = col.isUnique || col.isPrimary
-                        const existing = unique ? new Set(_columnValues(rel, i)) : null
+                        const existing = new Set<unknown>()
+                        if (unique) {
+                                const codec = rel.codecs[i]
+                                rel.heaps[0].scan((rid: Rid) => {
+                                        if (!codec.nulls.has(ridKey(rid))) existing.add(decodeCell(col, codec, rel.heaps[i].read(rid)))
+                                })
+                        }
                         const seen = new Set<unknown>()
                         for (const slots of batch) {
                                 if (col.notNull && slots[i].isNull) throw new Error(`null value in notNull column: ${col.name}`)
                                 if (!unique || slots[i].isNull) continue
                                 const v = slots[i].value
-                                if (existing!.has(v) || seen.has(v)) throw new Error(`unique violation: ${col.name}`)
+                                if (existing.has(v) || seen.has(v)) throw new Error(`unique violation: ${col.name}`)
                                 seen.add(v)
                         }
                 })
-        }
-        const _writeRow = (rel: RelationDescriptor, slots: Slot[]): Rid => {
-                const rids = rel.columns.map((col, i) => rel.heaps[i].insert(encodeCell(col, rel.codecs[i], slots[i].value)))
-                const rid = rids[0]
-                const rk = ridKey(rid)
-                slots.forEach((slot, i) => slot.isNull && rel.codecs[i].nulls.add(rk))
-                for (const idx of rel.indexes) {
-                        const ci = idx.columnIdx
-                        idx.handle.insert(encodeCell(rel.columns[ci], rel.codecs[ci], slots[ci].value), rid)
-                }
-                return rid
-        }
-        const insertRows = (relName: string, rows: Row[]): Rid[] => {
-                const rel = resolve(relName)
-                const batch = rows.map((row) => rel.columns.map((col) => resolveInsertValue(col, row)))
-                _checkBatch(rel, batch)
-                return batch.map((slots) => _writeRow(rel, slots))
+                return batch.map((slots) => {
+                        const rid = rel.columns.map((col, i) => rel.heaps[i].insert(encodeCell(col, rel.codecs[i], slots[i].value)))[0]
+                        const rk = ridKey(rid)
+                        slots.forEach((slot, i) => slot.isNull && rel.codecs[i].nulls.add(rk))
+                        for (const idx of rel.indexes) {
+                                const ci = idx.columnIdx
+                                idx.handle.insert(encodeCell(rel.columns[ci], rel.codecs[ci], slots[ci].value), rid)
+                        }
+                        return rid
+                })
         }
         const insertRow = (relName: string, row: Row): Rid => insertRows(relName, [row])[0]
         return {
@@ -114,7 +103,7 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
                         Object.keys(columnsDef).forEach((ckey, i) => {
                                 const col = buildColumn(ckey, columnsDef[ckey], COLUMN_FORK_BASE + i)
                                 columns.push(col)
-                                heaps.push(_makeHeap(relId, col))
+                                heaps.push(createHeap({ buffer, smgr, fsm, relId: storageRelOf(relId, col.forkId), valueSize: col.byteSize, valueType: col.type }))
                                 codecs.push({ strings: [], intern: new Map(), nulls: new Set() })
                         })
                         const indexes: IndexDescriptor[] = []
@@ -122,7 +111,7 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
                         columns.forEach((col, i) => {
                                 if (!needsIndex(col)) return
                                 const forkId = INDEX_FORK_BASE + indexes.length
-                                const handle = _makeIndex(relId, forkId)
+                                const handle = createNBTree({ buffer, smgr, fsm, relId: storageRelOf(relId, forkId), forkId: 0 })
                                 indexes.push({ name: `${name}_${col.name}_idx`, columnIdx: i, forkId, handle })
                                 idxHandles.push(handle)
                         })

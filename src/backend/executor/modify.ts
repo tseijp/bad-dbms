@@ -2,7 +2,15 @@ import type { UpdateOp, DeleteOp, InsertOp, Row, RowSetter } from '../../shared/
 import type { Catalog } from '../catalog'
 import type { RelationDescriptor, RowIterator, Rid } from '../types'
 import { tableNameOf, buildRow, collectRids, fromRows, compilePredicate, stripRid } from './utils'
-const colIndexOf = (rel: RelationDescriptor, name: string): number => rel.columns.findIndex((c) => c.name === name)
+export const createInsert = (catalog: Catalog, ast: InsertOp): RowIterator => {
+        const _name = tableNameOf(ast.table)
+        const _rids = catalog.insertRows(_name, ast.values ?? [])
+        if (ast.returning) {
+                const _rel = catalog.resolve(_name)
+                return fromRows(_rids.map((rid) => stripRid(buildRow(catalog, _rel, rid))))
+        }
+        return fromRows([{ rowCount: _rids.length, changes: _rids.length, inserted: _rids.length }])
+}
 export const createUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
         const _rel = catalog.resolve(tableNameOf(ast.table))
         const _pred = compilePredicate(ast.predicate)
@@ -13,8 +21,7 @@ export const createUpdate = (catalog: Catalog, ast: UpdateOp): RowIterator => {
                 const row = buildRow(catalog, _rel, rid)
                 if (!_pred(row)) continue
                 for (const k of Object.keys(_setters)) {
-                        const colIdx = colIndexOf(_rel, k)
-                        catalog.writeCell(_rel, colIdx, rid, _setters[k](row))
+                        catalog.writeCell(_rel, _rel.columns.findIndex((c) => c.name === k), rid, _setters[k](row))
                 }
                 _changed.push(buildRow(catalog, _rel, rid))
         }

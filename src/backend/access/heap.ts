@@ -69,8 +69,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         const blockNo = frame.blockNo
                         page.setAlive(slot, true)
                         page.writeValue(slot, valueType, value)
-                        const prevCount = page.getHeader().slotCount || 0
-                        if (slot + 1 > prevCount) page.setHeader({ slotCount: slot + 1 })
+                        if (slot + 1 > (page.getHeader().slotCount || 0)) page.setHeader({ slotCount: slot + 1 })
                         const free = _computeFree(page)
                         _unpin(frame)
                         fsm.update(relId, HEAP_FORK, blockNo, free)
@@ -107,8 +106,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         fsm.update(relId, HEAP_FORK, rid[0], free)
                 },
                 scan(emit: (rid: Rid, value: number) => boolean | void): void {
-                        const n = smgr.nBlocks(relId, HEAP_FORK)
-                        for (let blockNo = 0; blockNo < n; blockNo++) {
+                        for (let blockNo = 0; blockNo < smgr.nBlocks(relId, HEAP_FORK); blockNo++) {
                                 const frame = _pinPage(blockNo)
                                 const page = createPage(frame.bytes)
                                 const cap = page.capacity(valueSize)
@@ -116,8 +114,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                                 for (let slot = 0; slot < cap; slot++) {
                                         if (!page.isAlive(slot)) continue
                                         const v = page.readValue(slot, valueType)
-                                        const r = emit([blockNo, slot], v)
-                                        if (r === false) {
+                                        if (emit([blockNo, slot], v) === false) {
                                                 stop = true
                                                 break
                                         }

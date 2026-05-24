@@ -88,10 +88,10 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                                 return cur
                         }
                         const at = _intBS(p, h.slotCount || 0, key)
-                        const child = p.readInternalEntry(at).childPageId
+                        const childPageId = p.readInternalEntry(at).childPageId
                         _unpin(f)
                         path.push(cur)
-                        cur = child
+                        cur = childPageId
                 }
         }
         const _propagateUp = (path: number[], sepKey: number, rightId: number): void => {
@@ -190,10 +190,10 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                                         break
                                 }
                         }
-                        const next = dir === 1 ? h.nextPageId : h.prevPageId
+                        const nextPageId = dir === 1 ? h.nextPageId : h.prevPageId
                         _unpin(f)
                         if (stop) return
-                        cur = next ?? -1
+                        cur = nextPageId ?? -1
                 }
         }
         _ensureInit()
@@ -264,8 +264,7 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                                 _notifyFree(id, slice.length, LEAF_CAP)
                                 if (prevId >= 0) {
                                         const pf = _pin(prevId)
-                                        const pp = createPage(pf.bytes)
-                                        pp.setHeader({ nextPageId: id })
+                                        createPage(pf.bytes).setHeader({ nextPageId: id })
                                         _unpin(pf)
                                 }
                                 prevId = id

@@ -58,25 +58,16 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                 const r = await Promise.resolve(_dispatch(plan))
                 return (Array.isArray(r) ? (r as Row[]) : []).map(stripRid)
         }
+        const _planWrite = (ast: InsertAst | UpdateAst | DeleteAst): PhysicalOp => {
+                const table = tableNameOf(ast.table)
+                if (ast.op === 'Insert') return { op: 'Insert', table, values: ast.values ?? [], returning: !!ast.returning }
+                const predicate = ast.where ? compilePredicate(ast.where, _ctx) : () => true
+                if (ast.op === 'Update') return { op: 'Update', table, predicate, setters: compileSetters(ast.set, _ctx), returning: !!ast.returning }
+                return { op: 'Delete', table, predicate, returning: !!ast.returning }
+        }
         const _run: RunFn = async (ast) => {
                 if (ast.op === 'Select') return _rowsOf(planSelect(ast, _ctx).plan)
-                const table = tableNameOf(ast.table)
-                if (ast.op === 'Insert') {
-                        const values = ast.values ?? []
-                        if (!execute && backend) {
-                                const rids = backend.catalog.insertRows(table, values)
-                                if (!ast.returning) return { changes: rids.length }
-                                const rel = backend.catalog.resolve(table)
-                                return rids.map((rid) => stripRid(backend.catalog.readRow(rel, rid)))
-                        }
-                        return _dispatch({ op: 'Insert', table, values, returning: !!ast.returning })
-                }
-                const predicate = ast.where ? compilePredicate(ast.where, _ctx) : () => true
-                const plan: PhysicalOp =
-                        ast.op === 'Update'
-                                ? { op: 'Update', table, predicate, setters: compileSetters(ast.set, _ctx), returning: !!ast.returning }
-                                : { op: 'Delete', table, predicate, returning: !!ast.returning }
-                const rows = await _rowsOf(plan)
+                const rows = await _rowsOf(_planWrite(ast))
                 if (ast.returning) return rows
                 return rows[0] ?? { rowCount: 0, changes: 0 }
         }
@@ -136,38 +127,40 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                         },
                         transaction: _runScope,
                 }) as Tx
-        const _currentTupleProxy = (table: Table) =>
-                new Proxy(
-                        {},
-                        {
-                                get: (_t, prop) => {
-                                        if (prop === '$meta') return table.$meta
-                                        const cur = _ctx.current
-                                        const key = String(prop)
-                                        return cur && key in cur ? cur[key] : undefined
-                                },
-                        },
-                )
-        const _tickRunner = (fn: (tx: Tx, c?: unknown) => unknown) => ({
-                async run(extra?: unknown) {
-                        const primary = Object.values(tables)[0] as Table | undefined
-                        if (!primary || !backend) return extra
-                        const rel = backend.catalog.find(tableNameOf(primary))
-                        const proxy = _currentTupleProxy(primary)
-                        const rows: Row[] = []
-                        rel?.heaps[0].scan((rid: Rid) => void rows.push(backend.catalog.readRow(rel, rid)))
-                        for (const row of rows) {
-                                _ctx.current = row
-                                await Promise.resolve(fn(_txHandle(), proxy))
-                        }
-                        _ctx.current = null
-                        return extra
-                },
-        })
         function transaction<R>(fn: (tx: Tx) => Promise<R> | R): Promise<R>
-        function transaction(fn: (tx: Tx, c: unknown) => unknown): ReturnType<typeof _tickRunner>
+        function transaction(fn: (tx: Tx, c: unknown) => unknown): { run(extra?: unknown): Promise<unknown> }
         function transaction(fn: (tx: Tx, c?: unknown) => unknown): unknown {
-                return (fn as Function).length >= 2 ? _tickRunner(fn) : _runScope(fn as (tx: Tx) => unknown)
+                if ((fn as Function).length < 2) return _runScope(fn as (tx: Tx) => unknown)
+                return {
+                        async run(extra?: unknown) {
+                                const primary = Object.values(tables)[0] as Table | undefined
+                                if (!primary || !backend) return extra
+                                const rel = backend.catalog.find(tableNameOf(primary))
+                                const rows: Row[] = []
+                                rel?.heaps[0].scan((rid: Rid) => void rows.push(backend.catalog.readRow(rel, rid)))
+                                for (const row of rows) {
+                                        _ctx.current = row
+                                        await Promise.resolve(
+                                                fn(
+                                                        _txHandle(),
+                                                        new Proxy(
+                                                                {},
+                                                                {
+                                                                        get: (_t, prop) => {
+                                                                                if (prop === '$meta') return primary.$meta
+                                                                                const cur = _ctx.current
+                                                                                const key = String(prop)
+                                                                                return cur && key in cur ? cur[key] : undefined
+                                                                        },
+                                                                },
+                                                        ),
+                                                ),
+                                        )
+                                }
+                                _ctx.current = null
+                                return extra
+                        },
+                }
         }
         return {
                 ..._buildTx(),
@@ -175,10 +168,11 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                 $count: async (table: Table, predicate?: SQL): Promise<number> => {
                         const rel = backend?.catalog.find(tableNameOf(table))
                         if (!rel) return 0
-                        const pred = predicate ? compilePredicate(predicate, _ctx) : () => true
-                        let n = 0
-                        rel.heaps[0].scan((rid: Rid) => void (pred(backend!.catalog.readRow(rel, rid)) && n++))
-                        return n
+                        return ((pred) => {
+                                let n = 0
+                                rel.heaps[0].scan((rid: Rid) => void (pred(backend!.catalog.readRow(rel, rid)) && n++))
+                                return n
+                        })(predicate ? compilePredicate(predicate, _ctx) : () => true)
                 },
                 backend,
                 tables,

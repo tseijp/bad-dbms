@@ -70,8 +70,7 @@ const projector = (p: ProjItem, ctx: EvalCtx): ProjectorSpec => {
         return {
                 alias: p.alias,
                 eval: (row) => {
-                        const jr = row as Record<string, Row | null>
-                        if (tables.length > 0 && tables.every((t) => jr[t] === null)) return null
+                        if (tables.length > 0 && tables.every((t) => (row as Record<string, Row | null>)[t] === null)) return null
                         const out: Row = {}
                         for (const f of fields) out[f.key] = f.eval(row)
                         return out
@@ -107,12 +106,11 @@ const sortKeys = (orderBy: unknown[], resolve: (n: SqlNode) => string | undefine
 export const planSelect = (ast: SelectAst, baseCtx: EvalCtx): { plan: PhysicalOp } => {
         const { source, ctx, isJoin } = planSource(ast, baseCtx)
         const aggs = aggsOf(ast.projection)
-        const grouped = !!ast.groupBy?.length
         const projected = !!ast.projection?.length
         const flat = aggs.length > 0 || projected
         let plan = source
         if (ast.where) plan = { op: 'Filter', child: plan, predicate: compilePredicate(ast.where, ctx) }
-        if (aggs.length > 0 || grouped) plan = planAggregate(plan, ast, aggs, ctx, isJoin)
+        if (aggs.length > 0 || !!ast.groupBy?.length) plan = planAggregate(plan, ast, aggs, ctx, isJoin)
         else if (projected) plan = projection(plan, (ast.projection ?? []).map((p) => projector(p, ctx)))
         if (ast.having) plan = { op: 'Filter', child: plan, predicate: compilePredicate(rewriteHaving(ast.having, ast.projection), baseCtx) }
         if (ast.orderBy?.length) {

@@ -38,8 +38,7 @@ export const createFreeSpaceMap = (): FreeSpaceMap => {
                 findPage(relId: number, forkId: number, neededBytes: number) {
                         const s = _getStore(relId, forkId)
                         const need = Math.ceil(neededBytes / GRAN)
-                        const groups = Math.ceil(s.nBlocks / 8)
-                        for (let g = 0; g < groups; g++) {
+                        for (let g = 0; g < Math.ceil(s.nBlocks / 8); g++) {
                                 if (s.upper[g] < need) continue
                                 const base = g << 3
                                 const end = Math.min(base + 8, s.nBlocks)
