@@ -87,6 +87,15 @@ export interface ColumnDescriptor extends ColumnConfig {
         tableName?: string
 }
 export type Rid = readonly [number, number]
+export type AdapterKind = 'memory' | 'nodejs' | 'bun' | 'deno' | 'browser' | 'cloudflare-worker' | 'vercel' | 'netlify' | 'fastly' | 'aws-lambda' | 'lambda-edge'
+export interface AdapterOptions {
+        dir?: string
+        rootName?: string
+        kv?: any
+        store?: any
+        s3?: any
+        bucket?: string
+}
 export interface FileAdapter {
         get(key: string): Promise<Uint8Array | undefined>
         put(key: string, bytes: Uint8Array): Promise<void>

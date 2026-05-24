@@ -1,10 +1,17 @@
-import type { SQL, SqlValue, Row, PhysicalOp, Rid } from '../shared/types'
+import type { SQL, SqlValue, Row, PhysicalOp, Rid, FileAdapter } from '../shared/types'
 import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinKind } from './types'
 import { createBackend } from '../backend/index'
 import { createMemoryAdapter } from '../backend/adapter/memory'
+import { createAdapter } from '../backend/adapter'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
 import { tableNameOf, stripRid } from '../shared/helper'
+const lazyAdapter = (p: Promise<FileAdapter>): FileAdapter => ({
+        get: async (k) => (await p).get(k),
+        put: async (k, b) => (await p).put(k, b),
+        delete: async (k) => (await p).delete(k),
+        list: async (pre) => (await p).list(pre),
+})
 type Backend = ReturnType<typeof createBackend>
 type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
 type RunFn = (ast: AnyAst) => unknown
@@ -50,8 +57,9 @@ const builder = <A extends AnyAst, M>(run: RunFn, ast: A, methods: (ast: A, self
         }
         return self
 }
-export const database = (tables: Record<string, Table>, { execute, pageSize, frameCount, file }: DatabaseConfig = {}) => {
-        const backend: Backend | null = execute ? null : createBackend({ file: file ?? createMemoryAdapter(), pageSize, frameCount })
+export const database = (tables: Record<string, Table>, { execute, pageSize, frameCount, file, adapter, adapterOptions }: DatabaseConfig = {}) => {
+        const _file = file ?? (adapter ? lazyAdapter(createAdapter(adapter, adapterOptions)) : createMemoryAdapter())
+        const backend: Backend | null = execute ? null : createBackend({ file: _file, pageSize, frameCount })
         const _ctx: EvalCtx = { current: null, params: null }
         if (backend) registerTables(backend, tables)
         const _dispatch = (plan: PhysicalOp): unknown => (execute ? execute(plan) : backend ? backend.execute(plan) : [])

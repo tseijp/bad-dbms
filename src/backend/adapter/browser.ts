@@ -1,19 +1,15 @@
 import type { FileAdapter } from '../../shared/types'
-
 declare const navigator: any
-
-export const createBrowserAdapter = async (rootName?: string): Promise<FileAdapter> => {
-        const storageRoot = await navigator.storage.getDirectory()
-        const root = await storageRoot.getDirectoryHandle(rootName ?? 'bad-dbms', { create: true })
+export const createBrowserAdapter = (rootName?: string): FileAdapter => {
+        const _root = navigator.storage.getDirectory().then((sr: any) => sr.getDirectoryHandle(rootName ?? 'bad-dbms', { create: true }))
         const split = (key: string) => {
                 const parts = key.split('/').filter((p) => p.length > 0)
                 const name = parts.pop() ?? ''
                 return { dirs: parts, name }
         }
         const walkDir = async (parts: string[], create: boolean) => {
-                let dir = root
-                for (const part of parts)
-                        dir = await dir.getDirectoryHandle(part, { create }).catch(() => undefined)
+                let dir = await _root
+                for (const part of parts) dir = await dir.getDirectoryHandle(part, { create }).catch(() => undefined)
                 return dir
         }
         const listAll = async (dir: any, prefix: string): Promise<string[]> => {
@@ -57,7 +53,7 @@ export const createBrowserAdapter = async (rootName?: string): Promise<FileAdapt
                         await dir.removeEntry(name).catch(() => undefined)
                 },
                 list: async (prefix) => {
-                        const all = await listAll(root, '')
+                        const all = await listAll(await _root, '')
                         return all.filter((k) => k.startsWith(prefix))
                 },
         }
