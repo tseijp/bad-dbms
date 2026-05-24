@@ -2,23 +2,23 @@ import type { FileAdapter } from '../../shared/types'
 
 declare const Buffer: any
 
-const encode = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64')
+const _encode = (bytes: Uint8Array): string => Buffer.from(bytes).toString('base64')
 
-const decode = (text: string): Uint8Array => new Uint8Array(Buffer.from(text, 'base64'))
+const _decode = (text: string): Uint8Array => new Uint8Array(Buffer.from(text, 'base64'))
 
 export const createVercelAdapter = (kv: any): FileAdapter => ({
-        get: async (key) => {
+        async get(key) {
                 const value = await kv.get(key).catch(() => null)
                 if (value === null || value === undefined) return undefined
-                return decode(value as string)
+                return _decode(value as string)
         },
-        put: async (key, bytes) => {
-                await kv.set(key, encode(bytes))
+        async put(key, bytes) {
+                await kv.set(key, _encode(bytes))
         },
-        delete: async (key) => {
+        async delete(key) {
                 await kv.del(key).catch(() => undefined)
         },
-        list: async (prefix) => {
+        async list(prefix) {
                 const out: string[] = []
                 let cursor = 0
                 while (true) {

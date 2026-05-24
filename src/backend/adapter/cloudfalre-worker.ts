@@ -1,18 +1,18 @@
 import type { FileAdapter } from '../../shared/types'
 
 export const createCloudflareWorkerAdapter = (kv: any): FileAdapter => ({
-        get: async (key) => {
+        async get(key) {
                 const buf = await kv.get(key, 'arrayBuffer').catch(() => undefined)
                 if (!buf) return undefined
                 return new Uint8Array(buf)
         },
-        put: async (key, bytes) => {
+        async put(key, bytes) {
                 await kv.put(key, bytes)
         },
-        delete: async (key) => {
+        async delete(key) {
                 await kv.delete(key).catch(() => undefined)
         },
-        list: async (prefix) => {
+        async list(prefix) {
                 const out: string[] = []
                 let cursor: string | undefined = undefined
                 while (true) {

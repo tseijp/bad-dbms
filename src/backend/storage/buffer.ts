@@ -43,17 +43,6 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                 await _flush(f)
                 return f
         }
-        const _load = async (frame: Frame, relId: number, forkId: number, blockNo: number) => {
-                frame.bytes.set(await smgr.read(smgr.open(relId), forkId, blockNo))
-                frame.relId = relId
-                frame.forkId = forkId
-                frame.blockNo = blockNo
-                frame.valid = true
-                frame.usage = 1
-                frame.pinCount = 0
-                frame.dirty = false
-                _lookup.set(keyOf(relId, forkId, blockNo), frame)
-        }
         return {
                 async pin(relId, forkId, blockNo) {
                         const cached = _lookup.get(keyOf(relId, forkId, blockNo))
@@ -63,7 +52,15 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                                 return cached
                         }
                         const victim = await _evict()
-                        await _load(victim, relId, forkId, blockNo)
+                        victim.bytes.set(await smgr.read(smgr.open(relId), forkId, blockNo))
+                        victim.relId = relId
+                        victim.forkId = forkId
+                        victim.blockNo = blockNo
+                        victim.valid = true
+                        victim.usage = 1
+                        victim.pinCount = 0
+                        victim.dirty = false
+                        _lookup.set(keyOf(relId, forkId, blockNo), victim)
                         victim.pinCount = 1
                         return victim
                 },

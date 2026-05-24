@@ -6,18 +6,11 @@ import { createAdapter } from '../backend/adapter'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
 import { tableNameOf, stripRid } from '../shared/helper'
-const lazyAdapter = (p: Promise<FileAdapter>): FileAdapter => ({
-        get: async (k) => (await p).get(k),
-        put: async (k, b) => (await p).put(k, b),
-        delete: async (k) => (await p).delete(k),
-        list: async (pre) => (await p).list(pre),
-})
 type Backend = ReturnType<typeof createBackend>
 type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
 type RunFn = (ast: AnyAst) => unknown
 const isSqlValue = (v: unknown): v is SQL => !!v && typeof v === 'object' && (v as { kind?: string }).kind === 'sql'
-const projectionOf = (fields?: Columns | Record<string, SQL>) =>
-        fields ? Object.keys(fields).map((k) => ({ alias: k, expr: (fields as Record<string, SQL>)[k] })) : undefined
+const projectionOf = (fields?: Columns | Record<string, SQL>) => (fields ? Object.keys(fields).map((k) => ({ alias: k, expr: (fields as Record<string, SQL>)[k] })) : undefined)
 const referenceOf = (c: { references?: { fn: () => SQL; onDelete?: string } }) => {
         const tc = (c.references?.fn() as { $col?: { key?: string; name?: string; tableName?: string } } | undefined)?.$col
         if (!c.references || !tc?.tableName) return undefined
@@ -52,31 +45,62 @@ const builder = <A extends AnyAst, M>(run: RunFn, ast: A, methods: (ast: A, self
         const _fire = () => (_promise ??= Promise.resolve(run(ast)))
         const self: Thenable<M> = {
                 ...methods(ast, () => self),
-                then: (r, j) => _fire().then(r, j),
-                catch: (j) => _fire().catch(j),
+                then(r, j) {
+                        return _fire().then(r, j)
+                },
+                catch(j) {
+                        return _fire().catch(j)
+                },
         }
         return self
 }
 export const database = (tables: Record<string, Table>, { execute, pageSize, frameCount, file, adapter, adapterOptions }: DatabaseConfig = {}) => {
-        const _file = file ?? (adapter ? lazyAdapter(createAdapter(adapter, adapterOptions)) : createMemoryAdapter())
-        const backend: Backend | null = execute ? null : createBackend({ file: _file, pageSize, frameCount })
+        let backend: Backend | null = null
+        if (!execute) {
+                let storage = file ?? createMemoryAdapter()
+                if (!file && adapter) {
+                        const p = createAdapter(adapter, adapterOptions)
+                        storage = {
+                                async get(k) {
+                                        return (await p).get(k)
+                                },
+                                async put(k, b) {
+                                        return (await p).put(k, b)
+                                },
+                                async delete(k) {
+                                        return (await p).delete(k)
+                                },
+                                async list(pre) {
+                                        return (await p).list(pre)
+                                },
+                        }
+                }
+                backend = createBackend({ file: storage, pageSize, frameCount })
+        }
         const _ctx: EvalCtx = { current: null, params: null }
         if (backend) registerTables(backend, tables)
-        const _dispatch = (plan: PhysicalOp): unknown => (execute ? execute(plan) : backend ? backend.execute(plan) : [])
         const _rowsOf = async (plan: PhysicalOp): Promise<Row[]> => {
-                const r = await Promise.resolve(_dispatch(plan))
+                let result: unknown = []
+                if (execute) result = execute(plan)
+                else if (backend) result = backend.execute(plan)
+                const r = await Promise.resolve(result)
                 return (Array.isArray(r) ? (r as Row[]) : []).map(stripRid)
-        }
-        const _planWrite = (ast: InsertAst | UpdateAst | DeleteAst): PhysicalOp => {
-                const table = tableNameOf(ast.table)
-                if (ast.op === 'Insert') return { op: 'Insert', table, values: ast.values ?? [], returning: !!ast.returning }
-                const predicate = ast.where ? compilePredicate(ast.where, _ctx) : () => true
-                if (ast.op === 'Update') return { op: 'Update', table, predicate, setters: compileSetters(ast.set, _ctx), returning: !!ast.returning }
-                return { op: 'Delete', table, predicate, returning: !!ast.returning }
         }
         const _run: RunFn = async (ast) => {
                 if (ast.op === 'Select') return _rowsOf(planSelect(ast, _ctx).plan)
-                const rows = await _rowsOf(_planWrite(ast))
+                const table = tableNameOf(ast.table)
+                let plan: PhysicalOp
+                if (ast.op === 'Insert') {
+                        plan = { op: 'Insert', table, values: ast.values ?? [], returning: !!ast.returning }
+                } else {
+                        const predicate = ast.where ? compilePredicate(ast.where, _ctx) : () => true
+                        if (ast.op === 'Update') {
+                                plan = { op: 'Update', table, predicate, setters: compileSetters(ast.set, _ctx), returning: !!ast.returning }
+                        } else {
+                                plan = { op: 'Delete', table, predicate, returning: !!ast.returning }
+                        }
+                }
+                const rows = await _rowsOf(plan)
                 if (ast.returning) return rows
                 return rows[0] ?? { rowCount: 0, changes: 0 }
         }
@@ -84,13 +108,27 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                 const join = (kind: JoinKind) => (table: Table, on: SQL) => ((ast.joins ??= []).push({ kind, table, on }), b())
                 const set = <K extends keyof SelectAst>(k: K, v: SelectAst[K]) => (v !== undefined && (ast[k] = v), b())
                 return {
-                        from: (t: Table) => set('table', t),
-                        where: (c?: SQL) => set('where', c),
-                        groupBy: (...c: SQL[]) => set('groupBy', c),
-                        having: (c?: SQL) => set('having', c),
-                        orderBy: (...c: SQL[]) => set('orderBy', c),
-                        limit: (n: number) => set('limit', n),
-                        offset: (n: number) => set('offset', n),
+                        from(t: Table) {
+                                return set('table', t)
+                        },
+                        where(c?: SQL) {
+                                return set('where', c)
+                        },
+                        groupBy(...c: SQL[]) {
+                                return set('groupBy', c)
+                        },
+                        having(c?: SQL) {
+                                return set('having', c)
+                        },
+                        orderBy(...c: SQL[]) {
+                                return set('orderBy', c)
+                        },
+                        limit(n: number) {
+                                return set('limit', n)
+                        },
+                        offset(n: number) {
+                                return set('offset', n)
+                        },
                         innerJoin: join('inner'),
                         leftJoin: join('left'),
                         rightJoin: join('right'),
@@ -98,24 +136,52 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                 }
         }
         const _buildTx = () => ({
-                select: (f?: Columns | Record<string, SQL>) => builder(_run, { op: 'Select', projection: projectionOf(f) } as SelectAst, _select),
-                selectDistinct: (f?: Columns | Record<string, SQL>) => builder(_run, { op: 'Select', projection: projectionOf(f), distinct: true } as SelectAst, _select),
-                insert: (t: Table) =>
-                        builder(_run, { op: 'Insert', table: t } as InsertAst, (ast, b) => ({
-                                values: (rows: Record<string, number> | Record<string, number>[]) => ((ast.values = Array.isArray(rows) ? rows : [rows]), b()),
-                                returning: () => ((ast.returning = true), b()),
-                        })),
-                update: (t: Table) =>
-                        builder(_run, { op: 'Update', table: t } as UpdateAst, (ast, b) => ({
-                                set: (v: Record<string, SqlValue>) => ((ast.set = v), b()),
-                                where: (c?: SQL) => (c && (ast.where = c), b()),
-                                returning: () => ((ast.returning = true), b()),
-                        })),
-                delete: (t: Table) =>
-                        builder(_run, { op: 'Delete', table: t } as DeleteAst, (ast, b) => ({
-                                where: (c?: SQL) => (c && (ast.where = c), b()),
-                                returning: () => ((ast.returning = true), b()),
-                        })),
+                select(f?: Columns | Record<string, SQL>) {
+                        return builder(_run, { op: 'Select', projection: projectionOf(f) } as SelectAst, _select)
+                },
+                selectDistinct(f?: Columns | Record<string, SQL>) {
+                        return builder(_run, { op: 'Select', projection: projectionOf(f), distinct: true } as SelectAst, _select)
+                },
+                insert(t: Table) {
+                        return builder(_run, { op: 'Insert', table: t } as InsertAst, (ast, b) => ({
+                                values(rows: Record<string, number> | Record<string, number>[]) {
+                                        ast.values = Array.isArray(rows) ? rows : [rows]
+                                        return b()
+                                },
+                                returning() {
+                                        ast.returning = true
+                                        return b()
+                                },
+                        }))
+                },
+                update(t: Table) {
+                        return builder(_run, { op: 'Update', table: t } as UpdateAst, (ast, b) => ({
+                                set(v: Record<string, SqlValue>) {
+                                        ast.set = v
+                                        return b()
+                                },
+                                where(c?: SQL) {
+                                        if (c) ast.where = c
+                                        return b()
+                                },
+                                returning() {
+                                        ast.returning = true
+                                        return b()
+                                },
+                        }))
+                },
+                delete(t: Table) {
+                        return builder(_run, { op: 'Delete', table: t } as DeleteAst, (ast, b) => ({
+                                where(c?: SQL) {
+                                        if (c) ast.where = c
+                                        return b()
+                                },
+                                returning() {
+                                        ast.returning = true
+                                        return b()
+                                },
+                        }))
+                },
         })
         type Tx = ReturnType<typeof _buildTx> & { rollback(): never; transaction<T>(fn: (tx: Tx) => Promise<T> | T): Promise<T> }
         const _runScope = async <T>(fn: (tx: Tx) => Promise<T> | T): Promise<T> => {
@@ -131,10 +197,12 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
         const _txHandle = (): Tx =>
                 ({
                         ..._buildTx(),
-                        rollback: () => {
+                        rollback() {
                                 throw { __rollback: ROLLBACK }
                         },
-                        transaction: _runScope,
+                        transaction(fn) {
+                                return _runScope(fn)
+                        },
                 }) as Tx
         function transaction<R>(fn: (tx: Tx) => Promise<R> | R): Promise<R>
         function transaction(fn: (tx: Tx, c: unknown) => unknown): { run(extra?: unknown): Promise<unknown> }
@@ -155,7 +223,7 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                                                         new Proxy(
                                                                 {},
                                                                 {
-                                                                        get: (_t, prop) => {
+                                                                        get(_t, prop) {
                                                                                 if (prop === '$meta') return primary.$meta
                                                                                 const cur = _ctx.current
                                                                                 const key = String(prop)
@@ -174,7 +242,7 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
         return {
                 ..._buildTx(),
                 transaction,
-                $count: async (table: Table, predicate?: SQL): Promise<number> => {
+                async $count(table: Table, predicate?: SQL): Promise<number> {
                         const rel = backend?.catalog.find(tableNameOf(table))
                         if (!rel) return 0
                         const pred = predicate ? compilePredicate(predicate, _ctx) : () => true
