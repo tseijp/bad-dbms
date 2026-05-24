@@ -70,6 +70,7 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                 async unpin(frame, dirty) {
                         if (dirty) frame.dirty = true
                         if (frame.pinCount > 0) frame.pinCount--
+                        if (frame.pinCount === 0 && frame.dirty) await _flush(frame)
                 },
         }
 }

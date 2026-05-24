@@ -20,7 +20,7 @@ const walk = async (root: string, current: string): Promise<string[]> => {
         }
         return out
 }
-export const createNodejsAdapter = (dir: string): FileAdapter => ({
+export const createNodejsAdapter = (dir = '.bad-dbms'): FileAdapter => ({
         get: async (key) => {
                 const { readFile } = await _fs()
                 const { join } = await _path()

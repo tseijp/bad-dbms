@@ -1,7 +1,7 @@
 import type { FileAdapter } from '../../shared/types'
 // @ts-ignore
 const _sdk = () => import('@aws-sdk/client-s3')
-export const createLambdaEdgeAdapter = (s3: any, bucket: string): FileAdapter => ({
+export const createLambdaEdgeAdapter = (s3: any, bucket = 'tmp'): FileAdapter => ({
         get: async (key) => {
                 const { GetObjectCommand } = await _sdk()
                 const res: any = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined)

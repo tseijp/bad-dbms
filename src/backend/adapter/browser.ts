@@ -1,6 +1,6 @@
 import type { FileAdapter } from '../../shared/types'
 declare const navigator: any
-export const createBrowserAdapter = (rootName?: string): FileAdapter => {
+export const createBrowserAdapter = (rootName = 'tmp'): FileAdapter => {
         const _root = navigator.storage.getDirectory().then((sr: any) => sr.getDirectoryHandle(rootName ?? 'bad-dbms', { create: true }))
         const split = (key: string) => {
                 const parts = key.split('/').filter((p) => p.length > 0)

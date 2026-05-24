@@ -22,7 +22,7 @@ const walk = async (root: string, current: string): Promise<string[]> => {
         }
         return out
 }
-export const createDenoAdapter = (dir: string): FileAdapter => ({
+export const createDenoAdapter = (dir = 'tmp'): FileAdapter => ({
         get: async (key) => {
                 const { join } = await _path()
                 const bytes = await Deno.readFile(join(dir, key)).catch(() => undefined)

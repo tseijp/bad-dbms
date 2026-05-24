@@ -21,7 +21,7 @@ const walk = async (root: string, current: string): Promise<string[]> => {
         }
         return out
 }
-export const createBunAdapter = (dir: string): FileAdapter => ({
+export const createBunAdapter = (dir = 'tmp'): FileAdapter => ({
         get: async (key) => {
                 const { join } = await _path()
                 const file = Bun.file(join(dir, key))
