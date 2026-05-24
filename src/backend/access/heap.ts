@@ -13,7 +13,7 @@ export interface HeapOptions {
 }
 const HEAP_FORK = 0
 export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: HeapOptions): HeapHandle => {
-        const _pinPage = (blockNo: number, hint?: 'normal' | 'bulk_read' | 'bulk_write' | 'vacuum') => buffer.pin(relId, HEAP_FORK, blockNo)
+        const _pinPage = (blockNo: number) => buffer.pin(relId, HEAP_FORK, blockNo)
         const _unpin = (frame: Frame) => buffer.unpin(frame)
         const _computeFree = (page: Page) => (page.capacity(valueSize) - page.liveCount()) * valueSize
         const _findOrAllocPage = (): { frame: Frame; page: Page; isNew: boolean } => {
@@ -109,7 +109,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                 scan(emit: (rid: Rid, value: number) => boolean | void): void {
                         const n = smgr.nBlocks(relId, HEAP_FORK)
                         for (let blockNo = 0; blockNo < n; blockNo++) {
-                                const frame = _pinPage(blockNo, 'bulk_read')
+                                const frame = _pinPage(blockNo)
                                 const page = createPage(frame.bytes)
                                 const cap = page.capacity(valueSize)
                                 let stop = false

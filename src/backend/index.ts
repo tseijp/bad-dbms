@@ -29,6 +29,9 @@ export const createBackend = ({ fileAdapter = createFileAdapter(), pageSize = 40
         const catalog = createCatalog({ buffer, smgr, fsm })
         const _executor = createExecutor({ catalog })
         return {
+                buffer,
+                smgr,
+                fsm,
                 catalog,
                 async execute(ast: ExecuteAst): Promise<Row[]> {
                         if (!ast || !ast.op) return []
