@@ -40,12 +40,12 @@ const ROLLBACK = Symbol('rollback')
 const isRollback = (e: unknown): boolean => !!e && typeof e === 'object' && (e as { __rollback?: symbol }).__rollback === ROLLBACK
 type Thenable<M> = M & { then(r: (v: any) => any, j?: (e: unknown) => unknown): Promise<any>; catch(j: (e: unknown) => unknown): Promise<any> }
 const builder = <A extends AnyAst, M>(run: RunFn, ast: A, methods: (ast: A, self: () => any) => M): Thenable<M> => {
-        let promise: Promise<unknown> | null = null
-        const fire = () => (promise ??= Promise.resolve(run(ast)))
+        let _promise: Promise<unknown> | null = null
+        const _fire = () => (_promise ??= Promise.resolve(run(ast)))
         const self: Thenable<M> = {
                 ...methods(ast, () => self),
-                then: (r, j) => fire().then(r, j),
-                catch: (j) => fire().catch(j),
+                then: (r, j) => _fire().then(r, j),
+                catch: (j) => _fire().catch(j),
         }
         return self
 }

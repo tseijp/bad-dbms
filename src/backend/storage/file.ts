@@ -30,7 +30,13 @@ export const createFileAdapter = (): FileAdapter => {
         }
 }
 export const createFile = (adapter: FileAdapter): FileHandle => ({
-        read: (id, offset, length) => adapter.read(id, offset, length),
-        write: (id, offset, bytes) => adapter.write(id, offset, bytes),
-        exists: (id) => !!adapter.exists?.(id),
+        read(id, offset, length) {
+                return adapter.read(id, offset, length)
+        },
+        write(id, offset, bytes) {
+                return adapter.write(id, offset, bytes)
+        },
+        exists(id) {
+                return !!adapter.exists?.(id)
+        },
 })

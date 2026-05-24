@@ -58,43 +58,10 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
         let _nextRelId = 1
         const _makeHeap = (relId: number, col: ColumnMeta): HeapHandle => createHeap({ buffer, smgr, fsm, relId: storageRelOf(relId, col.forkId), valueSize: col.byteSize, valueType: col.type })
         const _makeIndex = (relId: number, indexForkId: number): AccessIndex => createNBTree({ buffer, smgr, fsm, relId: storageRelOf(relId, indexForkId), forkId: 0 })
-        const register = (name: string, columnsDef: Record<string, Partial<ColumnMeta>>): RelationDescriptor => {
-                const relId = _nextRelId++
-                const columns: ColumnMeta[] = []
-                const heaps: HeapHandle[] = []
-                const codecs: ColumnCodec[] = []
-                Object.keys(columnsDef).forEach((ckey, i) => {
-                        const col = buildColumn(ckey, columnsDef[ckey], COLUMN_FORK_BASE + i)
-                        columns.push(col)
-                        heaps.push(_makeHeap(relId, col))
-                        codecs.push({ strings: [], intern: new Map(), nulls: new Set() })
-                })
-                const indexes: IndexDescriptor[] = []
-                const idxHandles: AccessIndex[] = []
-                columns.forEach((col, i) => {
-                        if (!needsIndex(col)) return
-                        const forkId = INDEX_FORK_BASE + indexes.length
-                        const handle = _makeIndex(relId, forkId)
-                        indexes.push({ name: `${name}_${col.name}_idx`, columnIdx: i, forkId, handle })
-                        idxHandles.push(handle)
-                })
-                const rel: RelationDescriptor = { relId, name, columns, indexes, heaps, idxHandles, codecs }
-                _relations.set(name, rel)
-                return rel
-        }
-        const find = (name: string): RelationDescriptor | undefined => _relations.get(name)
         const resolve = (name: string): RelationDescriptor => {
                 const rel = _relations.get(name)
                 if (!rel) throw new Error(`relation not found: ${name}`)
                 return rel
-        }
-        const readRow = (rel: RelationDescriptor, rid: Rid): Row => {
-                const row: Row = { __rid: rid }
-                const rk = ridKey(rid)
-                rel.columns.forEach((col, i) => {
-                        row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
-                })
-                return row
         }
         const _columnValues = (rel: RelationDescriptor, colIdx: number): unknown[] => {
                 const col = rel.columns[colIdx]
@@ -138,74 +105,105 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
                 return batch.map((slots) => _writeRow(rel, slots))
         }
         const insertRow = (relName: string, row: Row): Rid => insertRows(relName, [row])[0]
-        const writeCell = (rel: RelationDescriptor, colIdx: number, rid: Rid, value: unknown): void => {
-                const col = rel.columns[colIdx]
-                const codec = rel.codecs[colIdx]
-                const rk = ridKey(rid)
-                if (value === null || value === undefined) {
-                        if (col.notNull) throw new Error(`null value in notNull column: ${col.name}`)
-                        codec.nulls.add(rk)
-                        rel.heaps[colIdx].update(rid, encodeCell(col, codec, col.isText ? '' : 0))
-                        return
-                }
-                if (col.isUnique || col.isPrimary) {
-                        let clash = false
-                        rel.heaps[0].scan((other: Rid) => {
-                                if (ridKey(other) === rk || codec.nulls.has(ridKey(other))) return
-                                if (decodeCell(col, codec, rel.heaps[colIdx].read(other)) === value) clash = true
-                        })
-                        if (clash) throw new Error(`unique violation: ${col.name}`)
-                }
-                codec.nulls.delete(rk)
-                rel.heaps[colIdx].update(rid, encodeCell(col, codec, value))
-        }
-        const snapshot = (): Map<string, Row[]> => {
-                const snap = new Map<string, Row[]>()
-                for (const rel of _relations.values()) {
-                        const rows: Row[] = []
-                        rel.heaps[0].scan((rid: Rid) => {
-                                const rk = ridKey(rid)
-                                const row: Row = {}
-                                rel.columns.forEach((col, i) => {
-                                        row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
-                                })
-                                rows.push(row)
-                        })
-                        snap.set(rel.name, rows)
-                }
-                return snap
-        }
-        const restore = (snap: Map<string, Row[]>): void => {
-                for (const rel of _relations.values()) {
-                        const victims: Rid[] = []
-                        rel.heaps[0].scan((rid: Rid) => void victims.push(rid))
-                        for (const rid of victims) for (const heap of rel.heaps) heap.delete(rid)
-                        for (const codec of rel.codecs) {
-                                codec.nulls.clear()
-                                codec.strings.length = 0
-                                codec.intern.clear()
-                        }
-                        for (const row of snap.get(rel.name) ?? []) insertRow(rel.name, row)
-                }
-        }
         return {
-                register,
+                register(name: string, columnsDef: Record<string, Partial<ColumnMeta>>): RelationDescriptor {
+                        const relId = _nextRelId++
+                        const columns: ColumnMeta[] = []
+                        const heaps: HeapHandle[] = []
+                        const codecs: ColumnCodec[] = []
+                        Object.keys(columnsDef).forEach((ckey, i) => {
+                                const col = buildColumn(ckey, columnsDef[ckey], COLUMN_FORK_BASE + i)
+                                columns.push(col)
+                                heaps.push(_makeHeap(relId, col))
+                                codecs.push({ strings: [], intern: new Map(), nulls: new Set() })
+                        })
+                        const indexes: IndexDescriptor[] = []
+                        const idxHandles: AccessIndex[] = []
+                        columns.forEach((col, i) => {
+                                if (!needsIndex(col)) return
+                                const forkId = INDEX_FORK_BASE + indexes.length
+                                const handle = _makeIndex(relId, forkId)
+                                indexes.push({ name: `${name}_${col.name}_idx`, columnIdx: i, forkId, handle })
+                                idxHandles.push(handle)
+                        })
+                        const rel: RelationDescriptor = { relId, name, columns, indexes, heaps, idxHandles, codecs }
+                        _relations.set(name, rel)
+                        return rel
+                },
                 resolve,
-                find,
+                find(name: string): RelationDescriptor | undefined {
+                        return _relations.get(name)
+                },
                 ridKey,
-                readRow,
+                readRow(rel: RelationDescriptor, rid: Rid): Row {
+                        const row: Row = { __rid: rid }
+                        const rk = ridKey(rid)
+                        rel.columns.forEach((col, i) => {
+                                row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
+                        })
+                        return row
+                },
                 encodeCell,
                 decodeCell,
-                list: (): RelationDescriptor[] => Array.from(_relations.values()),
+                list(): RelationDescriptor[] {
+                        return Array.from(_relations.values())
+                },
                 insertRow,
                 insertRows,
-                writeCell,
+                writeCell(rel: RelationDescriptor, colIdx: number, rid: Rid, value: unknown): void {
+                        const col = rel.columns[colIdx]
+                        const codec = rel.codecs[colIdx]
+                        const rk = ridKey(rid)
+                        if (value === null || value === undefined) {
+                                if (col.notNull) throw new Error(`null value in notNull column: ${col.name}`)
+                                codec.nulls.add(rk)
+                                rel.heaps[colIdx].update(rid, encodeCell(col, codec, col.isText ? '' : 0))
+                                return
+                        }
+                        if (col.isUnique || col.isPrimary) {
+                                let clash = false
+                                rel.heaps[0].scan((other: Rid) => {
+                                        if (ridKey(other) === rk || codec.nulls.has(ridKey(other))) return
+                                        if (decodeCell(col, codec, rel.heaps[colIdx].read(other)) === value) clash = true
+                                })
+                                if (clash) throw new Error(`unique violation: ${col.name}`)
+                        }
+                        codec.nulls.delete(rk)
+                        rel.heaps[colIdx].update(rid, encodeCell(col, codec, value))
+                },
                 clearNull(rel: RelationDescriptor, rid: Rid): void {
                         const rk = ridKey(rid)
                         for (const codec of rel.codecs) codec.nulls.delete(rk)
                 },
-                snapshot,
-                restore,
+                snapshot(): Map<string, Row[]> {
+                        const snap = new Map<string, Row[]>()
+                        for (const rel of _relations.values()) {
+                                const rows: Row[] = []
+                                rel.heaps[0].scan((rid: Rid) => {
+                                        const rk = ridKey(rid)
+                                        const row: Row = {}
+                                        rel.columns.forEach((col, i) => {
+                                                row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
+                                        })
+                                        rows.push(row)
+                                })
+                                snap.set(rel.name, rows)
+                        }
+                        return snap
+                },
+                restore(snap: Map<string, Row[]>): void {
+                        for (const rel of _relations.values()) {
+                                const victims: Rid[] = []
+                                rel.heaps[0].scan((rid: Rid) => void victims.push(rid))
+                                for (const rid of victims) for (const heap of rel.heaps) heap.delete(rid)
+                                for (const codec of rel.codecs) {
+                                        codec.nulls.clear()
+                                        codec.strings.length = 0
+                                        codec.intern.clear()
+                                }
+                                for (const row of snap.get(rel.name) ?? []) insertRow(rel.name, row)
+                        }
+                },
         }
 }
 export type Catalog = ReturnType<typeof createCatalog>

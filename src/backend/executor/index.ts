@@ -21,6 +21,8 @@ const build = (catalog: Catalog, ast: PhysicalOp): RowIterator => {
         throw new Error(`error: no ast op match`)
 }
 export const createExecutor = ({ catalog }: { catalog: Catalog }) => ({
-        execute: (ast: PhysicalOp): RowIterator => build(catalog, ast),
+        execute(ast: PhysicalOp): RowIterator {
+                return build(catalog, ast)
+        },
 })
 export type Executor = ReturnType<typeof createExecutor>

@@ -7,7 +7,9 @@ export const createSeqScan = (catalog: Catalog, ast: SeqScanOp): RowIterator => 
         const _rids = collectRids(_rel.heaps[0])
         let _i = 0
         return {
-                next: () => (_i >= _rids.length ? null : buildRow(catalog, _rel, _rids[_i++])),
+                next() {
+                        return _i >= _rids.length ? null : buildRow(catalog, _rel, _rids[_i++])
+                },
                 close() {},
         }
 }
@@ -16,7 +18,9 @@ export const createNamedScan = (catalog: Catalog, ast: NamedScanOp): RowIterator
         const _rids = collectRids(_rel.heaps[0])
         let _i = 0
         return {
-                next: () => (_i >= _rids.length ? null : ({ [ast.name]: stripRid(buildRow(catalog, _rel, _rids[_i++])) } as Row)),
+                next() {
+                        return _i >= _rids.length ? null : ({ [ast.name]: stripRid(buildRow(catalog, _rel, _rids[_i++])) } as Row)
+                },
                 close() {},
         }
 }
@@ -30,7 +34,9 @@ export const createFilter = (child: RowIterator, predicate: PredInput): RowItera
                                 if (_fn(r)) return r
                         }
                 },
-                close: () => child.close(),
+                close() {
+                        child.close()
+                },
         }
 }
 export const createProjection = (child: RowIterator, fields: string[], projectors?: ProjectorSpec[]): RowIterator => ({
@@ -45,5 +51,7 @@ export const createProjection = (child: RowIterator, fields: string[], projector
                 for (const f of fields) out[f] = r[f]
                 return out
         },
-        close: () => child.close(),
+        close() {
+                child.close()
+        },
 })
