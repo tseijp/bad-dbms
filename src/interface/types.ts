@@ -25,7 +25,7 @@ export interface DatabaseConfig {
         execute?: (ast: unknown) => unknown
         pageSize?: number
         frameCount?: number
-        fileAdapter?: FileAdapter
+        file?: FileAdapter
 }
 export type ProjItem = { alias: string; expr: SQL | SqlNode }
 export interface JoinClause {

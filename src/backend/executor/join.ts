@@ -1,9 +1,9 @@
 import type { Row, JoinRow, JoinPredicate, JoinKind } from '../../shared/types'
 import type { RowIterator } from '../types'
-export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, rightName: string, predicate: JoinPredicate, kind: JoinKind = 'inner'): RowIterator => {
+export const createNestedLoopJoin = async (left: RowIterator, right: RowIterator, rightName: string, predicate: JoinPredicate, kind: JoinKind = 'inner'): Promise<RowIterator> => {
         const _rightBuf: JoinRow[] = []
         while (true) {
-                const r = right.next()
+                const r = await right.next()
                 if (r === null) break
                 _rightBuf.push(r as JoinRow)
         }
@@ -11,7 +11,7 @@ export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, righ
         const _rightMatched = new Array<boolean>(_rightBuf.length).fill(false)
         const _out: JoinRow[] = []
         const _leftKeys = new Set<string>()
-        let _leftRow = left.next()
+        let _leftRow = await left.next()
         while (_leftRow !== null) {
                 const lj = _leftRow as JoinRow
                 for (const k in lj) _leftKeys.add(k)
@@ -24,7 +24,7 @@ export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, righ
                         matched = true
                 }
                 if (!matched && (kind === 'left' || kind === 'full')) _out.push({ ...lj, [rightName]: null })
-                _leftRow = left.next()
+                _leftRow = await left.next()
         }
         left.close()
         if (kind === 'right' || kind === 'full')
@@ -36,7 +36,7 @@ export const createNestedLoopJoin = (left: RowIterator, right: RowIterator, righ
                 }
         let _i = 0
         return {
-                next() {
+                async next() {
                         return (_i < _out.length ? _out[_i++] : null) as Row | null
                 },
                 close() {},

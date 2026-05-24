@@ -5,24 +5,24 @@ import { createSeqScan, createNamedScan, createFilter, createProjection } from '
 import { createNestedLoopJoin } from './join'
 import { createAggregate, createSort, createDistinct, createLimit } from './group'
 import { createUpdate, createDelete, createInsert } from './modify'
-const build = (catalog: Catalog, ast: PhysicalOp): RowIterator => {
+const build = async (catalog: Catalog, ast: PhysicalOp): Promise<RowIterator> => {
         if (!ast || !ast.op) throw new Error(`error: no ast or op`)
         if (ast.op === 'SeqScan') return createSeqScan(catalog, ast)
         if (ast.op === 'NamedScan') return createNamedScan(catalog, ast)
-        if (ast.op === 'Filter') return createFilter(build(catalog, ast.child), ast.predicate)
-        if (ast.op === 'Projection') return createProjection(build(catalog, ast.child), ast.fields, ast.projectors)
-        if (ast.op === 'NestedLoopJoin') return createNestedLoopJoin(build(catalog, ast.left), build(catalog, ast.right), ast.rightName, ast.predicate, ast.kind)
-        if (ast.op === 'Aggregate') return createAggregate(build(catalog, ast.child), ast.groupBy, ast.aggs)
-        if (ast.op === 'Sort') return createSort(build(catalog, ast.child), ast.keys)
-        if (ast.op === 'Distinct') return createDistinct(build(catalog, ast.child))
-        if (ast.op === 'Limit') return createLimit(build(catalog, ast.child), ast.limit, ast.offset)
+        if (ast.op === 'Filter') return createFilter(await build(catalog, ast.child), ast.predicate)
+        if (ast.op === 'Projection') return createProjection(await build(catalog, ast.child), ast.fields, ast.projectors)
+        if (ast.op === 'NestedLoopJoin') return createNestedLoopJoin(await build(catalog, ast.left), await build(catalog, ast.right), ast.rightName, ast.predicate, ast.kind)
+        if (ast.op === 'Aggregate') return createAggregate(await build(catalog, ast.child), ast.groupBy, ast.aggs)
+        if (ast.op === 'Sort') return createSort(await build(catalog, ast.child), ast.keys)
+        if (ast.op === 'Distinct') return createDistinct(await build(catalog, ast.child))
+        if (ast.op === 'Limit') return createLimit(await build(catalog, ast.child), ast.limit, ast.offset)
         if (ast.op === 'Update') return createUpdate(catalog, ast)
         if (ast.op === 'Delete') return createDelete(catalog, ast)
         if (ast.op === 'Insert') return createInsert(catalog, ast)
         throw new Error(`error: no ast op match`)
 }
 export const createExecutor = ({ catalog }: { catalog: Catalog }) => ({
-        execute(ast: PhysicalOp): RowIterator {
+        execute(ast: PhysicalOp): Promise<RowIterator> {
                 return build(catalog, ast)
         },
 })

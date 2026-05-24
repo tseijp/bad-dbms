@@ -88,9 +88,10 @@ export interface ColumnDescriptor extends ColumnConfig {
 }
 export type Rid = readonly [number, number]
 export interface FileAdapter {
-        read(id: string, offset: number, length: number): Uint8Array
-        write(id: string, offset: number, bytes: Uint8Array): void
-        exists?(id: string): boolean
+        get(key: string): Promise<Uint8Array | undefined>
+        put(key: string, bytes: Uint8Array): Promise<void>
+        delete(key: string): Promise<void>
+        list(prefix: string): Promise<string[]>
 }
 export type Row = Record<string, unknown>
 export type RowPredicate = (row: Row) => boolean

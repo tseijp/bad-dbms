@@ -1,6 +1,7 @@
 import type { SQL, SqlValue, Row, PhysicalOp, Rid } from '../shared/types'
 import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinKind } from './types'
 import { createBackend } from '../backend/index'
+import { createMemoryAdapter } from '../backend/adapter/memory'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
 import { tableNameOf, stripRid } from '../shared/helper'
@@ -49,8 +50,8 @@ const builder = <A extends AnyAst, M>(run: RunFn, ast: A, methods: (ast: A, self
         }
         return self
 }
-export const database = (tables: Record<string, Table>, { execute, pageSize, frameCount, fileAdapter }: DatabaseConfig = {}) => {
-        const backend: Backend | null = execute ? null : createBackend({ pageSize, frameCount, fileAdapter })
+export const database = (tables: Record<string, Table>, { execute, pageSize, frameCount, file }: DatabaseConfig = {}) => {
+        const backend: Backend | null = execute ? null : createBackend({ file: file ?? createMemoryAdapter(), pageSize, frameCount })
         const _ctx: EvalCtx = { current: null, params: null }
         if (backend) registerTables(backend, tables)
         const _dispatch = (plan: PhysicalOp): unknown => (execute ? execute(plan) : backend ? backend.execute(plan) : [])
@@ -110,11 +111,11 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
         })
         type Tx = ReturnType<typeof _buildTx> & { rollback(): never; transaction<T>(fn: (tx: Tx) => Promise<T> | T): Promise<T> }
         const _runScope = async <T>(fn: (tx: Tx) => Promise<T> | T): Promise<T> => {
-                const snap = backend ? backend.catalog.snapshot() : null
+                const snap = backend ? await backend.catalog.snapshot() : null
                 try {
                         return await Promise.resolve(fn(_txHandle()))
                 } catch (e) {
-                        if (backend && snap) backend.catalog.restore(snap)
+                        if (backend && snap) await backend.catalog.restore(snap)
                         if (isRollback(e)) return undefined as T
                         throw e
                 }
@@ -137,7 +138,7 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                                 if (!primary || !backend) return extra
                                 const rel = backend.catalog.find(tableNameOf(primary))
                                 const rows: Row[] = []
-                                rel?.heaps[0].scan((rid: Rid) => void rows.push(backend.catalog.readRow(rel, rid)))
+                                if (rel) await rel.heaps[0].scan(async (rid: Rid) => void rows.push(await backend.catalog.readRow(rel, rid)))
                                 for (const row of rows) {
                                         _ctx.current = row
                                         await Promise.resolve(
@@ -168,11 +169,10 @@ export const database = (tables: Record<string, Table>, { execute, pageSize, fra
                 $count: async (table: Table, predicate?: SQL): Promise<number> => {
                         const rel = backend?.catalog.find(tableNameOf(table))
                         if (!rel) return 0
-                        return ((pred) => {
-                                let n = 0
-                                rel.heaps[0].scan((rid: Rid) => void (pred(backend!.catalog.readRow(rel, rid)) && n++))
-                                return n
-                        })(predicate ? compilePredicate(predicate, _ctx) : () => true)
+                        const pred = predicate ? compilePredicate(predicate, _ctx) : () => true
+                        let n = 0
+                        await rel.heaps[0].scan(async (rid: Rid) => void (pred(await backend!.catalog.readRow(rel, rid)) && n++))
+                        return n
                 },
                 backend,
                 tables,

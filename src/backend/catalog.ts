@@ -60,16 +60,18 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
                 if (!rel) throw new Error(`relation not found: ${name}`)
                 return rel
         }
-        const insertRows = (relName: string, rows: Row[]): Rid[] => {
+        const insertRows = async (relName: string, rows: Row[]): Promise<Rid[]> => {
                 const rel = resolve(relName)
                 const batch = rows.map((row) => rel.columns.map((col) => resolveInsertValue(col, row)))
-                rel.columns.forEach((col, i) => {
+                for (let i = 0; i < rel.columns.length; i++) {
+                        const col = rel.columns[i]
                         const unique = col.isUnique || col.isPrimary
                         const existing = new Set<unknown>()
                         if (unique) {
                                 const codec = rel.codecs[i]
-                                rel.heaps[0].scan((rid: Rid) => {
-                                        if (!codec.nulls.has(ridKey(rid))) existing.add(decodeCell(col, codec, rel.heaps[i].read(rid)))
+                                await rel.heaps[0].scan(async (rid: Rid) => {
+                                        if (codec.nulls.has(ridKey(rid))) return
+                                        existing.add(decodeCell(col, codec, await rel.heaps[i].read(rid)))
                                 })
                         }
                         const seen = new Set<unknown>()
@@ -80,19 +82,26 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
                                 if (existing.has(v) || seen.has(v)) throw new Error(`unique violation: ${col.name}`)
                                 seen.add(v)
                         }
-                })
-                return batch.map((slots) => {
-                        const rid = rel.columns.map((col, i) => rel.heaps[i].insert(encodeCell(col, rel.codecs[i], slots[i].value)))[0]
+                }
+                const out: Rid[] = []
+                for (const slots of batch) {
+                        const rids: Rid[] = []
+                        for (let i = 0; i < rel.columns.length; i++) {
+                                const col = rel.columns[i]
+                                rids.push(await rel.heaps[i].insert(encodeCell(col, rel.codecs[i], slots[i].value)))
+                        }
+                        const rid = rids[0]
                         const rk = ridKey(rid)
                         slots.forEach((slot, i) => slot.isNull && rel.codecs[i].nulls.add(rk))
                         for (const idx of rel.indexes) {
                                 const ci = idx.columnIdx
-                                idx.handle.insert(encodeCell(rel.columns[ci], rel.codecs[ci], slots[ci].value), rid)
+                                await idx.handle.insert(encodeCell(rel.columns[ci], rel.codecs[ci], slots[ci].value), rid)
                         }
-                        return rid
-                })
+                        out.push(rid)
+                }
+                return out
         }
-        const insertRow = (relName: string, row: Row): Rid => insertRows(relName, [row])[0]
+        const insertRow = async (relName: string, row: Row): Promise<Rid> => (await insertRows(relName, [row]))[0]
         return {
                 register(name: string, columnsDef: Record<string, Partial<ColumnMeta>>): RelationDescriptor {
                         const relId = _nextRelId++
@@ -123,12 +132,13 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
                         return _relations.get(name)
                 },
                 ridKey,
-                readRow(rel: RelationDescriptor, rid: Rid): Row {
+                async readRow(rel: RelationDescriptor, rid: Rid): Promise<Row> {
                         const row: Row = { __rid: rid }
                         const rk = ridKey(rid)
-                        rel.columns.forEach((col, i) => {
-                                row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
-                        })
+                        for (let i = 0; i < rel.columns.length; i++) {
+                                const col = rel.columns[i]
+                                row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], await rel.heaps[i].read(rid))
+                        }
                         return row
                 },
                 encodeCell,
@@ -138,58 +148,59 @@ export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
                 },
                 insertRow,
                 insertRows,
-                writeCell(rel: RelationDescriptor, colIdx: number, rid: Rid, value: unknown): void {
+                async writeCell(rel: RelationDescriptor, colIdx: number, rid: Rid, value: unknown): Promise<void> {
                         const col = rel.columns[colIdx]
                         const codec = rel.codecs[colIdx]
                         const rk = ridKey(rid)
                         if (value === null || value === undefined) {
                                 if (col.notNull) throw new Error(`null value in notNull column: ${col.name}`)
                                 codec.nulls.add(rk)
-                                rel.heaps[colIdx].update(rid, encodeCell(col, codec, col.isText ? '' : 0))
+                                await rel.heaps[colIdx].update(rid, encodeCell(col, codec, col.isText ? '' : 0))
                                 return
                         }
                         if (col.isUnique || col.isPrimary) {
                                 let clash = false
-                                rel.heaps[0].scan((other: Rid) => {
+                                await rel.heaps[0].scan(async (other: Rid) => {
                                         if (ridKey(other) === rk || codec.nulls.has(ridKey(other))) return
-                                        if (decodeCell(col, codec, rel.heaps[colIdx].read(other)) === value) clash = true
+                                        if (decodeCell(col, codec, await rel.heaps[colIdx].read(other)) === value) clash = true
                                 })
                                 if (clash) throw new Error(`unique violation: ${col.name}`)
                         }
                         codec.nulls.delete(rk)
-                        rel.heaps[colIdx].update(rid, encodeCell(col, codec, value))
+                        await rel.heaps[colIdx].update(rid, encodeCell(col, codec, value))
                 },
                 clearNull(rel: RelationDescriptor, rid: Rid): void {
                         const rk = ridKey(rid)
                         for (const codec of rel.codecs) codec.nulls.delete(rk)
                 },
-                snapshot(): Map<string, Row[]> {
+                async snapshot(): Promise<Map<string, Row[]>> {
                         const snap = new Map<string, Row[]>()
                         for (const rel of _relations.values()) {
                                 const rows: Row[] = []
-                                rel.heaps[0].scan((rid: Rid) => {
+                                await rel.heaps[0].scan(async (rid: Rid) => {
                                         const rk = ridKey(rid)
                                         const row: Row = {}
-                                        rel.columns.forEach((col, i) => {
-                                                row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], rel.heaps[i].read(rid))
-                                        })
+                                        for (let i = 0; i < rel.columns.length; i++) {
+                                                const col = rel.columns[i]
+                                                row[col.name] = rel.codecs[i].nulls.has(rk) ? null : decodeCell(col, rel.codecs[i], await rel.heaps[i].read(rid))
+                                        }
                                         rows.push(row)
                                 })
                                 snap.set(rel.name, rows)
                         }
                         return snap
                 },
-                restore(snap: Map<string, Row[]>): void {
+                async restore(snap: Map<string, Row[]>): Promise<void> {
                         for (const rel of _relations.values()) {
                                 const victims: Rid[] = []
-                                rel.heaps[0].scan((rid: Rid) => void victims.push(rid))
-                                for (const rid of victims) for (const heap of rel.heaps) heap.delete(rid)
+                                await rel.heaps[0].scan((rid: Rid) => void victims.push(rid))
+                                for (const rid of victims) for (const heap of rel.heaps) await heap.delete(rid)
                                 for (const codec of rel.codecs) {
                                         codec.nulls.clear()
                                         codec.strings.length = 0
                                         codec.intern.clear()
                                 }
-                                for (const row of snap.get(rel.name) ?? []) insertRow(rel.name, row)
+                                for (const row of snap.get(rel.name) ?? []) await insertRow(rel.name, row)
                         }
                 },
         }

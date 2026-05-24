@@ -1,17 +1,17 @@
 import type { Row, RowPredicate } from '../../shared/types'
 import type { Catalog } from '../catalog'
-import type { RelationDescriptor, RowIterator, Rid } from '../types'
+import type { RelationDescriptor, RowIterator, Rid, HeapHandle } from '../types'
 export { tableNameOf, isNullish, stripRid } from '../../shared/helper'
-export const buildRow = (catalog: Catalog, rel: RelationDescriptor, rid: Rid): Row => catalog.readRow(rel, rid)
-export const collectRids = (firstHeap: { scan(emit: (rid: Rid) => boolean | void): void }): Rid[] => {
+export const buildRow = (catalog: Catalog, rel: RelationDescriptor, rid: Rid): Promise<Row> => catalog.readRow(rel, rid)
+export const collectRids = async (firstHeap: HeapHandle): Promise<Rid[]> => {
         const rids: Rid[] = []
-        firstHeap.scan((rid: Rid) => void rids.push(rid))
+        await firstHeap.scan((rid: Rid) => void rids.push(rid))
         return rids
 }
 export const fromRows = (rows: Row[]): RowIterator => {
         let _i = 0
         return {
-                next() {
+                async next() {
                         return _i < rows.length ? rows[_i++] : null
                 },
                 close() {},
