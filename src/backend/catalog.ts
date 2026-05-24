@@ -52,7 +52,6 @@ export interface CatalogDeps {
         smgr: StorageManager
         fsm: FreeSpaceMap
 }
-type Slot = { value: unknown; isNull: boolean }
 export const createCatalog = ({ buffer, smgr, fsm }: CatalogDeps) => {
         const _relations = new Map<string, RelationDescriptor>()
         let _nextRelId = 1

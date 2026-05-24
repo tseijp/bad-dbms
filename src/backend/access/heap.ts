@@ -14,7 +14,7 @@ export interface HeapOptions {
 const HEAP_FORK = 0
 export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: HeapOptions): HeapHandle => {
         const _pinPage = (blockNo: number) => buffer.pin(relId, HEAP_FORK, blockNo)
-        const _unpin = (frame: Frame) => buffer.unpin(frame)
+        const _unpin = (frame: Frame, dirty?: boolean) => buffer.unpin(frame, dirty)
         const _computeFree = (page: Page) => (page.capacity(valueSize) - page.liveCount()) * valueSize
         const _findOrAllocPage = (): { frame: Frame; page: Page; isNew: boolean } => {
                 let blockNo = fsm.findPage(relId, HEAP_FORK, valueSize)
@@ -38,7 +38,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                 let slot = page.getHeader().slotCount || 0
                 if (slot >= page.capacity(valueSize)) {
                         fsm.update(relId, HEAP_FORK, frame.blockNo, 0)
-                        _unpin(frame)
+                        _unpin(frame, true)
                         const blockNo = smgr.extend(relId, HEAP_FORK)
                         frame = _pinPage(blockNo)
                         page = createPage(frame.bytes)
@@ -50,7 +50,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                 page.writeValue(slot, valueType, value)
                 page.setHeader({ slotCount: slot + 1 })
                 const free = _computeFree(page)
-                _unpin(frame)
+                _unpin(frame, true)
                 fsm.update(relId, HEAP_FORK, blockNo, free)
                 return [blockNo, slot]
         }
@@ -59,7 +59,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         let { frame, page } = _findOrAllocPage()
                         let slot = _findDeadSlot(page)
                         if (slot < 0) {
-                                _unpin(frame)
+                                _unpin(frame, true)
                                 const blockNo = smgr.extend(relId, HEAP_FORK)
                                 frame = _pinPage(blockNo)
                                 page = createPage(frame.bytes)
@@ -71,7 +71,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         page.writeValue(slot, valueType, value)
                         if (slot + 1 > (page.getHeader().slotCount || 0)) page.setHeader({ slotCount: slot + 1 })
                         const free = _computeFree(page)
-                        _unpin(frame)
+                        _unpin(frame, true)
                         fsm.update(relId, HEAP_FORK, blockNo, free)
                         return [blockNo, slot]
                 },
@@ -94,7 +94,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                                 return rid
                         }
                         page.writeValue(rid[1], valueType, value)
-                        _unpin(frame)
+                        _unpin(frame, true)
                         return rid
                 },
                 delete(rid: Rid): void {
@@ -102,7 +102,7 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         const page = createPage(frame.bytes)
                         page.setAlive(rid[1], false)
                         const free = _computeFree(page)
-                        _unpin(frame)
+                        _unpin(frame, true)
                         fsm.update(relId, HEAP_FORK, rid[0], free)
                 },
                 scan(emit: (rid: Rid, value: number) => boolean | void): void {

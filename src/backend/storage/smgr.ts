@@ -20,6 +20,10 @@ export const createStorageManager = ({ file, pageSize = 4096 }: StorageManagerOp
                         const h = _getHandle(relId, forkId)
                         return file.read(h.fid, blockNo * pageSize, pageSize)
                 },
+                write(relId: number, forkId: number, blockNo: number, bytes: Uint8Array) {
+                        const h = _getHandle(relId, forkId)
+                        file.write(h.fid, blockNo * pageSize, bytes)
+                },
                 extend(relId: number, forkId: number) {
                         const h = _getHandle(relId, forkId)
                         const blockNo = h.nBlocks

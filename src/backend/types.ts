@@ -41,6 +41,7 @@ export interface Frame {
         pinCount: number
         usage: number
         valid: boolean
+        dirty: boolean
 }
 export interface FileHandle {
         read(id: string, offset: number, length: number): Uint8Array
@@ -53,10 +54,11 @@ export interface SmgrHandle {
 }
 export interface BufferPool {
         pin(relId: number, forkId: number, blockNo: number): Frame
-        unpin(frame: Frame): void
+        unpin(frame: Frame, dirty?: boolean): void
 }
 export interface StorageManager {
         read(relId: number, forkId: number, blockNo: number): Uint8Array
+        write(relId: number, forkId: number, blockNo: number, bytes: Uint8Array): void
         extend(relId: number, forkId: number): number
         nBlocks(relId: number, forkId: number): number
 }
