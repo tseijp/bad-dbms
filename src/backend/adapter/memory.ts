@@ -3,10 +3,11 @@ export const createMemoryAdapter = (): FileAdapter => {
         const _store = new Map<string, Uint8Array>()
         return {
                 async get(key) {
-                        return _store.get(key)
+                        const v = _store.get(key)
+                        return v && new Uint8Array(v)
                 },
                 async put(key, bytes) {
-                        _store.set(key, bytes)
+                        _store.set(key, new Uint8Array(bytes))
                 },
                 async delete(key) {
                         _store.delete(key)

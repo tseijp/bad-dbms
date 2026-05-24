@@ -1,9 +1,9 @@
-import { dirname, join, relative, sep } from 'node:path'
 import type { FileAdapter } from '../../shared/types'
-
 declare const Deno: any
-
+// @ts-ignore
+const _path = () => import('node:path')
 const walk = async (root: string, current: string): Promise<string[]> => {
+        const { join, relative, sep } = await _path()
         const out: string[] = []
         const iter = Deno.readDir(current)
         const entries: any[] = []
@@ -22,22 +22,22 @@ const walk = async (root: string, current: string): Promise<string[]> => {
         }
         return out
 }
-
 export const createDenoAdapter = (dir: string): FileAdapter => ({
         get: async (key) => {
-                const full = join(dir, key)
-                const bytes = await Deno.readFile(full).catch(() => undefined)
+                const { join } = await _path()
+                const bytes = await Deno.readFile(join(dir, key)).catch(() => undefined)
                 if (!bytes) return undefined
                 return bytes as Uint8Array
         },
         put: async (key, bytes) => {
+                const { dirname, join } = await _path()
                 const full = join(dir, key)
                 await Deno.mkdir(dirname(full), { recursive: true }).catch(() => undefined)
                 await Deno.writeFile(full, bytes)
         },
         delete: async (key) => {
-                const full = join(dir, key)
-                await Deno.remove(full).catch(() => undefined)
+                const { join } = await _path()
+                await Deno.remove(join(dir, key)).catch(() => undefined)
         },
         list: async (prefix) => {
                 const all = await walk(dir, dir)

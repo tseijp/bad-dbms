@@ -62,15 +62,20 @@ export const createStorageManager = ({ file, pageSize = 4096 }: StorageManagerOp
                 },
                 async write(rel, forkId, blockNo, bytes) {
                         const fork = _fork(rel, forkId)
-                        await file.put(keyOf(fork.fid, blockNo), bytes)
                         if (fork.known && blockNo >= fork.nBlocks) fork.nBlocks = blockNo + 1
+                        await file.put(keyOf(fork.fid, blockNo), bytes).catch((e) => {
+                                fork.known = false
+                                throw e
+                        })
                 },
                 async extend(rel, forkId) {
                         const fork = _fork(rel, forkId)
                         await _ensureN(fork)
-                        const blockNo = fork.nBlocks
-                        await file.put(keyOf(fork.fid, blockNo), new Uint8Array(pageSize))
-                        fork.nBlocks = blockNo + 1
+                        const blockNo = fork.nBlocks++
+                        await file.put(keyOf(fork.fid, blockNo), new Uint8Array(pageSize)).catch((e) => {
+                                fork.known = false
+                                throw e
+                        })
                         return blockNo
                 },
                 async nBlocks(rel, forkId) {
