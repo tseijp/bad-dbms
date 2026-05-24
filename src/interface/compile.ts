@@ -60,10 +60,7 @@ const RAW: Record<string, (a: any, b: any) => unknown> = {
 }
 const NULL_PROP = new Set(['=', '!=', '<', '<=', '>', '>=', '+', '-', '*', '%', '/'])
 export const binopFn = (op: string, intDiv = false): ((a: unknown, b: unknown) => unknown) => {
-        const raw =
-                op === '/'
-                        ? (a: any, b: any) => (intDiv ? noNegZero(Math.trunc(a / b)) : a / b)
-                        : RAW[op] ?? (() => undefined)
+        const raw = op === '/' ? (a: any, b: any) => (intDiv ? noNegZero(Math.trunc(a / b)) : a / b) : (RAW[op] ?? (() => undefined))
         if (!NULL_PROP.has(op)) return raw
         return (a, b) => (isNullish(a) || isNullish(b) ? undefined : raw(a, b))
 }
@@ -77,27 +74,18 @@ const FUNC: Record<string, (a: any[]) => unknown> = {
         toFloat: (a) => (isNullish(a[0]) ? undefined : Number(a[0])),
         toInt: (a) => (isNullish(a[0]) ? undefined : noNegZero(Math.trunc(Number(a[0])))),
         toBool: (a) => (isNullish(a[0]) ? undefined : !!a[0]),
-        at: (a) => (a[0] as Record<string, unknown>)?.[a[1] as string],
 }
 export const compileNode = (input: NodeInput, ctx: EvalCtx): Compiled => {
         const node = asNode(input)
         if (!node) return () => undefined
-        if (node.type === 'literal' || node.type === 'raw') {
-                const v = (node as { value: unknown }).value
+        if (node.type === 'literal') {
+                const v = node.value
                 return () => v
         }
         if (node.type === 'column') {
                 const { name, tableName } = node
                 if (ctx.joinRow) return (row) => fromJoinRow(row as JoinRow, name, tableName)
                 return (row) => (row as Row | null)?.[name]
-        }
-        if (node.type === 'currentTuple') {
-                const col = node.col
-                return () => ctx.current?.[col]
-        }
-        if (node.type === 'placeholder') {
-                const name = node.name
-                return () => ctx.params?.[name]
         }
         if (node.type === 'list') {
                 const items = node.items.map((a) => compileNode(a, ctx))
@@ -133,10 +121,8 @@ export const compileExpr = (node: NodeInput, ctx: EvalCtx): ((row: Row) => unkno
         return (row) => fn(row)
 }
 export const colNameOf = (c: unknown): string => {
-        if (!c) return ''
-        const col = c as { $col?: { name: string; key?: string }; node?: SqlNode }
+        const col = c as { $col?: { key?: string; name: string }; node?: SqlNode }
         if (col.$col) return col.$col.key ?? col.$col.name
         if (col.node?.type === 'column') return col.node.name
-        if (col.node?.type === 'currentTuple') return col.node.col
         return String(c)
 }

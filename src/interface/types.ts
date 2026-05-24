@@ -1,5 +1,5 @@
-import type { SQL, SqlNode, SqlValue, ExprMethods, ColumnDescriptor, InitAllAst, FileAdapter } from '../shared/types'
-export type { SQL, SqlNode, SqlValue, Placeholder, SQLChunk, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, InitAllAst } from '../shared/types'
+import type { SQL, SqlNode, SqlValue, ExprMethods, ColumnDescriptor, FileAdapter, JoinKind } from '../shared/types'
+export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind } from '../shared/types'
 export interface Column<T = number | string | boolean> extends SQL<T>, ExprMethods {
         $col: ColumnDescriptor
         primaryKey(): Column<T>
@@ -9,7 +9,6 @@ export interface Column<T = number | string | boolean> extends SQL<T>, ExprMetho
         $defaultFn(fn: () => T): Column<T>
         defaultFn(fn: () => T): Column<T>
         references(fn: () => SQL, opts?: { onDelete?: string; onUpdate?: string }): Column<T>
-        order(min: number, max: number): Column<T>
 }
 export type Columns<Key extends string = string> = Record<Key, Column>
 export interface TableMeta {
@@ -22,17 +21,13 @@ export interface TableBase {
         node: SqlNode
 }
 export type Table<S extends Columns = {}> = TableBase & S
-export type RowOf<S extends Columns> = { [K in keyof S]: number }
 export interface DatabaseConfig {
         execute?: (ast: unknown) => unknown
-        tables?: Record<string, Table>
         pageSize?: number
         frameCount?: number
-        ringCount?: number
         fileAdapter?: FileAdapter
 }
 export type ProjItem = { alias: string; expr: SQL | SqlNode }
-export type JoinKind = 'inner' | 'left' | 'right' | 'full'
 export interface JoinClause {
         kind: JoinKind
         table: Table
@@ -56,13 +51,11 @@ export interface InsertAst {
         table: Table
         values?: Record<string, number>[]
         returning?: boolean
-        conflict?: { action: 'nothing' | 'update'; set?: Record<string, SqlValue> }
 }
 export interface UpdateAst {
         op: 'Update'
         table: Table
         set?: Record<string, SqlValue>
-        from?: Table
         where?: SQL
         returning?: boolean
 }
@@ -72,4 +65,3 @@ export interface DeleteAst {
         where?: SQL
         returning?: boolean
 }
-export type LogicalAst = SelectAst | InsertAst | UpdateAst | DeleteAst | InitAllAst

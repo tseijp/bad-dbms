@@ -1,15 +1,9 @@
-import type { Row, TableRef, SQL, SqlNode } from './types'
+import type { Row, TableRef } from './types'
 export const isNullish = (v: unknown): boolean => v === null || v === undefined
 export const tableNameOf = (t: TableRef | unknown): string => {
         if (typeof t === 'string') return t
         const v = t as { $meta?: { name: string }; node?: { name?: string } }
         return v?.$meta?.name ?? v?.node?.name ?? ''
-}
-export const nodeOf = (e: unknown): SqlNode | undefined => {
-        if (!e || typeof e !== 'object') return undefined
-        if ((e as { kind?: string }).kind === 'sql') return (e as SQL).node
-        if ('type' in (e as object)) return e as SqlNode
-        return undefined
 }
 export const stripRid = (row: Row): Row => {
         if (!row || typeof row !== 'object' || !('__rid' in row)) return row

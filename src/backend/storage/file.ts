@@ -5,10 +5,8 @@ export const createFileAdapter = (): FileAdapter => {
                 read(id: string, offset: number, length: number) {
                         const buf = _store.get(id)
                         const out = new Uint8Array(length)
-                        if (!buf) return out
-                        if (offset >= buf.length) return out
-                        const end = Math.min(buf.length, offset + length)
-                        out.set(buf.subarray(offset, end))
+                        if (!buf || offset >= buf.length) return out
+                        out.set(buf.subarray(offset, Math.min(buf.length, offset + length)))
                         return out
                 },
                 write(id: string, offset: number, bytes: Uint8Array) {
@@ -26,41 +24,13 @@ export const createFileAdapter = (): FileAdapter => {
                         grown.set(bytes, offset)
                         _store.set(id, grown)
                 },
-                sync(_id: string) {},
-                close(_id: string) {},
-                list() {
-                        return Array.from(_store.keys())
-                },
                 exists(id: string) {
                         return _store.has(id)
                 },
-                size(id: string) {
-                        return _store.get(id)?.length ?? 0
-                },
         }
 }
-export const createFile = (adapter: FileAdapter): FileHandle => {
-        const _adapter = adapter
-        return {
-                read(id: string, offset: number, length: number): Uint8Array {
-                        return _adapter.read(id, offset, length)
-                },
-                write(id: string, offset: number, bytes: Uint8Array) {
-                        _adapter.write(id, offset, bytes)
-                },
-                sync(id: string) {
-                        return _adapter.sync(id)
-                },
-                close(id: string) {
-                        return _adapter.close(id)
-                },
-                exists(id: string) {
-                        if (_adapter.exists) return _adapter.exists(id)
-                        return (_adapter.list?.() ?? []).includes(id)
-                },
-                size(id: string) {
-                        if (_adapter.size) return _adapter.size(id)
-                        return 0
-                },
-        }
-}
+export const createFile = (adapter: FileAdapter): FileHandle => ({
+        read: (id, offset, length) => adapter.read(id, offset, length),
+        write: (id, offset, bytes) => adapter.write(id, offset, bytes),
+        exists: (id) => !!adapter.exists?.(id),
+})

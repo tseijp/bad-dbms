@@ -30,7 +30,7 @@ export interface TableConfig {
 const colRef = (col: Column): ColumnRef => ({ name: col.$col.name, column: col })
 export const getTableColumns = (t: Table): Record<string, Column> => {
         const cols: Record<string, Column> = {}
-        for (const col of t.$meta.columns) cols[col.$col.name] = col
+        for (const col of t.$meta.columns) cols[col.$col.key ?? col.$col.name] = col
         return cols
 }
 export const getTableConfig = (t: Table): TableConfig => {
