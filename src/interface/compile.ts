@@ -121,8 +121,8 @@ export const compileExpr = (node: NodeInput, ctx: EvalCtx): ((row: Row) => unkno
         return (row) => fn(row)
 }
 export const colNameOf = (c: unknown): string => {
-        const col = c as { $col?: { name: string }; node?: SqlNode }
-        if (col.$col) return col.$col.name
+        const col = c as { $col?: { key?: string; name: string }; node?: SqlNode }
+        if (col.$col) return col.$col.key ?? col.$col.name
         if (col.node?.type === 'column') return col.node.name
         return String(c)
 }
