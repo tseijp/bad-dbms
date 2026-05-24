@@ -7,6 +7,7 @@ const makeFrame = (size: number): Frame => ({
         pinCount: 0,
         usage: 0,
         valid: false,
+        dirty: false,
 })
 const keyOf = (relId: number, forkId: number, blockNo: number) => `${relId}/${forkId}/${blockNo}`
 export interface BufferPoolOptions {
@@ -19,6 +20,11 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
         for (let i = 0; i < frameCount; i++) _frames.push(makeFrame(pageSize))
         const _lookup = new Map<string, Frame>()
         let _clockHand = 0
+        const _flush = (f: Frame) => {
+                if (!f.valid || !f.dirty) return
+                smgr.write(f.relId, f.forkId, f.blockNo, f.bytes)
+                f.dirty = false
+        }
         const _evict = (): Frame => {
                 for (let i = 0; i < frameCount * 3; i++) {
                         const f = _frames[_clockHand]
@@ -29,10 +35,13 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                                 f.usage--
                                 continue
                         }
+                        _flush(f)
                         _lookup.delete(keyOf(f.relId, f.forkId, f.blockNo))
                         return f
                 }
-                return _frames[_clockHand]
+                const f = _frames[_clockHand]
+                _flush(f)
+                return f
         }
         const _load = (frame: Frame, relId: number, forkId: number, blockNo: number) => {
                 frame.bytes.set(smgr.read(relId, forkId, blockNo))
@@ -42,6 +51,7 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                 frame.valid = true
                 frame.usage = 1
                 frame.pinCount = 0
+                frame.dirty = false
                 _lookup.set(keyOf(relId, forkId, blockNo), frame)
         }
         return {
@@ -57,7 +67,8 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                         victim.pinCount = 1
                         return victim
                 },
-                unpin(frame: Frame) {
+                unpin(frame: Frame, dirty?: boolean) {
+                        if (dirty) frame.dirty = true
                         if (frame.pinCount > 0) frame.pinCount--
                 },
         }
