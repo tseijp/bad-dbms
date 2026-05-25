@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq, inArray, sum } from '../../src/index'
-import { seededBoard, idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
+import { seededBoard } from './helpers'
 describe('re-deleting and deleting beyond the matched set', () => {
         // Once a row is gone a second delete of the same predicate
         // matches nothing; an update of a removed row touches nothing.

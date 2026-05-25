@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, gte, lt } from '../../src/index'
-import { makeBoard, seededBoard } from './_fixtures'
+import { makeBoard, seededBoard } from './helpers'
 describe('the delete return value reports the rows removed', () => {
         // delete(...).where(...) without returning resolves to a
         // result describing how many rows changed. The count must

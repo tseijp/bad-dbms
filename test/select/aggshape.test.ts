@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { keysOf, rowsOf, seedUsers } from '../_helpers'
 import { count, sum, avg } from '../../src/index'
-import { rowsOf, keysOf, seedUsers } from './helpers'
 // select rework: the row shape select() produces for an aggregate projection.
 // Drizzle's select() always resolves to an ARRAY of row objects, one row for
 // a group-by-less aggregate. The select feature owns only this shape; the
@@ -44,7 +44,7 @@ describe('aggregate-projection row shape', () => {
         })
         it('returns an array, not a bare object, for an aggregate projection', async () => {
                 const { db, users } = await seedUsers()
-                const result = (await db.select({ n: count() }).from(users)) as any
+                const result = await db.select({ n: count() }).from(users)
                 expect(Array.isArray(result) && !Array.isArray(result[0])).toBe(true)
         })
         it('returns a one-row array for an aggregate over an empty table', async () => {

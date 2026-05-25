@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, gte, lt, and, not } from '../../src/index'
 import { seedPosts } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 describe('predicates relating two columns of the same row', () => {
         // Each post carries id, userId and score. A reader can compare
         // two of a row's own columns instead of comparing one to a

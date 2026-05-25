@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { rowsOf } from '../_helpers'
+import { seedPair } from './helpers'
 import { eq } from '../../src/index'
-import { rowsOf, fullJoin, seedPair } from './helpers'
 // join feature: fullJoin keeps every row from both tables, null-filling
 // whichever side has no match. Expectations follow the correct Drizzle spec;
 // a missing builder fails honestly at runtime.
@@ -16,7 +17,7 @@ describe('fullJoin keeps unmatched rows from both sides', () => {
                                 [2, 9, 200],
                         ],
                 )
-                const result = await fullJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).fullJoin(r, eq(r.fk, l.id))
                 expect(rowsOf(result)).toHaveLength(3)
         })
         it('null-fills the right side for a left-only row in a full join', async () => {
@@ -27,8 +28,8 @@ describe('fullJoin keeps unmatched rows from both sides', () => {
                         ],
                         [[1, 1, 100]],
                 )
-                const result = await fullJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
-                expect(rowsOf(result).find((row) => row.id === 2).rv).toBeNull()
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).fullJoin(r, eq(r.fk, l.id))
+                expect(rowsOf(result).find((row) => row.id === 2)!.rv).toBeNull()
         })
         it('null-fills the left side for a right-only row in a full join', async () => {
                 const { db, l, r } = await seedPair(
@@ -38,8 +39,8 @@ describe('fullJoin keeps unmatched rows from both sides', () => {
                                 [2, 9, 200],
                         ],
                 )
-                const result = await fullJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
-                expect(rowsOf(result).find((row) => row.rv === 200).id).toBeNull()
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).fullJoin(r, eq(r.fk, l.id))
+                expect(rowsOf(result).find((row) => row.rv === 200)!.id).toBeNull()
         })
         it('agrees with the inner join when both tables fully match', async () => {
                 const { db, l, r } = await seedPair(
@@ -52,7 +53,7 @@ describe('fullJoin keeps unmatched rows from both sides', () => {
                                 [2, 2, 200],
                         ],
                 )
-                const result = await fullJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).fullJoin(r, eq(r.fk, l.id))
                 expect(rowsOf(result)).toHaveLength(2)
         })
         // dense matrix: a fixed left pair full-joined to a varying right table.
@@ -100,7 +101,7 @@ describe('fullJoin keeps unmatched rows from both sides', () => {
                 ],
         ])('full-joins the %s right table to a fixed left pair', async (_label, right, expected) => {
                 const { db, l, r } = await seedPair(leftPair, right)
-                const result = await fullJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).fullJoin(r, eq(r.fk, l.id))
                 expect(rowsOf(result)).toHaveLength(expected)
         })
 })

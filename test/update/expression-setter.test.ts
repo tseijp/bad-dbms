@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, eq, gte } from '../../src/index'
-import { makeBoard, seeded, scoresInIdOrder } from './_fixtures'
+import { makeBoard, seeded, scoresInIdOrder } from './helpers'
 // A table with a nullable score: id 2 holds genuine NULL. Used to attack what
 // an expression setter computes when it touches a NULL column.
 const seededNullableScore = async () => {

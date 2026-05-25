@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, eq, gt, lt, between } from '../../src/index'
 import { seedUsers, seedPosts } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 // A table with a nullable score: id 2 holds genuine NULL. Used to attack
 // arithmetic over a NULL operand, which yields NULL in SQL.
 const seededNullableScore = async () => {

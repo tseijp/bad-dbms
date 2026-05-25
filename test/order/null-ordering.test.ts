@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
-import { makeNullable, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeNullable, seqOf } from './helpers'
 // Every expectation here is the SQL / Drizzle contract for how ORDER BY
 // places NULL values. In SQLite — the dialect Drizzle drives here — NULLs
 // sort BEFORE all non-null values under ASC and AFTER them under DESC. A

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, lt, and } from '../../src/index'
 import { seedUsers } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 describe('where used inside a transaction', () => {
         // A reader running filtered reads within a transaction expects
         // the predicate to behave exactly as it does outside one. Each

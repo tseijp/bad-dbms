@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { gt, gte, lt } from '../../src/index'
-import { makeBoard, seeded, scoresInIdOrder } from './_fixtures'
+import { makeBoard, seeded, scoresInIdOrder } from './helpers'
 describe('an update can mutate many rows at once', () => {
         // A reader applying a bulk correction sets the same value into
         // every row a broad predicate matches.

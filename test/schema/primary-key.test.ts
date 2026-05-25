@@ -17,15 +17,15 @@ type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 // getTableConfig is a Drizzle introspection API reached off the namespace
 // import so a missing export fails honestly per test, not at module load.
-const getTableConfig = (t: unknown) => (bad as any).getTableConfig(t)
+const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('primary key constraint', () => {
         it.each(factoryNames)('marks the %s column primary on the public flag', (name) => {
                 const t = table('t', { id: factories[name]('id').primaryKey() })
-                expect((t as any).id.primary).toBe(true)
+                expect(t.id.primary).toBe(true)
         })
         it.each(factoryNames)('reports a plain %s column as strictly not primary', (name) => {
                 const t = table('t', { id: factories[name]('id') })
-                expect((t as any).id.primary).toBe(false)
+                expect(t.id.primary).toBe(false)
         })
         it('returns a chainable column from primaryKey()', () => {
                 const c = integer('id').primaryKey()
@@ -33,11 +33,11 @@ describe('primary key constraint', () => {
         })
         it('a primary-key column is implicitly not null', () => {
                 const t = table('t', { id: integer('id').primaryKey() })
-                expect((t as any).id.notNull).toBe(true)
+                expect(t.id.notNull).toBe(true)
         })
         it('allows notNull chained after primaryKey', () => {
                 const t = table('t', { id: integer('id').primaryKey().notNull() })
-                expect((t as any).id.primary).toBe(true)
+                expect(t.id.primary).toBe(true)
         })
         it('lists the primary-key column in getTableConfig', () => {
                 const t = table('users', { id: integer('id').primaryKey(), name: text('name') })
@@ -47,7 +47,7 @@ describe('primary key constraint', () => {
         it('names the declared column as the primary key in getTableConfig', () => {
                 const t = table('users', { id: integer('id').primaryKey(), name: text('name') })
                 const config = getTableConfig(t)
-                const pkCols = config.primaryKeys.flatMap((pk: any) => pk.columns.map((c: any) => c.name))
+                const pkCols = config.primaryKeys.flatMap((pk) => pk.columns.map((c) => c.name))
                 expect(pkCols).toContain('id')
         })
         it('reports no primary key in getTableConfig when none is declared', () => {
@@ -61,7 +61,7 @@ describe('primary key constraint', () => {
                         b: integer('b').primaryKey(),
                 })
                 const config = getTableConfig(t)
-                const allPkCols = config.primaryKeys.flatMap((pk: any) => pk.columns.map((c: any) => c.name))
+                const allPkCols = config.primaryKeys.flatMap((pk) => pk.columns.map((c) => c.name))
                 expect(allPkCols.sort()).toEqual(['a', 'b'])
         })
         it('marks both columns of a composite key primary on the public flag', () => {
@@ -69,11 +69,11 @@ describe('primary key constraint', () => {
                         a: integer('a').primaryKey(),
                         b: integer('b').primaryKey(),
                 })
-                expect([(t as any).a.primary, (t as any).b.primary]).toEqual([true, true])
+                expect([t.a.primary, t.b.primary]).toEqual([true, true])
         })
         it('keeps a primary-key column primary alongside a default value', () => {
                 const t = table('t', { id: integer('id').primaryKey().default(1) })
-                expect((t as any).id.primary).toBe(true)
+                expect(t.id.primary).toBe(true)
         })
         it.each(factoryNames)('lists a %s primary-key column through getTableConfig', (name) => {
                 const t = table('t', { id: factories[name]('id').primaryKey() })

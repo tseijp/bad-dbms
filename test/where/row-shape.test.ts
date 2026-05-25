@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, gte } from '../../src/index'
 import { seedUsers, seedPosts } from '../_helpers'
-import { scoresOf } from './_fixtures'
+import { scoresOf } from './helpers'
 describe('a predicate preserves the row shape it filters', () => {
         // where only chooses which rows survive; it never reshapes them.
         // A reader who filters down to a few rows still expects each

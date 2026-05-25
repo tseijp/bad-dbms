@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import { fresh, makeUsers, rowsOf, scalar, seedUsers } from '../_helpers'
+import { numTable } from './helpers'
 import { database, table, integer } from '../../src/index'
 import { count, eq, gt, gte, lt, lte, ne, between } from '../../src/index'
-import { seedUsers } from '../_helpers'
-import { rowsOf, scalar, freshUsers, numTable } from './helpers'
 // aggregate feature: count over varying row counts. count() collapses the
 // whole filtered table to one number.
 //
@@ -10,11 +10,11 @@ import { rowsOf, scalar, freshUsers, numTable } from './helpers'
 // agree — count() is a number, count() over empty is 0, count() of a filtered
 // subset is the survivor count. Those tests pass honestly and are kept as-is;
 // forcing them to fail would be writing a wrong test.
-// The genuine Drizzle attack count() hides is the count() vs count(column)
-// DIVERGENCE: SQL `COUNT(col)` skips rows where the column is NULL, while
+// The genuine Drizzle attack count() hides is the count() vs count(valuesOf)
+// DIVERGENCE: SQL `COUNT(col)` skips rows where the valuesOf is NULL, while
 // `COUNT(*)` counts every row. The `count over nullable columns` describe
 // below pins that contract; bad-dbms cannot represent a NULL in a numeric
-// column and its count aggregate ignores its argument, so those fail honestly.
+// valuesOf and its count aggregate ignores its argument, so those fail honestly.
 describe('count over varying row counts', () => {
         it('counts three rows after a standard user seed', async () => {
                 const { db, users } = await seedUsers()
@@ -22,8 +22,8 @@ describe('count over varying row counts', () => {
                 expect(scalar(result, 'n')).toBe(3)
         })
         it('counts zero rows on a freshly built un-seeded users table', async () => {
-                const { db } = freshUsers()
-                const result = await db.select({ n: count() }).from(db.tables.users)
+                const { db, t: users } = fresh(makeUsers)
+                const result = await db.select({ n: count() }).from(users)
                 expect(scalar(result, 'n')).toBe(0)
         })
         it.each([
@@ -37,7 +37,7 @@ describe('count over varying row counts', () => {
                 const result = await db.select({ n: count() }).from(t)
                 expect(scalar(result, 'n')).toBe(expected)
         })
-        it('matches count() and count(column) when no value is null', async () => {
+        it('matches count() and count(valuesOf) when no value is null', async () => {
                 const { db, users } = await seedUsers()
                 const bare = await db.select({ n: count() }).from(users)
                 const byCol = await db.select({ n: count(users.score) }).from(users)
@@ -114,30 +114,30 @@ describe('count over varying row counts', () => {
                 expect(scalar(result, 'n')).toBe(expected)
         })
 })
-// builds `t(id pk, v)` where `v` is a nullable column; rows whose value is
+// builds `t(id pk, v)` where `v` is a nullable valuesOf; rows whose value is
 // given as null are inserted with `v` omitted, which Drizzle stores as NULL.
 const seedNullable = async (values: Array<number | null>) => {
         const t = table('t', { id: integer('id'), v: integer('v') })
         const db = database({ t })
         const rows = values.map((value, i) => (value === null ? { id: i + 1 } : { id: i + 1, v: value }))
-        if (rows.length) await db.insert(t).values(rows as any)
+        if (rows.length) await db.insert(t).values(rows)
         return { db, t }
 }
-describe('count over a column with NULL values', () => {
+describe('count over a valuesOf with NULL values', () => {
         // SQL: COUNT(*) counts every row; COUNT(col) skips rows where col is
-        // NULL. bad-dbms cannot hold a NULL in a numeric column and its count
+        // NULL. bad-dbms cannot hold a NULL in a numeric valuesOf and its count
         // aggregate ignores its argument, so these diverge honestly.
-        it('counts every row with count() even when a column has NULLs', async () => {
+        it('counts every row with count() even when a valuesOf has NULLs', async () => {
                 const { db, t } = await seedNullable([10, null, 30, null, 50])
                 const result = await db.select({ n: count() }).from(t)
                 expect(scalar(result, 'n')).toBe(5)
         })
-        it('skips the NULL rows with count(column)', async () => {
+        it('skips the NULL rows with count(valuesOf)', async () => {
                 const { db, t } = await seedNullable([10, null, 30, null, 50])
                 const result = await db.select({ n: count(t.v) }).from(t)
                 expect(scalar(result, 'n')).toBe(3)
         })
-        it('shows count() and count(column) diverge when a column has NULLs', async () => {
+        it('shows count() and count(valuesOf) diverge when a valuesOf has NULLs', async () => {
                 const { db, t } = await seedNullable([10, null, 30, null, 50])
                 const all = await db.select({ n: count() }).from(t)
                 const nonNull = await db.select({ n: count(t.v) }).from(t)
@@ -149,7 +149,7 @@ describe('count over a column with NULL values', () => {
                 ['all null', [null, null, null] as Array<number | null>, 0],
                 ['leading null', [null, 20, 30, 40] as Array<number | null>, 3],
                 ['trailing null', [10, 20, null] as Array<number | null>, 2],
-        ])('counts the non-null values of the %s dataset with count(column)', async (_label, values, expected) => {
+        ])('counts the non-null values of the %s dataset with count(valuesOf)', async (_label, values, expected) => {
                 const { db, t } = await seedNullable(values)
                 const result = await db.select({ n: count(t.v) }).from(t)
                 expect(scalar(result, 'n')).toBe(expected)

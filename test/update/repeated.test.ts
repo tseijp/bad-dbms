@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from '../../src/index'
-import { seeded, rowById } from './_fixtures'
+import { seeded, rowById } from './helpers'
 describe('repeated updates accumulate on the same row', () => {
         // A reader applying several corrections in turn expects each
         // to build on the row's current value, not the original seed.

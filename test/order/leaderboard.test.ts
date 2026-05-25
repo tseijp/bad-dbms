@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
-import { makeScored, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeScored, seqOf } from './helpers'
 describe('a leaderboard sorted ascending and descending by score', () => {
         // A reader builds a small leaderboard whose rows arrive out of
         // order, then renders it both lowest-first and highest-first.

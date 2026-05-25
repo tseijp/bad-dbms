@@ -15,66 +15,66 @@ import { table, text } from '../../src/index'
 describe('text column data type (Drizzle parity)', () => {
         it('reports a string-denoting data type for a text column', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.dataType).toBe('text')
+                expect(t.c.dataType).toBe('text')
         })
         it('does not report a numeric u32 code as the text column type', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.dataType).not.toBe('u32')
+                expect(t.c.dataType).not.toBe('u32')
         })
         it('does not report a numeric i32 code as the text column type', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.dataType).not.toBe('i32')
+                expect(t.c.dataType).not.toBe('i32')
         })
         it('does not report a numeric f32 code as the text column type', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.dataType).not.toBe('f32')
+                expect(t.c.dataType).not.toBe('f32')
         })
         it('tags a text column with a text columnType', () => {
                 const t = table('t', { c: text('c') })
-                expect(String((t as any).c.columnType).toLowerCase()).toContain('text')
+                expect(String(t.c.columnType).toLowerCase()).toContain('text')
         })
         it('records a string-denoting dataType on the text column node', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.node.dataType).toBe('text')
+                expect(t.c.node.dataType).toBe('text')
         })
         it('does not record a numeric u32 dataType on the text column node', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.node.dataType).not.toBe('u32')
+                expect(t.c.node.dataType).not.toBe('u32')
         })
         it('keeps the explicit factory name on a text column', () => {
                 const t = table('t', { c: text('given_name') })
-                expect((t as any).c.name).toBe('given_name')
+                expect(t.c.name).toBe('given_name')
         })
         it('records a string default value on a text column', () => {
                 const t = table('t', { c: text('c').default('hello') })
-                expect((t as any).c.default).toBe('hello')
+                expect(t.c.default).toBe('hello')
         })
         it('records an empty-string default on a text column', () => {
                 const t = table('t', { c: text('c').default('') })
-                expect((t as any).c.default).toBe('')
+                expect(t.c.default).toBe('')
         })
         it('marks hasDefault true on a text column with a string default', () => {
                 const t = table('t', { c: text('c').default('x') })
-                expect((t as any).c.hasDefault).toBe(true)
+                expect(t.c.hasDefault).toBe(true)
         })
         it('marks a notNull text column not-null on the public flag', () => {
                 const t = table('t', { c: text('c').notNull() })
-                expect((t as any).c.notNull).toBe(true)
+                expect(t.c.notNull).toBe(true)
         })
         it('reports a plain text column as strictly nullable', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.notNull).toBe(false)
+                expect(t.c.notNull).toBe(false)
         })
         it('marks a primaryKey text column primary on the public flag', () => {
                 const t = table('t', { c: text('c').primaryKey() })
-                expect((t as any).c.primary).toBe(true)
+                expect(t.c.primary).toBe(true)
         })
         it('marks a unique text column unique on the public flag', () => {
                 const t = table('t', { c: text('c').unique() })
-                expect((t as any).c.isUnique).toBe(true)
+                expect(t.c.isUnique).toBe(true)
         })
         it('records a string-producing $defaultFn on a text column', () => {
                 const t = table('t', { c: text('c').$defaultFn(() => 'uuid') })
-                expect((t as any).c.defaultFn()).toBe('uuid')
+                expect(t.c.defaultFn()).toBe('uuid')
         })
 })

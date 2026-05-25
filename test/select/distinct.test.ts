@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { keysOf, rowsOf, seedEvents, seedUsers, valuesOf } from '../_helpers'
 import { database, table, integer } from '../../src/index'
-import { rowsOf, valuesOf, keysOf, seedUsers, seedEvents } from './helpers'
 // select rework: selectDistinct. Drizzle's `selectDistinct` collapses
 // duplicate projected rows, returning one row per distinct projected tuple.
 //
@@ -22,7 +22,7 @@ describe('selectDistinct collapses duplicate projected rows', () => {
         it('collapses duplicate kind rows to the distinct set', async () => {
                 const { db, events } = await seedEvents()
                 const rows = await selectDistinct(db, { kind: events.kind }).from(events)
-                expect(valuesOf(rows, 'kind').slice().sort()).toEqual([0, 1, 2])
+                expect(valuesOf(rows, 'kind').slice().sort((a, b) => Number(a) - Number(b))).toEqual([0, 1, 2])
         })
         it('returns three rows from a distinct read over five duplicated kinds', async () => {
                 const { db, events } = await seedEvents()
@@ -39,7 +39,7 @@ describe('selectDistinct collapses duplicate projected rows', () => {
                 const rows = await selectDistinct(db, { kind: events.kind }).from(events)
                 expect(keysOf(rows)).toEqual(['kind'])
         })
-        // matrix: a single-column distinct read over varying duplicate shapes.
+        // matrix: a single-valuesOf distinct read over varying duplicate shapes.
         it.each([
                 ['all unique', [1, 2, 3, 4], 4],
                 ['all identical', [5, 5, 5, 5], 1],
@@ -62,7 +62,7 @@ describe('selectDistinct collapses duplicate projected rows', () => {
                 expect(
                         valuesOf(rows, 'v')
                                 .slice()
-                                .sort((a, b) => a - b),
+                                .sort((a, b) => Number(a) - Number(b)),
                 ).toEqual(expected)
         })
         it('returns an empty array from a distinct read of an empty table', async () => {

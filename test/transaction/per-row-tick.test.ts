@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from '../../src/index'
-import { fresh, seeded, idsOf, amountsById } from './_fixtures'
+import { idsOf } from '../_helpers'
+import { seeded, amountsById, freshLedger } from './helpers'
 describe('the per-row tick variant iterates every primary-table row', () => {
         // The two-argument transaction builds a tick: its callback
         // runs once per row of the primary table, with c bound to the
@@ -8,7 +9,7 @@ describe('the per-row tick variant iterates every primary-table row', () => {
         it('a tick over a three-row table invokes its callback three times', async () => {
                 const { db } = await seeded()
                 let visits = 0
-                const runner = db.transaction((_tx, _c) => {
+                const runner = db.transaction((_tx: any, _c: any) => {
                         visits += 1
                 })
                 await runner.run({})
@@ -17,7 +18,7 @@ describe('the per-row tick variant iterates every primary-table row', () => {
         it('the current-row proxy exposes each rows id in turn', async () => {
                 const { db } = await seeded()
                 const seen: number[] = []
-                const runner = db.transaction((_tx, c) => {
+                const runner = db.transaction((_tx: any, c: any) => {
                         seen.push((c as { id: number }).id)
                 })
                 await runner.run({})
@@ -25,7 +26,7 @@ describe('the per-row tick variant iterates every primary-table row', () => {
         })
         it('a tick updating each visited row by its own id zeroes the whole table', async () => {
                 const { db, t } = await seeded()
-                const runner = db.transaction((tx, c) => {
+                const runner = db.transaction((tx: any, c: any) => {
                         return tx
                                 .update(t)
                                 .set({ amount: 0 })
@@ -37,19 +38,19 @@ describe('the per-row tick variant iterates every primary-table row', () => {
         })
         it('a tick that deletes rows over a cutoff leaves only the rows below it', async () => {
                 const { db, t } = await seeded()
-                const runner = db.transaction((tx, c) => {
+                const runner = db.transaction((tx: any, c: any) => {
                         const cur = c as { id: number; amount: number }
                         if (cur.amount > 15) return tx.delete(t).where(eq(t.id, cur.id))
                         return undefined
                 })
                 await runner.run({})
                 const rows = await db.select().from(t)
-                expect(idsOf(rows)).toEqual([1])
+                expect(idsOf(rows as { id: number }[])).toEqual([1])
         })
         it('a tick over an empty table never invokes its callback', async () => {
-                const { db } = fresh()
+                const { db } = freshLedger()
                 let visits = 0
-                const runner = db.transaction((_tx, _c) => {
+                const runner = db.transaction((_tx: any, _c: any) => {
                         visits += 1
                 })
                 await runner.run({})
@@ -58,7 +59,7 @@ describe('the per-row tick variant iterates every primary-table row', () => {
         it('run returns the very context object it was given', async () => {
                 const { db } = await seeded()
                 const ctx = { marker: 1 }
-                const runner = db.transaction((_tx, _c) => undefined)
+                const runner = db.transaction((_tx: any, _c: any) => undefined)
                 const returned = await runner.run(ctx)
                 expect(returned).toBe(ctx)
         })
@@ -69,7 +70,7 @@ describe('the per-row tick variant iterates every primary-table row', () => {
         ])('calling run %i times invokes the callback %i times in total', async (runs, expected) => {
                 const { db } = await seeded()
                 let visits = 0
-                const runner = db.transaction((_tx, _c) => {
+                const runner = db.transaction((_tx: any, _c: any) => {
                         visits += 1
                 })
                 for (let i = 0; i < runs; i++) await runner.run({})
@@ -78,7 +79,7 @@ describe('the per-row tick variant iterates every primary-table row', () => {
         it('a tick reading the current rows amount can accumulate a total into the context', async () => {
                 const { db } = await seeded()
                 const ctx = { total: 0 }
-                const runner = db.transaction((_tx, c) => {
+                const runner = db.transaction((_tx: any, c: any) => {
                         ctx.total += (c as { amount: number }).amount
                 })
                 await runner.run(ctx)

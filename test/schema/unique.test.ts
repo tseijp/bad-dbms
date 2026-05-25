@@ -13,46 +13,46 @@ import * as bad from '../../src/index'
 const factories = { integer, uint, float, text } as const
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
-const getTableConfig = (t: unknown) => (bad as any).getTableConfig(t)
+const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('unique constraint', () => {
         it.each(factoryNames)('marks the %s column unique on the public flag', (name) => {
                 const t = table('t', { email: factories[name]('email').unique() })
-                expect((t as any).email.isUnique).toBe(true)
+                expect(t.email.isUnique).toBe(true)
         })
         it.each(factoryNames)('reports a plain %s column as strictly not unique', (name) => {
                 const t = table('t', { email: factories[name]('email') })
-                expect((t as any).email.isUnique).toBe(false)
+                expect(t.email.isUnique).toBe(false)
         })
         it('reports an unset unique flag as a real boolean, not undefined', () => {
                 const t = table('t', { email: integer('email') })
-                expect(typeof (t as any).email.isUnique).toBe('boolean')
+                expect(typeof t.email.isUnique).toBe('boolean')
         })
         it('marks a column unique with unique().primaryKey()', () => {
                 const t = table('t', { email: integer('email').unique().primaryKey() })
-                expect((t as any).email.isUnique).toBe(true)
+                expect(t.email.isUnique).toBe(true)
         })
         it('marks a column primary with unique().primaryKey()', () => {
                 const t = table('t', { email: integer('email').unique().primaryKey() })
-                expect((t as any).email.primary).toBe(true)
+                expect(t.email.primary).toBe(true)
         })
         it('marks a column unique regardless of chain order with primaryKey', () => {
                 const t = table('t', { email: integer('email').primaryKey().unique() })
-                expect((t as any).email.isUnique).toBe(true)
+                expect(t.email.isUnique).toBe(true)
         })
         it('marks a column unique with unique().notNull()', () => {
                 const t = table('t', { email: integer('email').unique().notNull() })
-                expect((t as any).email.isUnique).toBe(true)
+                expect(t.email.isUnique).toBe(true)
         })
         it('marks both columns chaining unique', () => {
                 const t = table('t', {
                         a: integer('a').unique(),
                         b: integer('b').unique(),
                 })
-                expect([(t as any).a.isUnique, (t as any).b.isUnique]).toEqual([true, true])
+                expect([t.a.isUnique, t.b.isUnique]).toEqual([true, true])
         })
         it('keeps a plain column non-unique beside a unique sibling', () => {
                 const t = table('t', { a: integer('a').unique(), b: integer('b') })
-                expect([(t as any).a.isUnique, (t as any).b.isUnique]).toEqual([true, false])
+                expect([t.a.isUnique, t.b.isUnique]).toEqual([true, false])
         })
         it('lists the unique column in getTableConfig', () => {
                 const t = table('users', { id: integer('id').primaryKey(), email: text('email').unique() })

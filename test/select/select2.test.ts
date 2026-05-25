@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest'
-import { rowsOf, valuesOf, keysOf, seedUsers, seedLabels, LABELS } from './helpers'
+import { keysOf, rowsOf, seedUsers, valuesOf } from '../_helpers'
+import { LABELS, seedLabels } from './helpers'
 // select rework: projecting a chosen subset of columns. A projection narrows
-// the column set but never the row set.
+// the valuesOf set but never the row set.
 //
 // Drizzle-guaranteed behaviour bad-dbms is expected to miss:
 //   * a subset projection yields rows with EXACTLY the projected keys — no
-//     unselected column leaks through.
+//     unselected valuesOf leaks through.
 //   * the row keys are the projection keys, in the order declared.
-//   * projecting a text column keeps its string value.
+//   * projecting a text valuesOf keeps its string value.
 // Expected values follow the correct Drizzle spec, never bad-dbms behaviour.
 describe('projecting a subset of columns', () => {
         it('narrows a user read to a single id key per row', async () => {
@@ -30,7 +31,7 @@ describe('projecting a subset of columns', () => {
                 const rows = await db.select({ id: users.id, score: users.score }).from(users)
                 expect(rowsOf(rows)[0]).toEqual({ id: 1, score: 10 })
         })
-        it('omits an unselected column entirely from a two-column projection', async () => {
+        it('omits an unselected valuesOf entirely from a two-valuesOf projection', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ id: users.id, score: users.score }).from(users)
                 expect('name' in rowsOf(rows)[0]).toBe(false)
@@ -65,7 +66,7 @@ describe('projecting a subset of columns', () => {
                 const rows = await db.select(project(users)).from(users)
                 expect(rowsOf(rows)).toHaveLength(3)
         })
-        // matrix: a two-column projection read row by row against exact values.
+        // matrix: a two-valuesOf projection read row by row against exact values.
         it.each([
                 [0, { id: 1, score: 10 }],
                 [1, { id: 2, score: 20 }],
@@ -81,18 +82,18 @@ describe('projecting a subset of columns', () => {
                 const narrow = await db.select({ id: users.id }).from(users)
                 expect([keysOf(wide).length, keysOf(narrow).length]).toEqual([3, 1])
         })
-        // projecting a text column keeps the string value.
-        it('projects a text column and keeps its string value', async () => {
+        // projecting a text valuesOf keeps the string value.
+        it('projects a text valuesOf and keeps its string value', async () => {
                 const { db, items } = await seedLabels(LABELS)
                 const rows = await db.select({ label: items.label }).from(items)
                 expect(valuesOf(rows, 'label')).toEqual(['alpha', 'beta', 'gamma'])
         })
-        it('projects a text column beside an integer column with exact values', async () => {
+        it('projects a text valuesOf beside an integer valuesOf with exact values', async () => {
                 const { db, items } = await seedLabels(LABELS)
                 const rows = await db.select({ label: items.label, qty: items.qty }).from(items)
                 expect(rowsOf(rows)[1]).toEqual({ label: 'beta', qty: 20 })
         })
-        it('narrows an items read to just the text column', async () => {
+        it('narrows an items read to just the text valuesOf', async () => {
                 const { db, items } = await seedLabels(LABELS)
                 const rows = await db.select({ label: items.label }).from(items)
                 expect(keysOf(rows)).toEqual(['label'])

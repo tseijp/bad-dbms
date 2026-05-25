@@ -58,7 +58,7 @@ describe('column types', () => {
                         { id: 3, v: -30 },
                 ])
                 const rows = await db.select().from(db.tables.t)
-                expect(rows.map((r: { v: number }) => r.v)).toEqual([-10, -20, -30])
+                expect(rows.map((r) => r.v)).toEqual([-10, -20, -30])
         })
         it('float column preserves fractional values across a multi-row insert', async () => {
                 const t = table('fmulti', {
@@ -85,7 +85,7 @@ describe('column types', () => {
                         { id: 3, v: 4294967295 },
                 ])
                 const rows = await db.select().from(db.tables.t)
-                expect(rows.map((r: { v: number }) => r.v)).toEqual([100, 200, 4294967295])
+                expect(rows.map((r) => r.v)).toEqual([100, 200, 4294967295])
         })
         it.each([
                 ['integer column a', 'a', -5],
@@ -114,6 +114,6 @@ describe('column types', () => {
                         { id: 2, v: 'second' },
                 ])
                 const rows = await db.select().from(db.tables.t)
-                expect(rows.map((r: { v: string }) => r.v)).toEqual(['first', 'second'])
+                expect(rows.map((r) => r.v)).toEqual(['first', 'second'])
         })
 })

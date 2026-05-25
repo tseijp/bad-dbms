@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, text, eq, ne, inArray, notInArray, like, notLike, ilike } from '../../src/index'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 // Every expectation here is the Drizzle contract for text columns: a text
 // column holds string values verbatim and string predicates match on the
 // actual characters. bad-dbms is a numeric column store and is suspected of

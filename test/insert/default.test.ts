@@ -60,7 +60,7 @@ describe('default values on insert', () => {
                 const db = database({ t })
                 await db.insert(db.tables.t).values([{ id: 1 }, { id: 2 }])
                 const rows = await db.select().from(db.tables.t)
-                expect(rows.map((r: { seq: number }) => r.seq)).toEqual([1, 2])
+                expect(rows.map((r) => r.seq)).toEqual([1, 2])
         })
         it('defaultFn alias returning a constant applies on omitted column', async () => {
                 const t = table('dfnalias', {
@@ -90,6 +90,6 @@ describe('default values on insert', () => {
                 const db = database({ t })
                 await db.insert(db.tables.t).values([{ id: 1, v: 0 }, { id: 2 }])
                 const rows = await db.select().from(db.tables.t)
-                expect(rows.map((r: { v: number }) => r.v)).toEqual([0, 3])
+                expect(rows.map((r) => r.v)).toEqual([0, 3])
         })
 })

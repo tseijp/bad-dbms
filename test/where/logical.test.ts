@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, eq, gt, lt, and, or, not, isNull, isNotNull } from '../../src/index'
 import { seedUsers } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 // A table with a nullable score: id 2 holds genuine NULL. Used to attack the
 // three-valued truth tables of and / or / not.
 const seededNullableScore = async () => {

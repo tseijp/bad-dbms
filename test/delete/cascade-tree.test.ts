@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, eq } from '../../src/index'
-import { makeNodes, idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
+import { makeNodes } from './helpers'
 describe('multi-level cascade through a self-referential tree', () => {
         // A node tree 1 -> 2 -> 3 -> 4 wired parent-to-child. Deleting
         // the root must, under cascading referential integrity, remove
@@ -14,7 +15,7 @@ describe('multi-level cascade through a self-referential tree', () => {
                         { id: 3, parentId: 2 },
                         { id: 4, parentId: 3 },
                 ])
-                return { db, nodes: db.tables.nodes }
+                return { db, nodes }
         }
         it('deleting a parent removes its direct children', async () => {
                 const { db, nodes } = await seededTree()

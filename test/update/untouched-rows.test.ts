@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, ne, lt } from '../../src/index'
-import { seeded, rowById } from './_fixtures'
+import { seeded, rowById } from './helpers'
 describe('an update leaves non-matching rows untouched', () => {
         // A reader fixing one row trusts that the rows the predicate
         // skipped keep their original values exactly.

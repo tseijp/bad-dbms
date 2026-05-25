@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { scalar, seedUsers } from '../_helpers'
+import { numTable } from './helpers'
 import { min, max, gt } from '../../src/index'
-import { seedUsers } from '../_helpers'
-import { scalar, numTable } from './helpers'
 // aggregate feature: min and max over varying datasets. Per Drizzle / SQL,
 // min and max over an empty set are NULL, never 0.
 describe('min and max over varying datasets', () => {

@@ -1,19 +1,19 @@
 import { describe, it, expect } from 'vitest'
-import { rowsOf, valuesOf, keysOf, seedUsers } from './helpers'
+import { keysOf, rowsOf, seedUsers, valuesOf } from '../_helpers'
 // select rework: expression columns in a projection. A projected expression
 // is evaluated once per row and the projection key holds the computed value.
-// The select feature owns only that a projection CAN carry a computed column
+// The select feature owns only that a projection CAN carry a computed valuesOf
 // and that the result is keyed by the alias; the arithmetic itself is the
 // expression feature's concern.
 //
 // Drizzle-guaranteed behaviour bad-dbms is expected to miss:
-//   * a projected expression column produces the computed value, keyed by the
-//     projection alias — not undefined, not the raw column.
+//   * a projected expression valuesOf produces the computed value, keyed by the
+//     projection alias — not undefined, not the raw valuesOf.
 //   * a projection of only expression columns still returns one row per
 //     stored row and keys each row by exactly the expression aliases.
 // Expected values follow the correct Drizzle spec, never bad-dbms behaviour.
 describe('expression columns in a projection', () => {
-        it('doubles every score through a multiply expression column', async () => {
+        it('doubles every score through a multiply expression valuesOf', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ doubled: users.score.mul(2) }).from(users)
                 expect(valuesOf(rows, 'doubled')).toEqual([20, 40, 60])
@@ -23,7 +23,7 @@ describe('expression columns in a projection', () => {
                 const rows = await db.select({ doubled: users.score.mul(2) }).from(users)
                 expect(keysOf(rows)).toEqual(['doubled'])
         })
-        it('produces a defined value for every expression-column row', async () => {
+        it('produces a defined value for every expression-valuesOf row', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ doubled: users.score.mul(2) }).from(users)
                 expect(rowsOf(rows).every((r) => r.doubled !== undefined)).toBe(true)
@@ -35,7 +35,7 @@ describe('expression columns in a projection', () => {
                 ['mul 2', (u: any) => ({ x: u.score.mul(2) }), [20, 40, 60]],
                 ['div 10', (u: any) => ({ x: u.score.div(10) }), [1, 2, 3]],
                 ['mod 7', (u: any) => ({ x: u.score.mod(7) }), [3, 6, 2]],
-        ])('evaluates the %s expression column', async (_label, project, expected) => {
+        ])('evaluates the %s expression valuesOf', async (_label, project, expected) => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select(project(users)).from(users)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
@@ -46,7 +46,7 @@ describe('expression columns in a projection', () => {
                 ['score minus id', (u: any) => ({ x: u.score.sub(u.id) }), [9, 18, 27]],
                 ['score times id', (u: any) => ({ x: u.score.mul(u.id) }), [10, 40, 90]],
                 ['score over id', (u: any) => ({ x: u.score.div(u.id) }), [10, 10, 10]],
-        ])('evaluates the two-column expression %s', async (_label, project, expected) => {
+        ])('evaluates the two-valuesOf expression %s', async (_label, project, expected) => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select(project(users)).from(users)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
@@ -62,7 +62,7 @@ describe('expression columns in a projection', () => {
                 const rows = await db.select(project(users)).from(users)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
         })
-        it('mixes a plain column and an expression column in one projection', async () => {
+        it('mixes a plain valuesOf and an expression valuesOf in one projection', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ id: users.id, bonus: users.score.add(1) }).from(users)
                 expect(rowsOf(rows)[0]).toEqual({ id: 1, bonus: 11 })
@@ -100,7 +100,7 @@ describe('expression columns in a projection', () => {
                         [30, 60, 90],
                 ])
         })
-        it('seeds, projects a derived column, updates a row, then re-derives', async () => {
+        it('seeds, projects a derived valuesOf, updates a row, then re-derives', async () => {
                 const { db, users } = await seedUsers()
                 const before = await db.select({ d: users.score.mul(2) }).from(users)
                 await db.update(users).set({ score: 100 }).where(users.id.eq(2))

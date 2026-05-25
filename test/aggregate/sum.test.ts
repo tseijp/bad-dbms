@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest'
+import { USERS_SEED, makeUsers, scalar, seedUsers } from '../_helpers'
+import { numTable } from './helpers'
 import { database } from '../../src/index'
 import { sum, eq, gt } from '../../src/index'
-import { makeUsers, seedUsers, USERS_SEED } from '../_helpers'
-import { scalar, numTable } from './helpers'
 // aggregate feature: sum over varying datasets.
 //
 // rework-3 audit: the numeric `toBe(n)` assertions below agree with bad-dbms

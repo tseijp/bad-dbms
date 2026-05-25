@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, gte, lt, and, between } from '../../src/index'
 import { seedUsers } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 describe('refining a filter across successive queries', () => {
         // A realistic exploratory flow: a reader runs one query, looks at
         // the result, then re-filters the same seed to drill down or back

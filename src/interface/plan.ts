@@ -2,7 +2,7 @@ import type { SQL, SqlNode, PhysicalOp, AggSpec, SortKey, ProjectorSpec, Row } f
 import type { SelectAst, ProjItem } from './types'
 import { colNameOf, compileExpr, compilePredicate, compileNode, EvalCtx } from './compile'
 import { tableNameOf } from '../shared/helper'
-const nodeOf = (expr: SQL | SqlNode): SqlNode => ((expr as SQL).kind === 'sql' ? (expr as SQL).node : (expr as SqlNode))
+const nodeOf = (expr: SQL | SqlNode | unknown): SqlNode => ((expr as SQL).kind === 'sql' ? (expr as SQL).node : (expr as SqlNode))
 const argNode = (n: SqlNode | undefined): SqlNode | undefined => (n && 'args' in n && n.args[0] ? nodeOf(n.args[0]) : undefined)
 const aggSig = (n: SqlNode | undefined): string | undefined => {
         if (!n || n.type !== 'aggregate') return undefined
@@ -30,15 +30,13 @@ const rewriteHaving = (node: SQL | SqlNode, projection?: ProjItem[]): SqlNode =>
                 if (!alias) return { type: 'literal', value: undefined }
                 return { type: 'func', name: 'toFloat', args: [{ kind: 'sql', node: { type: 'column', name: alias, dataType: 'f32' } } as SQL] }
         }
-        if (n.type === 'binop' || n.type === 'unop' || n.type === 'func')
-                return { ...n, args: (n.args ?? []).map((a) => ({ kind: 'sql', node: rewriteHaving(a, projection) }) as SQL) }
+        if (n.type === 'binop' || n.type === 'unop' || n.type === 'func') return { ...n, args: (n.args ?? []).map((a) => ({ kind: 'sql', node: rewriteHaving(a, projection) }) as SQL) }
         return n
 }
 const isObjectSpec = (e: unknown): e is Record<string, SQL> => !!e && typeof e === 'object' && !('kind' in (e as object)) && !('type' in (e as object))
 const relabel = (node: SqlNode, from: string, to: string): SqlNode => {
         if (node.type === 'column') return node.tableName === from ? { ...node, tableName: to } : node
-        if (node.type === 'binop' || node.type === 'unop' || node.type === 'func')
-                return { ...node, args: (node.args ?? []).map((a) => ({ kind: 'sql', node: relabel(nodeOf(a), from, to) }) as SQL) }
+        if (node.type === 'binop' || node.type === 'unop' || node.type === 'func') return { ...node, args: (node.args ?? []).map((a) => ({ kind: 'sql', node: relabel(nodeOf(a), from, to) }) as SQL) }
         return node
 }
 const selfJoinOn = (on: SQL, table: string, rightName: string): SQL => {
@@ -111,7 +109,11 @@ export const planSelect = (ast: SelectAst, baseCtx: EvalCtx): { plan: PhysicalOp
         let plan = source
         if (ast.where) plan = { op: 'Filter', child: plan, predicate: compilePredicate(ast.where, ctx) }
         if (aggs.length > 0 || !!ast.groupBy?.length) plan = planAggregate(plan, ast, aggs, ctx, isJoin)
-        else if (projected) plan = projection(plan, (ast.projection ?? []).map((p) => projector(p, ctx)))
+        else if (projected)
+                plan = projection(
+                        plan,
+                        (ast.projection ?? []).map((p) => projector(p, ctx)),
+                )
         if (ast.having) plan = { op: 'Filter', child: plan, predicate: compilePredicate(rewriteHaving(ast.having, ast.projection), baseCtx) }
         if (ast.orderBy?.length) {
                 const resolve = (n: SqlNode): string | undefined => {

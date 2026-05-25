@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { USERS_SEED } from '../_helpers'
-import { freshUsers } from './_fixtures'
+import { freshUsers } from './helpers'
 // Expectations follow the Drizzle insert.returning() contract: returning()
 // resolves to the array of rows that were inserted, each a full row object
 // carrying its column values — not bad-dbms's internal [pageId, offset] heap

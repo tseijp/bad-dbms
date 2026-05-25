@@ -1,5 +1,4 @@
 import type { FileAdapter } from '../../shared/types'
-
 export const createFastlyAdapter = (store: any): FileAdapter => ({
         async get(key) {
                 const entry = await store.get(key)

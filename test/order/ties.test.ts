@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
-import { makeScored, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeScored, seqOf } from './helpers'
 describe('a sort key with ties preserves every tied row', () => {
         // When several rows share the sort value, a sort must keep all
         // of them — it groups equal keys, it never collapses them.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, gt, gte, lt, lte, and, between, notBetween } from '../../src/index'
 import { seedUsers } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 // A table with a nullable score: id 2 holds genuine NULL. Used to attack
 // between / notBetween against a NULL operand.
 const seededNullableScore = async () => {

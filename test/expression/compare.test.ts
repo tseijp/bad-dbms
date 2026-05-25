@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { column, seedUsers, intTable, pairTable } from './helpers'
+import { seedUsers, valuesOf } from '../_helpers'
+import { intTable, pairTable } from './helpers'
 // expression feature: comparison operators yield a boolean per row. A
 // comparison method evaluated in a projection produces true / false, never
 // 1 / 0. Expected values follow the correct Drizzle / SQL semantics.
@@ -13,18 +14,19 @@ describe('comparison operators yield a boolean per row', () => {
                 ['lte', 'lte', 20, [true, true, false]],
         ])('evaluates score.%s(20) to a boolean sequence', async (_label, method, arg, expected) => {
                 const { db, users } = await seedUsers()
-                const rows = await db.select({ x: (users.score as any)[method](arg) }).from(users)
-                expect(column(rows, 'x')).toEqual(expected)
+                const col = users.score as unknown as Record<string, (a: number) => typeof users.score>
+                const rows = await db.select({ x: col[method](arg) }).from(users)
+                expect(valuesOf(rows, 'x')).toEqual(expected)
         })
         it('returns strict booleans, not 1 and 0, from a comparison', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: users.score.gt(15) }).from(users)
-                expect(column(rows, 'x')).toEqual([false, true, true])
+                expect(valuesOf(rows, 'x')).toEqual([false, true, true])
         })
         it('compares two expressions and yields a boolean', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: users.score.eq(users.id.mul(10)) }).from(users)
-                expect(column(rows, 'x')).toEqual([true, true, true])
+                expect(valuesOf(rows, 'x')).toEqual([true, true, true])
         })
         it.each([
                 ['eq across columns', 'eq', [false, true, false]],
@@ -37,22 +39,23 @@ describe('comparison operators yield a boolean per row', () => {
                         [7, 7],
                         [2, 8],
                 ])
-                const rows = await db.select({ x: (t.a as any)[method](t.b) }).from(t)
-                expect(column(rows, 'x')).toEqual(expected)
+                const col = t.a as unknown as Record<string, (a: unknown) => typeof t.a>
+                const rows = await db.select({ x: col[method](t.b) }).from(t)
+                expect(valuesOf(rows, 'x')).toEqual(expected)
         })
         it('compares an arithmetic expression against a literal', async () => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: users.score.add(5).gt(20) }).from(users)
-                expect(column(rows, 'x')).toEqual([false, true, true])
+                expect(valuesOf(rows, 'x')).toEqual([false, true, true])
         })
         it('evaluates a comparison over a signed dataset', async () => {
                 const { db, t } = await intTable([-5, 0, 5])
                 const rows = await db.select({ x: t.v.gte(0) }).from(t)
-                expect(column(rows, 'x')).toEqual([false, true, true])
+                expect(valuesOf(rows, 'x')).toEqual([false, true, true])
         })
         it('evaluates equality against zero', async () => {
                 const { db, t } = await intTable([0, 1, 0, -1])
                 const rows = await db.select({ x: t.v.eq(0) }).from(t)
-                expect(column(rows, 'x')).toEqual([true, false, true, false])
+                expect(valuesOf(rows, 'x')).toEqual([true, false, true, false])
         })
 })

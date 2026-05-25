@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { findBy, seedEvents, seedPosts } from '../_helpers'
+import { groupTable } from './helpers'
 import { count, avg } from '../../src/index'
-import { seedEvents, seedPosts } from '../_helpers'
-import { groupWith, groupTable } from './helpers'
 // group feature: per-group avg. avg() inside a grouped query means each bucket
 // independently.
 //
@@ -21,7 +21,7 @@ describe('per-group avg', () => {
                         .select({ kind: events.kind, a: avg(events.v) })
                         .from(events)
                         .groupBy(events.kind)
-                expect(groupWith(result, 'kind', kind).a).toBe(expected)
+                expect(findBy(result, 'kind', kind)!.a).toBe(expected)
         })
         it.each([
                 [
@@ -59,7 +59,7 @@ describe('per-group avg', () => {
                         .select({ g: t.g, a: avg(t.v) })
                         .from(t)
                         .groupBy(t.g)
-                expect(groupWith(result, 'g', key).a).toBe(expected)
+                expect(findBy(result, 'g', key)!.a).toBe(expected)
         })
         it('averages each post group score independently', async () => {
                 const { db, posts } = await seedPosts()
@@ -67,7 +67,7 @@ describe('per-group avg', () => {
                         .select({ userId: posts.userId, a: avg(posts.score) })
                         .from(posts)
                         .groupBy(posts.userId)
-                expect(groupWith(result, 'userId', 1).a).toBe('6')
+                expect(findBy(result, 'userId', 1)!.a).toBe('6')
         })
         it('resolves a per-group avg to a string, not a JS number', async () => {
                 const { db, events } = await seedEvents()
@@ -75,7 +75,7 @@ describe('per-group avg', () => {
                         .select({ kind: events.kind, a: avg(events.v) })
                         .from(events)
                         .groupBy(events.kind)
-                expect(typeof groupWith(result, 'kind', 0).a).toBe('string')
+                expect(typeof findBy(result, 'kind', 0)!.a).toBe('string')
         })
         it('reads count and avg of every group with the count numeric and avg a string', async () => {
                 const { db, events } = await seedEvents()
@@ -83,7 +83,7 @@ describe('per-group avg', () => {
                         .select({ kind: events.kind, n: count(), a: avg(events.v) })
                         .from(events)
                         .groupBy(events.kind)
-                expect(groupWith(result, 'kind', 1)).toEqual({ kind: 1, n: 2, a: '350' })
+                expect(findBy(result, 'kind', 1))!.toEqual({ kind: 1, n: 2, a: '350' })
         })
         // a non-integer group mean keeps its exact fractional part.
         it.each([
@@ -123,7 +123,7 @@ describe('per-group avg', () => {
                         .select({ g: t.g, a: avg(t.v) })
                         .from(t)
                         .groupBy(t.g)
-                expect(Number(groupWith(result, 'g', key).a)).toBeCloseTo(expected, 10)
+                expect(Number(findBy(result, 'g', key)!.a)).toBeCloseTo(expected, 10)
         })
         // dense matrix: one fixed dataset with cleanly divisible group means,
         // each resolved as a Drizzle string.
@@ -151,7 +151,7 @@ describe('per-group avg', () => {
                         .select({ g: t.g, a: avg(t.v) })
                         .from(t)
                         .groupBy(t.g)
-                expect(groupWith(result, 'g', key).a).toBe(expected)
+                expect(findBy(result, 'g', key)!.a).toBe(expected)
         })
         it.each([
                 [0, 2],
@@ -162,6 +162,6 @@ describe('per-group avg', () => {
         ])('counts group %i of the mean dataset as %i', async (key, expected) => {
                 const { db, t } = await groupTable(meanData)
                 const result = await db.select({ g: t.g, n: count() }).from(t).groupBy(t.g)
-                expect(groupWith(result, 'g', key).n).toBe(expected)
+                expect(findBy(result, 'g', key)!.n).toBe(expected)
         })
 })

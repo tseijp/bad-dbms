@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { USERS_SEED } from '../_helpers'
-import { freshUsers } from './_fixtures'
+import { freshUsers } from './helpers'
 // Expectations follow the Drizzle / SQLite insert contract: a multi-row insert
 // resolves to a run-result whose `changes` count is the number of rows
 // written. bad-dbms's { rowCount: n } shape is its own invention; these tests

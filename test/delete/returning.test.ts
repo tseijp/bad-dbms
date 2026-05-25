@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq, lt } from '../../src/index'
-import { seededBoard, idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
+import { seededBoard } from './helpers'
 describe('delete with returning yields the removed rows', () => {
         // In Drizzle, delete(...).where(...).returning() resolves to
         // the array of rows that were deleted, each a full row object

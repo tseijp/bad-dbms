@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, count } from '../../src/index'
 import { makeUsers, makePosts, USERS_SEED } from '../_helpers'
-import { freshUsers } from './_fixtures'
+import { freshUsers } from './helpers'
 describe('insert inside a transaction', () => {
         it('transaction insert of USERS_SEED leaves three rows', async () => {
                 const { db, users } = freshUsers()

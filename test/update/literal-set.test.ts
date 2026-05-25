@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from '../../src/index'
-import { seeded, rowById, scoresInIdOrder } from './_fixtures'
+import { seeded, rowById, scoresInIdOrder } from './helpers'
 describe('a literal set writes a fixed value into matched rows', () => {
         // A reader correcting one row's score writes a literal value
         // under an id predicate; the matched row takes the new value.

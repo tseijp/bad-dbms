@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, and, or, not, eq, ne, gt, gte, lt, isNull, isNotNull } from '../../src/index'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 // Every expectation here is SQL three-valued logic, the Drizzle contract for
 // NULL. bad-dbms is a numeric column store and is suspected of coercing a
 // missing nullable column to 0; if so these tests fail honestly. They are

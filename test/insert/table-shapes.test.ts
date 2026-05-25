@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { USERS_SEED, POSTS_SEED, EVENTS_SEED } from '../_helpers'
-import { freshPosts, freshEvents, freshNodes, freshTarget, freshUsers } from './_fixtures'
+import { freshPosts, freshEvents, freshNodes, freshUsers } from './helpers'
 describe('other table shapes', () => {
         // The run-result expectations follow the Drizzle / SQLite insert
         // contract: a `changes` count, not bad-dbms's invented { rowCount }.
@@ -13,7 +13,7 @@ describe('other table shapes', () => {
                 const { db, events } = freshEvents()
                 await db.insert(events).values(EVENTS_SEED)
                 const rows = await db.select().from(events)
-                expect(rows.map((r: { id: number }) => r.id)).toEqual([1, 2, 3, 4, 5])
+                expect(rows.map((r) => r.id)).toEqual([1, 2, 3, 4, 5])
         })
         it('events row at index 2 deep-equals its literal', async () => {
                 const { db, events } = freshEvents()
@@ -49,18 +49,18 @@ describe('other table shapes', () => {
                 expect(rows.length).toBe(3)
         })
         it.each([
-                ['users', () => freshTarget(freshUsers, 'users'), USERS_SEED],
-                ['posts', () => freshTarget(freshPosts, 'posts'), POSTS_SEED],
-                ['events', () => freshTarget(freshEvents, 'events'), EVENTS_SEED],
+                ['users', () => { const { db, users: t } = freshUsers(); return { db, t } }, USERS_SEED],
+                ['posts', () => { const { db, posts: t } = freshPosts(); return { db, t } }, POSTS_SEED],
+                ['events', () => { const { db, events: t } = freshEvents(); return { db, t } }, EVENTS_SEED],
         ] as const)('a %s seed insert resolves to a changes count matching the seed length', async (_label, build, seed) => {
                 const { db, t } = build()
                 const r = await db.insert(t).values(seed as Record<string, number>[])
                 expect(r).toMatchObject({ changes: seed.length })
         })
         it.each([
-                ['users', () => freshTarget(freshUsers, 'users'), USERS_SEED],
-                ['posts', () => freshTarget(freshPosts, 'posts'), POSTS_SEED],
-                ['events', () => freshTarget(freshEvents, 'events'), EVENTS_SEED],
+                ['users', () => { const { db, users: t } = freshUsers(); return { db, t } }, USERS_SEED],
+                ['posts', () => { const { db, posts: t } = freshPosts(); return { db, t } }, POSTS_SEED],
+                ['events', () => { const { db, events: t } = freshEvents(); return { db, t } }, EVENTS_SEED],
         ] as const)('%s seed insert reads back the full seed length', async (_label, build, seed) => {
                 const { db, t } = build()
                 await db.insert(t).values(seed as Record<string, number>[])

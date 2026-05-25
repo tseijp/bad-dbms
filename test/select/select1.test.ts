@@ -1,15 +1,15 @@
 import { describe, it, expect } from 'vitest'
+import { keysOf, makeUsers, rowsOf, seedEvents, seedUsers, valuesOf } from '../_helpers'
+import { LABELS, seedLabels } from './helpers'
 import { database } from '../../src/index'
-import { makeUsers } from '../_helpers'
-import { rowsOf, valuesOf, keysOf, seedUsers, seedEvents, seedLabels, LABELS } from './helpers'
-// select rework: reading every column with an omitted projection. Drizzle's
+// select rework: reading every valuesOf with an omitted projection. Drizzle's
 // `select().from(t)` resolves to an array of row objects, one per stored row,
-// each carrying every declared column under its own name.
+// each carrying every declared valuesOf under its own name.
 //
 // Drizzle-guaranteed behaviour bad-dbms is expected to miss:
-//   * a text column round-trips its STRING value through a bare select;
+//   * a text valuesOf round-trips its STRING value through a bare select;
 //     bad-dbms stores text internally as u32 and is expected to lose it.
-//   * an omitted projection returns exactly the declared column set, no
+//   * an omitted projection returns exactly the declared valuesOf set, no
 //     internal bookkeeping keys (`__rid`, etc.).
 // Expected values follow the correct Drizzle spec, never bad-dbms behaviour.
 describe('select all columns', () => {
@@ -48,13 +48,13 @@ describe('select all columns', () => {
                 const rows = await db.select().from(db.tables.users)
                 expect(rowsOf(rows)).toEqual([])
         })
-        it('reads all five event rows back with every column present', async () => {
+        it('reads all five event rows back with every valuesOf present', async () => {
                 const { db, events } = await seedEvents()
                 const rows = await db.select().from(events)
                 expect([rowsOf(rows).length, keysOf(rows)]).toEqual([5, ['id', 'kind', 'v']])
         })
-        // a bare select must round-trip a text column as its string value.
-        it('round-trips a text column value through a bare select', async () => {
+        // a bare select must round-trip a text valuesOf as its string value.
+        it('round-trips a text valuesOf value through a bare select', async () => {
                 const { db, items } = await seedLabels(LABELS)
                 const rows = await db.select().from(items)
                 expect(valuesOf(rows, 'label')).toEqual(['alpha', 'beta', 'gamma'])
@@ -73,7 +73,7 @@ describe('select all columns', () => {
                 const rows = await db.select().from(items)
                 expect(typeof rowsOf(rows)[0].label).toBe('string')
         })
-        it('returns a row with the text column beside its integer columns', async () => {
+        it('returns a row with the text valuesOf beside its integer columns', async () => {
                 const { db, items } = await seedLabels([[1, 'solo', 99]])
                 const rows = await db.select().from(items)
                 expect(rowsOf(rows)[0]).toEqual({ id: 1, label: 'solo', qty: 99 })

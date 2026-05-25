@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, asc, desc } from '../../src/index'
-import { makeRanked, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeRanked, seqOf } from './helpers'
 // A two-key table whose secondary key is nullable, so the placement of NULL
 // inside a tie group can be attacked. rank groups rows; score, when present,
 // orders within a group; some rows leave score NULL.
@@ -63,7 +64,7 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 const { db, t } = fresh(makeRanked)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.rank), asc(t.score))
-                const ranks = seqOf(rows, 'rank')
+                const ranks = seqOf(rows, 'rank') as number[]
                 const sorted = [...ranks].sort((a, b) => a - b)
                 expect(ranks).toEqual(sorted)
         })
@@ -96,7 +97,7 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
         it('the non-null secondary values still order correctly around the NULL', async () => {
                 const { db, t } = await seededNullableSecondary()
                 const rows = await db.select().from(t).orderBy(asc(t.rank), asc(t.score))
-                const rankOne = rows.filter((r: { rank: number }) => r.rank === 1)
+                const rankOne = rows.filter((r: { rank: number | null }) => r.rank === 1)
                 const nonNull = (seqOf(rankOne, 'score') as (number | null)[]).filter((s) => s != null)
                 expect(nonNull).toEqual([20, 50])
         })

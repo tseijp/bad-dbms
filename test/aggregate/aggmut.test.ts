@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { firstRow, makeUsers, scalar, seedUsers } from '../_helpers'
 import { database } from '../../src/index'
 import { count, sum, min, max, eq, gt } from '../../src/index'
-import { makeUsers, seedUsers } from '../_helpers'
-import { aggRow, scalar } from './helpers'
 // aggregate feature: aggregation observed across a realistic insert / update /
 // delete usecase. Each `it` is a small story — a library user seeds data,
 // mutates it, and re-reads an aggregate to confirm it tracks the new state.
@@ -14,7 +13,7 @@ describe('aggregate after an insert-and-mutate usecase', () => {
                 const { db, users } = await seedUsers()
                 await db.delete(users).where(eq(users.id, 3))
                 const result = await db.select({ n: count(), s: sum(users.score) }).from(users)
-                expect(aggRow(result)).toEqual({ n: 2, s: '30' })
+                expect(firstRow(result)).toEqual({ n: 2, s: '30' })
         })
         it('seeds users, updates a score, then re-reads the table sum', async () => {
                 const { db, users } = await seedUsers()
@@ -37,7 +36,7 @@ describe('aggregate after an insert-and-mutate usecase', () => {
                 const { db, users } = await seedUsers()
                 await db.delete(users).where(gt(users.id, 0))
                 const result = await db.select({ n: count(), s: sum(users.score) }).from(users)
-                expect(aggRow(result)).toEqual({ n: 0, s: null })
+                expect(firstRow(result)).toEqual({ n: 0, s: null })
         })
         it('re-seeds after a full delete and confirms the sum returns as a string', async () => {
                 const { db, users } = await seedUsers()
@@ -55,7 +54,7 @@ describe('aggregate after an insert-and-mutate usecase', () => {
                 const before = await db.select({ lo: min(users.score), hi: max(users.score) }).from(users)
                 await db.update(users).set({ score: 5 }).where(eq(users.id, 2))
                 const after = await db.select({ lo: min(users.score), hi: max(users.score) }).from(users)
-                expect([aggRow(before), aggRow(after)]).toEqual([
+                expect([firstRow(before), firstRow(after)]).toEqual([
                         { lo: 10, hi: 30 },
                         { lo: 5, hi: 30 },
                 ])

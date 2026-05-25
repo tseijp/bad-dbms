@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from '../../src/index'
-import { seeded, rowById, scoresInIdOrder } from './_fixtures'
+import { seeded, rowById, scoresInIdOrder } from './helpers'
 describe('an update inside a transaction', () => {
         // A reader mutating rows within a transaction expects the
         // writes to land and to be visible afterward.

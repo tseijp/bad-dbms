@@ -32,54 +32,54 @@ const floatDefaults: Array<[string, number]> = [
 describe('default value', () => {
         it.each(intDefaults)('records a %s default on the public default property', (_label, value) => {
                 const t = table('t', { score: integer('score').default(value) })
-                expect((t as any).score.default).toBe(value)
+                expect(t.score.default).toBe(value)
         })
         it.each(intDefaults)('records a %s default on a uint column', (_label, value) => {
                 const t = table('t', { score: uint('score').default(value) })
-                expect((t as any).score.default).toBe(value)
+                expect(t.score.default).toBe(value)
         })
         it.each(floatDefaults)('records a %s default on a float column', (_label, value) => {
                 const t = table('t', { score: float('score').default(value) })
-                expect((t as any).score.default).toBe(value)
+                expect(t.score.default).toBe(value)
         })
         it.each(factoryNames)('marks hasDefault true on a %s column with a default', (name) => {
-                const t = table('t', { score: factories[name]('score').default(1 as any) })
-                expect((t as any).score.hasDefault).toBe(true)
+                const t = table('t', { score: factories[name]('score').default(1) })
+                expect(t.score.hasDefault).toBe(true)
         })
         it('marks hasDefault true even when the default value is the falsy 0', () => {
                 const t = table('t', { score: integer('score').default(0) })
-                expect((t as any).score.hasDefault).toBe(true)
+                expect(t.score.hasDefault).toBe(true)
         })
         it.each(factoryNames)('marks hasDefault strictly false on a plain %s column', (name) => {
                 const t = table('t', { score: factories[name]('score') })
-                expect((t as any).score.hasDefault).toBe(false)
+                expect(t.score.hasDefault).toBe(false)
         })
         it('reports hasDefault as a real boolean, not undefined', () => {
                 const t = table('t', { score: integer('score') })
-                expect(typeof (t as any).score.hasDefault).toBe('boolean')
+                expect(typeof t.score.hasDefault).toBe('boolean')
         })
         it('records the not-null flag with notNull().default()', () => {
                 const t = table('t', { score: integer('score').notNull().default(3) })
-                expect((t as any).score.notNull).toBe(true)
+                expect(t.score.notNull).toBe(true)
         })
         it('records the default value with notNull().default()', () => {
                 const t = table('t', { score: integer('score').notNull().default(3) })
-                expect((t as any).score.default).toBe(3)
+                expect(t.score.default).toBe(3)
         })
         it('records the default value with default().notNull()', () => {
                 const t = table('t', { score: integer('score').default(9).notNull() })
-                expect((t as any).score.default).toBe(9)
+                expect(t.score.default).toBe(9)
         })
         it('records the default value alongside primaryKey', () => {
                 const t = table('t', { score: integer('score').primaryKey().default(2) })
-                expect((t as any).score.default).toBe(2)
+                expect(t.score.default).toBe(2)
         })
         it('records the default value with unique().default()', () => {
                 const t = table('t', { score: integer('score').unique().default(4) })
-                expect((t as any).score.default).toBe(4)
+                expect(t.score.default).toBe(4)
         })
         it('records a string default on a text column', () => {
                 const t = table('t', { label: text('label').default('none') })
-                expect((t as any).label.default).toBe('none')
+                expect(t.label.default).toBe('none')
         })
 })

@@ -1,21 +1,7 @@
 import { Hono } from 'hono'
 import { createCloudflareAdapter } from './backend/adapter/cloudflare'
-import { database } from './interface/database'
-import { table } from './interface/table'
-import { integer, text } from './interface/column'
-
-export * from './interface/expressions/conditions'
-export * from './interface/expressions/select'
-export * from './interface/functions/aggregate'
-export * from './interface/column'
-export * from './interface/introspect'
-export * from './interface/compile'
-export * from './interface/database'
-export * from './interface/plan'
-export * from './interface/sql'
-export * from './interface/table'
-export * from './interface/types'
-
+import { database, table, integer, text } from './interface'
+export * from './interface'
 interface Env {
         KV: any
 }
@@ -49,10 +35,7 @@ app.get('/users/:id', async (c) => {
 
 app.post('/users', async (c) => {
         const body = (await c.req.json()) as { id: number; name: string; age?: number }
-        const [row] = await dbOf(c.env)
-                .insert(users)
-                .values(body as any)
-                .returning()
+        const [row] = await dbOf(c.env).insert(users).values(body).returning()
         return c.json(row, 201)
 })
 

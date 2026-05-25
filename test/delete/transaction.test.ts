@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { eq, ne, gt, and, between } from '../../src/index'
-import { seededBoard, idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
+import { seededBoard } from './helpers'
 describe('a delete inside a transaction', () => {
         // A delete within a transaction lands and is visible after it,
         // and a failing transaction body rolls the delete back.

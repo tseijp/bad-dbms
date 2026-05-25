@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, gte, lt, and } from '../../src/index'
-import { seeded, scoresInIdOrder } from './_fixtures'
+import { seeded, scoresInIdOrder } from './helpers'
 describe('an update is visible to later reads', () => {
         // A reader mutating a row then querying it back, by predicate
         // or range, sees the mutation reflected.

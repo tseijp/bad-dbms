@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { findBy, rowsOf, seedEvents, seedPosts } from '../_helpers'
+import { groupTable } from './helpers'
 import { sum, eq } from '../../src/index'
-import { seedEvents, seedPosts } from '../_helpers'
-import { rowsOf, groupWith, groupTable } from './helpers'
 // group feature: per-group sum. sum() inside a grouped query totals each
 // bucket independently.
 //
@@ -22,7 +22,7 @@ describe('per-group sum', () => {
                         .select({ kind: events.kind, s: sum(events.v) })
                         .from(events)
                         .groupBy(events.kind)
-                expect(groupWith(result, 'kind', kind).s).toBe(expected)
+                expect(findBy(result, 'kind', kind)!.s).toBe(expected)
         })
         it('sums each post group score independently as strings', async () => {
                 const { db, posts } = await seedPosts()
@@ -30,7 +30,7 @@ describe('per-group sum', () => {
                         .select({ userId: posts.userId, s: sum(posts.score) })
                         .from(posts)
                         .groupBy(posts.userId)
-                expect([groupWith(result, 'userId', 1).s, groupWith(result, 'userId', 2).s, groupWith(result, 'userId', 3).s]).toEqual(['12', '9', '4'])
+                expect([findBy(result, 'userId', 1)!.s, findBy(result, 'userId', 2)!.s, findBy(result, 'userId', 3)!.s]).toEqual(['12', '9', '4'])
         })
         it.each([
                 [
@@ -71,7 +71,7 @@ describe('per-group sum', () => {
                         .select({ g: t.g, s: sum(t.v) })
                         .from(t)
                         .groupBy(t.g)
-                expect(groupWith(result, 'g', key).s).toBe(expected)
+                expect(findBy(result, 'g', key)!.s).toBe(expected)
         })
         it('sums every group back to the whole-table total', async () => {
                 const { db, events } = await seedEvents()
@@ -88,7 +88,7 @@ describe('per-group sum', () => {
                         .select({ kind: events.kind, s: sum(events.v) })
                         .from(events)
                         .groupBy(events.kind)
-                expect(groupWith(result, 'kind', 2).s).toBe('999')
+                expect(findBy(result, 'kind', 2)!.s).toBe('999')
         })
         it('resolves a per-group sum to a string, not a JS number', async () => {
                 const { db, events } = await seedEvents()
@@ -96,7 +96,7 @@ describe('per-group sum', () => {
                         .select({ kind: events.kind, s: sum(events.v) })
                         .from(events)
                         .groupBy(events.kind)
-                expect(typeof groupWith(result, 'kind', 0).s).toBe('string')
+                expect(typeof findBy(result, 'kind', 0)!.s).toBe('string')
         })
         // dense matrix: one fixed multi-group dataset, per-group sum asserted
         // for every group key as a Drizzle string.
@@ -125,6 +125,6 @@ describe('per-group sum', () => {
                         .select({ g: t.g, s: sum(t.v) })
                         .from(t)
                         .groupBy(t.g)
-                expect(groupWith(result, 'g', key).s).toBe(expected)
+                expect(findBy(result, 'g', key)!.s).toBe(expected)
         })
 })
