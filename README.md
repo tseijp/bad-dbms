@@ -10,14 +10,14 @@ tick 単位 bulk commit、tuple 単位の ACID は採用しない。
 
 ```sql
 user code (table / column / select / update / ...)
-   ↓ logical AST  { op: 'Select' | 'Insert' | 'Update' | 'Delete' | 'InitAll' }
+   ↓ logical AST  { op: 'Select' | 'Insert' | 'Update' | 'Delete' }
 planSelect (interface 側 lowering)
    ↓ physical AST { op: 'SeqScan' | 'Filter' | 'Aggregate' | 'Projection' | 'Sort' | ... }
 executor (Volcano pull)
    ↓ rid = [pageId, offset]
-access (heap / nbtree / hash / transam)
+access (heap / nbtree)
    ↓ block I/O (relId, forkId, blockNo)
-storage (free / page / buffer / smgr / file / lmng)
+storage (free / page / buffer / smgr)
    ↓ pluggable adapter (memory / OPFS / ...)
 ```
 
@@ -40,31 +40,37 @@ bad-dbms は依存方向が一方向の四層構造。
 src/interface/          user 向け drizzle-like API + AST 構築
   column.ts             uint / float / integer / text + 制約
   table.ts              column 集合に $meta を attach
-  sql.ts                SqlNode 定義 + sql\`\` template tag
+  sql.ts                SqlNode 定義 + chain method の attach
+  infer.ts              library user 向け型推論 (TypedColumn / Table / Database / ...)
+  types.ts              library 内部の AST / Column / Table 型
   expressions/          eq, and, or, between, not, ...
-  functions/            sum, count, avg, min, max, distance ...
-  compile.ts            evalNode + compilePredicate + compileExpr
+  functions/            sum, count, avg, min, max, asc, desc, ...
+  compile.ts            compileNode + compilePredicate + compileExpr
   plan.ts               planSelect: logical AST ───→ physical AST
-  database.ts           database({tables}).all(n).transaction()
+  introspect.ts         getTableColumns / getTableConfig
+  database.ts           database({tables}) + transaction()
 ─────────────────────────────────────────────────────────────────
 src/backend/            catalog + executor + entry
   catalog.ts            relation / column / index の schema 管理
-  executor.ts           Volcano operator iterator + evalNode
+  executor/             Volcano operator iterator 群
+    index.ts            executor entry (operator dispatch)
+    scan.ts             SeqScan / NamedScan
+    join.ts             NestedLoopJoin
+    group.ts            Aggregate / Sort / Distinct / Limit / Projection
+    modify.ts           Insert / Update / Delete
+    utils.ts            共有 helper
+  adapter/              file adapter 群 (memory / nodejs / cloudflare / ...)
   index.ts              createBackend: 全層を wire する entry
 ─────────────────────────────────────────────────────────────────
 src/backend/access/     rid を介した tuple アクセス層
   heap.ts               固定長 record の置き場、rid 採番
   nbtree.ts             B+tree index、forward/backward scan
-  hash.ts               linear hashing index、point lookup
-  transam.ts            xid 発行 + snapshot 構築
 ─────────────────────────────────────────────────────────────────
 src/backend/storage/    byte 単位の物理層
   page.ts               1 page の header / tombstone / 値域
   free.ts               page ごとの空き bytes の tree
   buffer.ts             clock-sweep + ring buffer の frame pool
   smgr.ts               relation を block 列に抽象化
-  file.ts               byte I/O 境界、adapter 差し替え可
-  lmng.ts               logical lock + physical latch
 ```
 
 上位は下位の internal に踏み込まない。
@@ -117,22 +123,15 @@ heap           rid 採番と           insert(value) ───→ rid
                固定長 record の     read(rid) ───→ value
                物理配置             update(rid, value)
                                     delete(rid)
-                                   scan(emit)
+                                    scan(emit)
 nbtree         順序付き index       insert(key, rid)
                leaf linked list で  search(key) ───→ rid
-               range                orward(start, end, emit)
+               range                forward(start, end, emit)
                                     backward(start, end, emit)
                                     bulkLoad(sorted)
-hash           equi lookup 専用     insert(key, rid)
-               linear hashing       lookup(key, emit)
-                                    deleteKey(key, rid?)
-                                    bulkLoad(entries)
-transam        xid と snapshot      begin/commit/abort
-                                    snapshot() ───→ {xmin, xmax, xip}
-                                    isVisible(xid, snap)
 ```
 
-heap / nbtree / hash は同一の `rid = [pageId, offset]` 形式を共有し、
+heap / nbtree は同一の `rid = [pageId, offset]` 形式を共有し、
 byte 表現には依存しない。access 層を超えた layout 変更が独立に進められる。
 
 heap が rid を発行する唯一の主体。
@@ -149,21 +148,6 @@ root に到達した時点で path が空なら新 root を確保して meta blo
 merge / borrow は未実装で、delete は leaf slot の tombstone 化のみ。
 `bulkLoad(sortedEntries)` は事前 sort 済 input を前提に leaf を `LEAF_CAP` まで密に詰め、
 各 leaf の先頭 key を pivot として上位 level を bottom-up に build (split 0 回 / 全 page 1 回 write)。
-
-hash は postgres hash index 系の linear hashing。
-primary bucket page + overflow chain (`nextPageId`) で同 hash の entry を保持。
-load factor (`tuples / nBuckets`) が 1.5 を超えた瞬間に 1 bucket だけ incremental split。
-`splitPointer` が指す bucket の entry を `level + 1` bit で再 hash して旧 / 新 bucket に振り分け、
-splitPointer が `1 << level` に達したら 0 に戻して level を 1 増やす。
-1 insert あたり最大 1 bucket rehash で amortized cost が一定。
-
-transam は xid 発行 + commit log + active set + snapshot 構築の論理層。
-`begin()` で新 xid を取り `activeTop` に加え、commit / abort で clog を更新して活動集合から外す。
-`snapshot()` は `xmin = min(activeTop)`, `xmax = nextXid`, `xip = clone(activeTop)` を凍結。
-`isVisible(xid, snap)` は xid < xmin なら clog の committed のみ可視、xid ≥ xmax なら不可視、
-xmin ≤ xid < xmax なら xip に含まれず committed のときのみ可視、というルールで判定。
-sub-transaction は親子連結 list として保持し、savepoint commit / rollback で親に戻る。
-現状 access 層からは未呼び出しで、bulk-update 主体の golden path では single-thread を前提に snapshot 経由の visibility 判定を skip。
 
 ### Storage layers
 
@@ -185,14 +169,7 @@ smgr   ←─── 「relation を block 列として見る」
             read/write(relId, forkId, blockNo, bytes)
             extend(relId, forkId) ───→ blockNo
             nBlocks(relId, forkId)
-
-file   ←─── 「byte I/O 境界、adapter 差替可」
-            read/write/sync/close
-
-lmng   ←─── 「論理 lock + 物理 latch」
-            acquireLock(tag, mode, xid)
-            acquireLatch(tag, mode)
-            releaseAll(xid)
+            adapter pattern で永続化先 (memory / OPFS / Durable Object / S3 / fs) を差し替え
 ```
 
 fsm (free space map) は per-relation per-fork の `Uint8Array` を leaf に、
@@ -208,39 +185,38 @@ interface が logical AST を組み立て、`planSelect` が physical AST に lo
 ### Logical AST (interface が emit)
 
 ```sql
-{ op: 'Select',   projection, table, where, groupBy, orderBy, limit, offset }
+{ op: 'Select',   projection, table, where, groupBy, having, orderBy, limit, offset, distinct, joins }
 { op: 'Insert',   table, values, returning? }
-{ op: 'Update',   table, set, from?, where? }
-{ op: 'Delete',   table, where? }
-{ op: 'InitAll',  count, tables, adapters }
+{ op: 'Update',   table, set, where, returning? }
+{ op: 'Delete',   table, where, returning? }
 ```
 
-`where` と `set` は SqlNode のまま渡し、lowering 時に `(row) => boolean` または `(row) => any` の関数に compile する。
+`where` / `having` / `set` は SqlNode のまま渡し、lowering 時に `(row) => boolean` または `(row) => any` の関数に compile する。
 
 ### Physical AST (executor が consume)
 
 ```sql
 { op: 'SeqScan',        table }
-{ op: 'IndexScan',      table, indexName, range }
+{ op: 'NamedScan',      table, name }
 { op: 'Filter',         child, predicate: (row) => boolean }
-{ op: 'Projection',     child, fields: string[] }
-{ op: 'NestedLoopJoin', left, right, predicate }
-{ op: 'HashJoin',       left, right, leftKey, rightKey }
-{ op: 'Aggregate',      child, groupBy, aggs: [{ name, kind, field }] }
-{ op: 'Sort',           child, keys: [{ field, dir }] }
-{ op: 'Update',         table, predicate, setters }
-{ op: 'Delete',         table, predicate }
+{ op: 'Projection',     child, fields, projectors }
+{ op: 'NestedLoopJoin', left, right, rightName, predicate, kind }
+{ op: 'Aggregate',      child, groupBy, aggs: [{ name, kind, field, distinct }] }
+{ op: 'Sort',           child, keys: [{ field, dir, eval? }] }
+{ op: 'Distinct',       child }
+{ op: 'Limit',          child, limit?, offset? }
+{ op: 'Insert',         table, values, returning? }
+{ op: 'Update',         table, predicate, setters, returning? }
+{ op: 'Delete',         table, predicate, returning? }
 ```
 
-executor の各 operator は `{ next(): row | null, close() }` を返す pull iterator。
+executor の各 operator は `{ next(): Promise<row | null>, close() }` を返す async pull iterator。
 `next` は子 iterator の `next` を呼び、必要な変換を施してから返す。
-LIMIT 相当は Sort や Aggregate の出力を Projection が打ち切る形で表現。
+LIMIT は専用 `Limit` op で limit / offset を別々に管理。
 
-executor 自身は同期 iterator だが、外向きの `backend.execute(ast)` は
-async wrapper (`Promise<any[]>`) で iterator を `drain` した配列を返す。
-`InitAll` op だけ executor を経由せず `index.ts` 層で `catalog.registerTable` を回す。
+`backend.execute(ast)` は iterator を `drain` して `Promise<Row[]>` を返す。
 空 row の場合も `[]` を返し、null / undefined にはならない。
-aggregate-no-groupBy-zero-input のときは executor の `makeAggregate` が
+aggregate-no-groupBy-zero-input のときは Aggregate operator が
 synthetic 0-row を 1 つ emit (count = 0 / sum = 0 / min = Infinity / max = -Infinity)。
 
 ### Lowering 例
@@ -261,22 +237,24 @@ db.select({ totalPosts: count() })
 
 drizzle-orm に倣った declarative API。
 `table()` で schema を宣言し、`database()` で connection を開き、`select` / `insert` / `update` / `delete` で query を組む。
+import は `import { ... } from 'bad-dbms'` を想定し、`table` / `column` / `condition` / `aggregate` / `database` / `introspect` をすべて 1 entrypoint から取得。
 
 ### Schema declaration
 
 ```ts
-import { table } from './interface/table'
-import { integer, text, float } from './interface/column'
+import { table, integer, uint, float, text } from 'bad-dbms'
 
 const users = table('users', {
         id: integer('id').primaryKey(),
         name: text('name').notNull(),
         email: text('email').unique(),
+        score: float('score').default(0),
+        createdAt: integer('created_at').$defaultFn(() => Date.now()),
 })
 
 const posts = table('posts', {
         id: integer('id').primaryKey(),
-        userId: integer('user_id').references(() => users.id),
+        userId: integer('user_id').references(() => users.id, { onDelete: 'cascade' }),
         title: text('title').notNull(),
         score: float('score').default(0),
 })
@@ -285,39 +263,71 @@ const posts = table('posts', {
 column factory:
 
 ```sql
-integer(name?)  ───→ i32 (4 bytes)
-uint(name?)     ───→ u32 (4 bytes)
-float(name?)    ───→ f32 (4 bytes)
-text(name?)     ───→ 内部 u32 + tag='str' で保持
+integer(name?, config?)  ───→ i32 (4 bytes, 数値)
+uint(name?, config?)     ───→ u32 (4 bytes, 非負整数)
+float(name?, config?)    ───→ f32 (4 bytes, 浮動小数)
+text(name?, config?)     ───→ u32 + tag='str' (内部で intern した string id)
+column(type, name?, cfg) ───→ 上記 factory の下層 (任意 ColumnType 直指定)
+dataTypeOf(type, tag?)   ───→ 'integer' | 'float' | 'text' の宣言文字列
 ```
 
-column 修飾:
+column 修飾 (chain method):
 
 ```sql
-.primaryKey()           主キー、catalog が nbtree index を自動配置
-.unique()               unique 制約、nbtree index を自動配置
-.notNull()              NOT NULL 制約
-.default(value)         挿入時の既定値
-.$defaultFn(() => v)    挿入時の既定値を関数で (alias: .defaultFn)
-.references(() => col)  外部キー宣言
+.primaryKey()                       主キー、catalog が nbtree index を自動配置
+.unique()                           unique 制約、nbtree index を自動配置
+.notNull()                          NOT NULL 制約 (型からも null を剥がす)
+.default(value)                     挿入時の既定値 (リテラル固定)
+.$defaultFn(() => v)                挿入時の既定値 (関数評価、alias: .defaultFn)
+.references(() => col, opts?)       外部キー宣言、opts = { onDelete?, onUpdate? }
 ```
 
-column は SQL expression としても振る舞い、`.add` / `.sub` / `.mul` / `.div` / `.mod` / `.eq` / `.ne` / `.lt` / `.lte` / `.gt` / `.gte` / `.toFloat` / `.toInt` / `.toBool` の chain method を持つ。
+column は SQL expression としても振る舞い、以下の chain method を持つ:
+
+```sql
+.add(x) .sub(x) .mul(x) .div(x) .mod(x)             算術
+.eq(x) .ne(x) .lt(x) .lte(x) .gt(x) .gte(x)         比較
+.toFloat() .toInt() .toBool()                       型変換
+```
 
 ### Database connection
 
 ```ts
+import { database } from 'bad-dbms'
+import { createCloudflareAdapter } from 'bad-dbms/adapter/cloudflare'
+
 const db = database({ users, posts })
+const dbPersisted = database({ users, posts }, { file: createCloudflareAdapter(env.KV) })
+const dbCustom = database({ users, posts }, { adapter: 'memory' })
 ```
 
 `database(schema)` は in-memory adapter で動く connection を返す。
-永続化 adapter (OPFS / Durable Object / Node fs) を渡したい場合は第 2 引数の config に `fileAdapter` を指定。
+永続化したい場合は第 2 引数 config に adapter を渡す。
 
-```ts
-const db = database({ users, posts }, { fileAdapter: myAdapter, pageSize: 4096 })
+config 一覧 (`DatabaseConfig`):
+
+```sql
+execute        (ast) => Row[]  外部 executor を差し込む拡張口 (省略時は内蔵 backend)
+pageSize       number          1 page あたりの bytes (default 4096)
+frameCount     number          buffer pool の normal frame 数 (default 64)
+file           FileAdapter     永続化 adapter (createMemoryAdapter / createCloudflareAdapter / ...)
+adapter        AdapterKind     'memory' | 'nodejs' | 'bun' | 'deno' | 'browser' | 'cloudflare' | ...
+adapterOptions AdapterOptions  adapter ごとの追加 option (dir / kv / s3 / bucket / ...)
 ```
 
-config の代表項目: `fileAdapter` (file.ts の adapter pattern), `pageSize` (default 4096), `frameCount` (buffer pool の normal frame 数, default 64), `ringCount` (bulk hint 用 ring frame 数, default 8)。
+`db` の surface:
+
+```sql
+db.select(fields?)         select builder
+db.selectDistinct(fields?) DISTINCT select builder
+db.insert(table)           insert builder
+db.update(table)           update builder
+db.delete(table)           delete builder
+db.transaction(fn)         multi-statement transaction
+db.$count(table, where?)   count(*) の shortcut
+db.tables                  渡した table 集合をそのまま返す
+db.backend                 内蔵 backend handle (catalog / smgr / buffer / fsm)
+```
 
 ### Queries
 
@@ -327,14 +337,34 @@ config の代表項目: `fileAdapter` (file.ts の adapter pattern), `pageSize` 
 const all = await db.select().from(users)
 const byId = await db.select().from(users).where(eq(users.id, 1))
 const projected = await db.select({ id: users.id, name: users.name }).from(users)
+const distinct = await db.selectDistinct({ userId: posts.userId }).from(posts)
 const aggregated = await db
         .select({ avgScore: avg(posts.score) })
         .from(posts)
         .groupBy(posts.userId)
-const ordered = await db.select().from(posts).orderBy(desc(posts.score)).limit(10)
+        .having(gt(avg(posts.score), 50))
+const ordered = await db.select().from(posts).orderBy(desc(posts.score), asc(posts.id)).limit(10).offset(20)
+const joined = await db
+        .select({ user: { name: users.name }, post: { title: posts.title } })
+        .from(users)
+        .leftJoin(posts, eq(users.id, posts.userId))
 ```
 
-chain method: `.from(table)` / `.where(cond)` / `.groupBy(...cols)` / `.orderBy(...cols)` / `.limit(n)` / `.offset(n)`。
+chain method:
+
+```sql
+.from(table)                        FROM
+.where(cond)                        WHERE
+.groupBy(...cols)                   GROUP BY
+.having(cond)                       HAVING (aggregate 後の filter)
+.orderBy(...cols)                   ORDER BY (asc / desc で wrap)
+.limit(n)                           LIMIT
+.offset(n)                          OFFSET
+.innerJoin(table, on)               INNER JOIN
+.leftJoin(table, on)                LEFT JOIN
+.rightJoin(table, on)               RIGHT JOIN
+.fullJoin(table, on)                FULL JOIN
+```
 
 戻り値は row 配列。`.groupBy` 無しで aggregate のみを projection した場合は単一 row object に unwrap される。
 
@@ -346,10 +376,12 @@ await db.insert(users).values([
         { id: 2, name: 'Bob', email: 'b@example.com' },
         { id: 3, name: 'Carol', email: 'c@example.com' },
 ])
-const rids = await db.insert(users).values({ id: 4, name: 'Dave' }).returning()
+const rows = await db.insert(users).values({ id: 4, name: 'Dave' }).returning()
 ```
 
-戻り値は `{ rowCount: n }`。`.returning()` を付けると rid (`[pageId, offset]`) 配列。
+`.values()` は単一 row でも row 配列でも受ける。
+`.returning()` を付けると insert された row 全体の配列を返す (型は `RowOfTable<T>[]`)。
+省略時は `{ rowCount: n, changes: n }` を返す。
 
 #### update
 
@@ -359,39 +391,91 @@ await db
         .update(posts)
         .set({ score: posts.score.add(1) })
         .where(lt(posts.score, 10))
+const updated = await db.update(users).set({ name: 'X' }).where(eq(users.id, 1)).returning()
 ```
 
 `set` の値はリテラルか SQL expression。expression なら row ごとに評価。
-戻り値は `[{ updated: n }]`。
+`.returning()` で更新後 row 配列。省略時は `{ rowCount: n, changes: n }`。
 
 #### delete
 
 ```ts
 await db.delete(posts).where(eq(posts.id, 5))
 await db.delete(users).where(isNull(users.email))
+const removed = await db.delete(posts).where(eq(posts.userId, 1)).returning()
 ```
 
-戻り値は `[{ deleted: n }]`。
+`.returning()` で削除前 row 配列。省略時は `{ rowCount: n, changes: n }`。
 
 ### Conditions
 
+`condition` 系はすべて `SQL<boolean>` を返し、`where` / `having` / join `on` に渡せる。
+
+```sql
+eq(a, b)               a = b
+ne(a, b)               a != b
+gt(a, b)               a > b
+gte(a, b)              a >= b
+lt(a, b)               a < b
+lte(a, b)              a <= b
+and(...conds)          AND (variadic, undefined を無視)
+or(...conds)           OR (variadic, undefined を無視)
+not(cond)              NOT
+inArray(col, values)   IN
+notInArray(col, vals)  NOT IN
+isNull(value)          IS NULL
+isNotNull(value)       IS NOT NULL
+between(col, min, max) BETWEEN
+notBetween(col, ...)   NOT BETWEEN
+like(col, pattern)     LIKE
+notLike(col, pattern)  NOT LIKE
+ilike(col, pattern)    ILIKE (大文字小文字無視)
+```
+
 ```ts
-eq(users.id, 1)
-and(eq(users.id, 1), eq(users.name, 'Alice'))
-or(eq(users.id, 1), eq(users.id, 2))
-between(posts.score, 1, 10)
-inArray(users.id, [1, 2, 3])
-isNotNull(users.email)
+where(and(eq(users.id, 1), or(isNull(users.email), like(users.name, 'A%'))))
+```
+
+### Order
+
+```sql
+asc(col)               ASC sort key
+desc(col)              DESC sort key
+```
+
+```ts
+.orderBy(asc(users.name), desc(users.createdAt))
 ```
 
 ### Aggregates
 
+```sql
+count(expr?)           COUNT(expr) または COUNT(*) (expr 省略時)
+countDistinct(expr)    COUNT(DISTINCT expr)
+sum(expr)              SUM
+sumDistinct(expr)      SUM(DISTINCT)
+avg(expr)              AVG
+avgDistinct(expr)      AVG(DISTINCT)
+max(expr)              MAX
+min(expr)              MIN
+```
+
 ```ts
-import { count, sum, avg, min, max, countDistinct } from './interface/sql'
+import { count, sum, avg, min, max, countDistinct } from 'bad-dbms'
 
 db.select({ total: count() }).from(users)
 db.select({ avgScore: avg(posts.score), maxScore: max(posts.score) }).from(posts)
 ```
+
+### Introspection
+
+```sql
+getTableColumns(table) ───→ Record<string, Column>  column 集合を key 順で取得
+getTableConfig(table)  ───→ TableConfig             { name, columns, primaryKeys, foreignKeys, uniqueConstraints, indexes, checks }
+dataTypeOf(type, tag?) ───→ string                  data type の表示名
+```
+
+drizzle 互換 helper。schema を実行時に走査するときに使う。
 
 ### Transactions
 
@@ -402,30 +486,57 @@ await db.transaction(async (tx) => {
 })
 ```
 
-`tx` は `db` と同じ surface (`select` / `insert` / `update` / `delete`) を持つ。
+`tx` は `db` と同じ surface (`select` / `insert` / `update` / `delete` / `transaction` / `rollback`) を持つ。
 callback の返り値が `await db.transaction(...)` の結果になる。
+`tx.rollback()` を呼ぶと throw 経由で transaction が abort され snapshot に戻る。
+内部例外が出ても catalog snapshot から自動 restore。
 
 per-row 走査 mode として、callback が第 2 引数を受ける variant がある。
 
 ```ts
-const tick = db.transaction(async (tx, c) => {
-        await tx.update(users).set({ active: 1 }).where(eq(users.id, c.id))
+const tick = db.transaction((tx, c) => {
+        return tx.update(users).set({ active: 1 }).where(eq(users.id, c.id))
 })
 await tick.run()
 ```
 
 primary table の各 row に対して callback を呼び、`c.colName` が「現在 row の値」として SQL 式に組み込まれる。
 
+### Raw SQL helpers
+
+```sql
+make(node)             SqlNode を SQL<T> wrapper に attach
+wrap(value)            任意値を SQL に変換 (既に SQL ならそのまま)
+isSQL(value)           SQL guard
+```
+
+低レイヤーで AST node を直接構築するときに使う。通常は expression / condition / aggregate helper で十分。
+
 ### 戻り値の規約
 
 ```sql
-Select  配列 [{...row}]
+Select  Row[]
         aggregate のみ + group by 無しの場合は単一 row object に unwrap
-Insert  { rowCount: n }
-        .returning() を付けると rid 配列
-Update  [{ updated: n }]
-Delete  [{ deleted: n }]
+Insert  { rowCount: n, changes: n }
+        .returning() を付けると Row[]
+Update  { rowCount: n, changes: n }
+        .returning() を付けると Row[]
+Delete  { rowCount: n, changes: n }
+        .returning() を付けると Row[]
 ```
+
+### 型推論 (library user 視点)
+
+```ts
+import type { Database, RowOfTable, InsertRowOfTable, SchemaOf } from 'bad-dbms'
+
+type UserRow = RowOfTable<typeof users>          // { id: number; name: string; email: string | null; ... }
+type UserInsert = InsertRowOfTable<typeof users> // notNull 列は必須、それ以外は optional
+type UsersSchema = SchemaOf<typeof users>        // column 集合
+```
+
+`db.select().from(users)` の戻りは `RowOfTable<typeof users>[]`、
+`db.select({ avg: avg(posts.score) }).from(posts)` の戻りは `{ avg: number }[]` として推論される。
 
 ## Internals
 
@@ -434,18 +545,14 @@ Delete  [{ deleted: n }]
 ```ts
 type SqlNode =
         | { type: 'column'; name; dataType; tableName? }
-        | { type: 'literal'; value; encoder? }
-        | { type: 'raw'; value }
-        | { type: 'identifier'; name }
-        | { type: 'placeholder'; name }
-        | { type: 'binop'; op; args: SQL[] } // +, -, *, /, %, =, !=, <, <=, >, >=, and, or, in
-        | { type: 'unop'; op; args: [SQL] } // not, isNull, isNotNull, exists, notExists
-        | { type: 'func'; name; args: SQL[] } // toFloat, toInt, toBool, between, at, distance, ...
+        | { type: 'literal'; value }
+        | { type: 'binop'; op; args: SQL[] } // +, -, *, /, %, =, !=, <, <=, >, >=, and, or, in, like, ilike
+        | { type: 'unop'; op; args: SQL[] } // not, isNull, isNotNull
+        | { type: 'func'; name; args: SQL[] } // toFloat, toInt, toBool, between
         | { type: 'aggregate'; name; distinct; args: SQL[] } // count, sum, avg, min, max
         | { type: 'list'; items: SQL[] }
         | { type: 'order'; dir: 'asc' | 'desc'; col: SQL }
         | { type: 'table'; name }
-        | { type: 'currentTuple'; col; tableName }
 ```
 
 `{ kind: 'sql', node: SqlNode }` の wrapper を経由するため、
@@ -455,24 +562,24 @@ binop は `args: SQL[]` の可変長配列。
 二項演算 (`=`, `<`, `+` 等) は `args.length === 2`、
 論理結合 (`and`, `or`) は variadic で同じ shape を共有。
 `and(a, b, c, d)` を nest 無しで表現。
-evalNode 側も `args.every` / `args.some` の uniform な走査で評価。
+`compileNode` 側も `args.every` / `args.some` の uniform な走査で評価。
 
-`func` は単一 row 上の純粋関数 (`toFloat`, `between`, `at`, distance 系)。
-evalNode が再帰的に args を解いて即値化。
-`aggregate` は複数 row の reduction (`count`, `sum`, `avg`, `min`, `max`) で、executor の Aggregate operator が groupBy ごとに state を持ち updateAgg / finalAgg を呼ぶ。
-type 分離により evalNode の責務は pure func 評価に限定し、aggregate は operator 経路に閉じる。
+`func` は単一 row 上の純粋関数 (`toFloat` / `toInt` / `toBool` / `between`)。
+`compileNode` が再帰的に args を解いて即値化。
+`aggregate` は複数 row の reduction (`count`, `sum`, `avg`, `min`, `max`) で、executor の Aggregate operator が groupBy ごとに state を持ち update / final を呼ぶ。
+type 分離により compileNode の責務は pure func 評価に限定し、aggregate は operator 経路に閉じる。
 
-### `currentTuple`
+### per-row transaction の cursor proxy
 
-`db.transaction(fn)` が第 2 引数 `c` を取る per-row variant の中核。
-`c` は Proxy で、任意 property access が `{ type:'currentTuple', col, tableName }` SqlNode を返し、evalNode 内で `ctx.current[col]` を読む。
-
-transaction loop は以下の構造。
+`db.transaction(fn)` が第 2 引数 `c` を取る per-row variant では、`c` は Proxy で実装されており、
+SqlNode を発行せず **JavaScript 値そのもの** を返す。
+transaction loop は primary table の各 row を `_ctx.current` にセットし、
+`c.colName` で `_ctx.current[colName]` を直接返す。
 
 ```sql
 for each row of primary table:
-    ctx.current = row
-    await fn(tx, c)
+    _ctx.current = row
+    await fn(tx, proxy(row))
 ```
 
 ```ts
@@ -482,32 +589,31 @@ db.transaction(async (tx, c) => {
 })
 ```
 
-`c.id` は AST build 時には未確定のまま (col 名と tableName だけ持つ) で、eval 時に `ctx.current.id` に解決。
-AST build 時点で「現在の row」が未定なため、Proxy の get-trap で property access を SqlNode に変換し、closure 経由で transaction loop の row を参照する形を採用。
-同じ AST tree を全 row に対して再評価する形式が成立し、interface 側だけで currentTuple を解決できるため、executor は SqlNode の存在を知らずに済む。
+`c.id` は callback 内で常に「現在 row の id (値)」として展開される。
+condition helper (`eq(users.id, c.id)`) はその値をリテラルとして SQL に焼き込むため、
+executor は専用 SqlNode を知らずに済む。
 
 ### Update / Delete の関数化境界
 
-`planSelect` が Select の `where` を `(row) => boolean` に compile して `Filter` に乗せるのと並行して、`runUpdate` / `runDelete` も interface 側で `where` を predicate に、`set` の各値を setter (`(row) => any`) に変換してから physical Update / Delete op に乗せる。
-currentTuple を含む式は interface の closure (`ctx.current`) を関数値に閉じ込めるため、executor は SqlNode を受け取らず `predicate` / `setters` の関数だけで動く。
+`planSelect` が Select の `where` を `(row) => boolean` に compile して `Filter` に乗せるのと並行して、`database.ts` の `_run` も `where` を predicate に、`set` の各値を setter (`(row) => unknown`) に変換してから physical Update / Delete op に乗せる。
+SqlNode は interface の closure に閉じ込め、executor は `predicate` / `setters` の関数だけで動く。
 
 ### `compile.ts` / `plan.ts` 分離
 
-`compile.ts` = `evalNode` (SqlNode ───→ 値) + `compilePredicate` / `compileExpr` (SqlNode ───→ 関数)、`plan.ts` = `planSelect` + `buildProjection` + `tableNameOf`。
+`compile.ts` = `compileNode` (SqlNode ───→ 関数) + `compilePredicate` / `compileExpr`、`plan.ts` = `planSelect` (logical ───→ physical lowering)。
 `database.ts` は builder / dispatch / lifecycle のみ。
-evalNode は currentTuple / column / literal / binop / unop / func / list を 1 関数で網羅し、aggregate / order / table は値化せず executor の Aggregate / Sort operator と plan 側の `tableNameOf` が処理。
+compileNode は column / literal / binop / unop / func / list を 1 関数で網羅し、aggregate / order / table は関数化せず executor の Aggregate / Sort operator と plan 側の `tableNameOf` が処理。
 
 ### catalog の自動 index 配置
 
 ```sql
-column 制約                   access method  index 名
+column 制約          access method  index 名
 ─────────────────────────────────────────────────────────────
-primaryKey / unique / order  nbtree         <table>_<col>_idx
-それ以外                      index 無し
+primaryKey / unique  nbtree         <table>_<col>_idx
+それ以外             index 無し
 ```
 
-`isPrimary` / `isUnique` / `hasOrder` のいずれかが立つ column に対し、catalog が空 nbtree を作成。
-hash index は equi lookup 専用で、catalog の自動経路には現状乗らない。
+`isPrimary` / `isUnique` のいずれかが立つ column に対し、catalog が空 nbtree を作成。
 
 ### rid alignment (DSM の不変条件)
 
@@ -516,34 +622,29 @@ catalog の `insertRow(name, row)` は column 順に各 heap へ `insert(value)`
 同 table の全 column は valueSize = 4 で揃うため、各 heap の fsm は同型の状態遷移を辿り、insert を同期的に直列で呼ぶ限り `(blockNo, slot)` が全 column で一致。
 
 `heap.update(rid, value)` は同一 slot を再利用し row 構造を破壊しない。
-`heap.delete(rid)` は executor の `makeDelete` が全 column heap に dispatch、index 側 entry は `deleteKey(key, rid?)` で別途 tombstone 化。
+`heap.delete(rid)` は executor の Delete operator が全 column heap に dispatch、null 管理用の codec set からも該当 rid を除去する。
 
 ### interface ↔ catalog の境界属性
 
 `database.ts > registerTables` が `$col` を catalog の `register(name, def)` に正規化する。
-def に渡る項目と interface 側にだけ留まる項目。
 
 ```sql
-def に渡る           type / isPrimary / isUnique / hasOrder
-interface 内に留まる  orderRange / defaultFn / defaultValue / notNull / references / tag
+def に渡る  name / type / isPrimary / isUnique / notNull / isText / defaultValue / defaultFn / references
 ```
 
-留まる側を catalog 経路に流す再設計は Roadmap 参照。
+text 列は catalog 側で intern table を持ち、id ↔ string の往復で固定長 storage に落とす。
 
-### Buffer pool の二段構え
+### Buffer pool
 
 ```sql
 buffer pool
-  ├── normal frames  ─── clock-sweep replacement
-  │                      pin/unpin で usage counter を上下
-  │                      hint = 'normal' のとき選択
-  │
-  └── ring frames    ─── 単純な循環 buffer
-                         hint = 'bulk_read' / 'bulk_write' / 'vacuum' で選択
-                         大量 scan / vacuum 中の hot frame 汚染を回避
+  └── frames  ─── clock-sweep replacement
+                  pin/unpin で usage counter を上下
+                  dirty frame は victim 化前に smgr.write で flush
 ```
 
-`pin(relId, forkId, blockNo, hint?)` は cache hit なら同じ frame を返し、miss なら hint に応じた pool から victim を選び `smgr.read` で load する。
+`pin(relId, forkId, blockNo)` は cache hit なら同じ frame を返し、miss なら usage = 0 の victim を選んで `smgr.read` で load する。
+bulk scan 用の ring buffer (vacuum / bulk_load 時の hot frame 汚染回避) は今後の拡張ポイント。
 
 ### Storage relId の組み立て
 
