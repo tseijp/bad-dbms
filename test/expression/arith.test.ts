@@ -61,7 +61,7 @@ describe('arithmetic operators evaluate per row', () => {
                 ['mod by large', 'mod', 100, [10, 20, 30]],
         ])('evaluates score.%s over the user seed', async (_label, method, arg, expected) => {
                 const { db, users } = await seedUsers()
-                const rows = await db.select({ x: (users.score as any)[method](arg) }).from(users)
+                const rows = await db.select({ x: users.score[method](arg) }).from(users)
                 expect(column(rows, 'x')).toEqual(expected)
         })
         // arithmetic over a table of negative and zero values.
@@ -71,7 +71,7 @@ describe('arithmetic operators evaluate per row', () => {
                 ['mul', 'mul', 2, [-20, 0, -10, 200]],
         ])('evaluates v.%s over a signed dataset', async (_label, method, arg, expected) => {
                 const { db, t } = await intTable([-10, 0, -5, 100])
-                const rows = await db.select({ x: (t.v as any)[method](arg) }).from(t)
+                const rows = await db.select({ x: t.v[method](arg) }).from(t)
                 expect(column(rows, 'x')).toEqual(expected)
         })
         it('evaluates integer division truncating toward zero', async () => {

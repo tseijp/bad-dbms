@@ -14,13 +14,13 @@ import * as bad from '../../src/index'
 const factories = { integer, uint, float, text } as const
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
-const getTableConfig = (t: unknown) => (bad as any).getTableConfig(t)
+const getTableConfig = (t: unknown) => bad.getTableConfig(t)
 describe('foreign key reference', () => {
         it('lists a declared foreign key in getTableConfig', () => {
                 const users = table('users', { id: integer('id').primaryKey() })
                 const posts = table('posts', {
                         id: integer('id').primaryKey(),
-                        userId: integer('user_id').references(() => (users as any).id),
+                        userId: integer('user_id').references(() => users.id),
                 })
                 const config = getTableConfig(posts)
                 expect(config.foreignKeys.length).toBe(1)
@@ -34,7 +34,7 @@ describe('foreign key reference', () => {
                 const users = table('users', { id: integer('id').primaryKey() })
                 const posts = table('posts', {
                         id: integer('id').primaryKey(),
-                        userId: integer('user_id').references(() => (users as any).id),
+                        userId: integer('user_id').references(() => users.id),
                 })
                 const fk = getTableConfig(posts).foreignKeys[0]
                 const ref = fk.reference()
@@ -44,7 +44,7 @@ describe('foreign key reference', () => {
                 const users = table('users', { id: integer('id').primaryKey() })
                 const posts = table('posts', {
                         id: integer('id').primaryKey(),
-                        userId: integer('user_id').references(() => (users as any).id),
+                        userId: integer('user_id').references(() => users.id),
                 })
                 const fk = getTableConfig(posts).foreignKeys[0]
                 const ref = fk.reference()
@@ -54,7 +54,7 @@ describe('foreign key reference', () => {
                 const users = table('users', { id: integer('id').primaryKey() })
                 const posts = table('posts', {
                         id: integer('id').primaryKey(),
-                        userId: integer('user_id').references(() => (users as any).id, { onDelete: action }),
+                        userId: integer('user_id').references(() => users.id, { onDelete: action }),
                 })
                 const fk = getTableConfig(posts).foreignKeys[0]
                 expect(fk.onDelete).toBe(action)
@@ -63,7 +63,7 @@ describe('foreign key reference', () => {
                 const users = table('users', { id: integer('id').primaryKey() })
                 const posts = table('posts', {
                         id: integer('id').primaryKey(),
-                        userId: integer('user_id').references(() => (users as any).id, { onUpdate: 'cascade' }),
+                        userId: integer('user_id').references(() => users.id, { onUpdate: 'cascade' }),
                 })
                 const fk = getTableConfig(posts).foreignKeys[0]
                 expect(fk.onUpdate).toBe('cascade')
@@ -76,7 +76,7 @@ describe('foreign key reference', () => {
         it('lists a self-referential foreign key in getTableConfig', () => {
                 const nodes = table('nodes', {
                         id: integer('id').primaryKey(),
-                        parentId: integer('parent_id').references(() => (nodes as any).id),
+                        parentId: integer('parent_id').references(() => nodes.id),
                 })
                 const config = getTableConfig(nodes)
                 expect(config.foreignKeys.length).toBe(1)
@@ -84,7 +84,7 @@ describe('foreign key reference', () => {
         it('resolves a self-referential foreign key back to its own table', () => {
                 const nodes = table('nodes', {
                         id: integer('id').primaryKey(),
-                        parentId: integer('parent_id').references(() => (nodes as any).id),
+                        parentId: integer('parent_id').references(() => nodes.id),
                 })
                 const fk = getTableConfig(nodes).foreignKeys[0]
                 const ref = fk.reference()
@@ -95,8 +95,8 @@ describe('foreign key reference', () => {
                 const groups = table('groups', { id: integer('id').primaryKey() })
                 const members = table('members', {
                         id: integer('id').primaryKey(),
-                        userId: integer('user_id').references(() => (users as any).id),
-                        groupId: integer('group_id').references(() => (groups as any).id),
+                        userId: integer('user_id').references(() => users.id),
+                        groupId: integer('group_id').references(() => groups.id),
                 })
                 const config = getTableConfig(members)
                 expect(config.foreignKeys.length).toBe(2)

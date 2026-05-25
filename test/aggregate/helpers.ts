@@ -6,7 +6,7 @@ import { makeUsers } from '../_helpers'
 // group-by-less aggregate query resolves to an array of exactly one row,
 // e.g. `[{ n: 3 }]`. bad-dbms currently unwraps that to a bare object; these
 // readers express the correct Drizzle shape so the divergence fails honestly.
-export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? (r as any[]) : [])
+export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? r : [])
 export const aggRow = (r: unknown): any => rowsOf(r)[0]
 export const scalar = (r: unknown, alias: string): unknown => {
         const row = aggRow(r)

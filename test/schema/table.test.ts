@@ -9,7 +9,7 @@ import * as bad from '../../src/index'
 // `$meta.columns[].$col.name` path onto the public column `name` property and
 // the Drizzle `getTableColumns` introspection helper, so a column-shape
 // divergence fails honestly rather than passing through an internal field.
-const getTableColumns = (t: unknown) => (bad as any).getTableColumns(t)
+const getTableColumns = (t: unknown) => bad.getTableColumns(t)
 const columnNames = (t: any) => Object.values(getTableColumns(t)).map((c: any) => c.name)
 describe('table()', () => {
         it('reads the table name from the declared table', () => {
@@ -42,7 +42,7 @@ describe('table()', () => {
                 [3, { a: integer('a'), b: integer('b'), c: integer('c') }],
                 [5, { a: integer('a'), b: integer('b'), c: integer('c'), d: integer('d'), e: integer('e') }],
         ])('declares a table with %i columns', (count, cols) => {
-                const t = table('t', cols as any)
+                const t = table('t', cols)
                 expect(Object.keys(getTableColumns(t))).toHaveLength(count as number)
         })
         it('declares two different tables as distinct references', () => {
@@ -52,7 +52,7 @@ describe('table()', () => {
         })
         it('keeps a foreign property off the users table', () => {
                 const users = table('users', { id: integer('id') })
-                expect((users as any).userId).toBeUndefined()
+                expect(users.userId).toBeUndefined()
         })
         it('declares two same-named tables as distinct references', () => {
                 const a = table('t', { id: integer('id') })
@@ -74,14 +74,14 @@ describe('table()', () => {
         })
         it('exposes a declared column as a table property', () => {
                 const users = table('users', { id: integer('id') })
-                expect((users as any).id).toBeDefined()
+                expect(users.id).toBeDefined()
         })
         it('exposes the same column object on the property and via getTableColumns', () => {
                 const users = table('users', { id: integer('id') })
-                expect(getTableColumns(users).id).toBe((users as any).id)
+                expect(getTableColumns(users).id).toBe(users.id)
         })
         it('keeps the column name on the public column property', () => {
                 const users = table('users', { id: integer('id') })
-                expect((users as any).id.name).toBe('id')
+                expect(users.id.name).toBe('id')
         })
 })

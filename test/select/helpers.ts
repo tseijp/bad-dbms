@@ -6,7 +6,7 @@ import { makeUsers, makeEvents, USERS_SEED, EVENTS_SEED } from '../_helpers'
 // the projection ALIAS (the key passed to select({...})), never by the source
 // column name. An omitted projection returns every declared column. Expected
 // values follow the correct Drizzle spec, never bad-dbms behaviour.
-export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? (r as any[]) : [])
+export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? r : [])
 export const valuesOf = (r: unknown, key: string): any[] => rowsOf(r).map((row) => row[key])
 export const keysOf = (r: unknown): string[] => Object.keys(rowsOf(r)[0] ?? {}).sort()
 // the canonical integer users fixture: ids 1/2/3, names 11/22/33, scores
@@ -35,7 +35,7 @@ export const seedLabels = async (rows: Array<[number, string, number]>) => {
         })
         const db = database({ items })
         const data = rows.map(([id, label, qty]) => ({ id, label, qty }))
-        if (data.length) await db.insert(items).values(data as any)
+        if (data.length) await db.insert(items).values(data)
         return { db, items }
 }
 // the default label dataset used across text-projection scenarios.

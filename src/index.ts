@@ -35,10 +35,7 @@ app.get('/users/:id', async (c) => {
 
 app.post('/users', async (c) => {
         const body = (await c.req.json()) as { id: number; name: string; age?: number }
-        const [row] = await dbOf(c.env)
-                .insert(users)
-                .values(body as any)
-                .returning()
+        const [row] = await dbOf(c.env).insert(users).values(body).returning()
         return c.json(row, 201)
 })
 

@@ -17,31 +17,31 @@ const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 describe('column name resolution', () => {
         it.each(factoryNames)('keeps the explicit factory name on a %s column', (name) => {
                 const t = table('t', { c: factories[name]('explicit') })
-                expect((t as any).c.name).toBe('explicit')
+                expect(t.c.name).toBe('explicit')
         })
         it('fills the column name from the property key for an integer column', () => {
                 const t = table('t', { propKey: integer() })
-                expect((t as any).propKey.name).toBe('propKey')
+                expect(t.propKey.name).toBe('propKey')
         })
         it('fills the column name from the property key for a uint column', () => {
                 const t = table('t', { propKey: uint() })
-                expect((t as any).propKey.name).toBe('propKey')
+                expect(t.propKey.name).toBe('propKey')
         })
         it('fills the column name from the property key for a float column', () => {
                 const t = table('t', { propKey: float() })
-                expect((t as any).propKey.name).toBe('propKey')
+                expect(t.propKey.name).toBe('propKey')
         })
         it('fills the column name from the property key for a text column', () => {
                 const t = table('t', { propKey: text() })
-                expect((t as any).propKey.name).toBe('propKey')
+                expect(t.propKey.name).toBe('propKey')
         })
         it('lets the explicit factory name win over the property key', () => {
                 const t = table('t', { propKey: integer('given_name') })
-                expect((t as any).propKey.name).toBe('given_name')
+                expect(t.propKey.name).toBe('given_name')
         })
         it.each(['id', 'name', 'score', 'user_id', 'created_at'])('records the factory name %s on the column', (name) => {
                 const t = table('t', { c: integer(name) })
-                expect((t as any).c.name).toBe(name)
+                expect(t.c.name).toBe(name)
         })
         it('builds two integer columns with the same name as distinct objects', () => {
                 const a = integer('a')
@@ -60,26 +60,26 @@ describe('column name resolution', () => {
 describe('column initial constraint state', () => {
         it.each(factoryNames)('reports a fresh %s column as strictly not primary', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect((t as any).c.primary).toBe(false)
+                expect(t.c.primary).toBe(false)
         })
         it.each(factoryNames)('reports a fresh %s column as strictly not unique', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect((t as any).c.isUnique).toBe(false)
+                expect(t.c.isUnique).toBe(false)
         })
         it.each(factoryNames)('reports a fresh %s column as strictly nullable', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect((t as any).c.notNull).toBe(false)
+                expect(t.c.notNull).toBe(false)
         })
         it.each(factoryNames)('reports a fresh %s column as having strictly no default', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect((t as any).c.hasDefault).toBe(false)
+                expect(t.c.hasDefault).toBe(false)
         })
         it.each(factoryNames)('reports the primary flag of a fresh %s column as a real boolean', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect(typeof (t as any).c.primary).toBe('boolean')
+                expect(typeof t.c.primary).toBe('boolean')
         })
         it.each(factoryNames)('reports the notNull flag of a fresh %s column as a real boolean', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect(typeof (t as any).c.notNull).toBe('boolean')
+                expect(typeof t.c.notNull).toBe('boolean')
         })
 })

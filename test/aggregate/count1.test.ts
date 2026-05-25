@@ -120,7 +120,7 @@ const seedNullable = async (values: Array<number | null>) => {
         const t = table('t', { id: integer('id'), v: integer('v') })
         const db = database({ t })
         const rows = values.map((value, i) => (value === null ? { id: i + 1 } : { id: i + 1, v: value }))
-        if (rows.length) await db.insert(t).values(rows as any)
+        if (rows.length) await db.insert(t).values(rows)
         return { db, t }
 }
 describe('count over a column with NULL values', () => {

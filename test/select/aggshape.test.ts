@@ -44,7 +44,7 @@ describe('aggregate-projection row shape', () => {
         })
         it('returns an array, not a bare object, for an aggregate projection', async () => {
                 const { db, users } = await seedUsers()
-                const result = (await db.select({ n: count() }).from(users)) as any
+                const result = await db.select({ n: count() }).from(users)
                 expect(Array.isArray(result) && !Array.isArray(result[0])).toBe(true)
         })
         it('returns a one-row array for an aggregate over an empty table', async () => {

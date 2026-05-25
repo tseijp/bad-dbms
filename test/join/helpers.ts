@@ -7,7 +7,7 @@ import { makeUsers, makePosts, makeNodes, USERS_SEED, POSTS_SEED } from '../_hel
 // Drizzle keys each row by table name (`row.users`, `row.posts`). leftJoin
 // null-fills the unmatched right side. Row order is unspecified, so readers
 // sort before asserting where order is not the behaviour under test.
-export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? (r as any[]) : [])
+export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? r : [])
 // the join builders live on the select builder; reached untyped so a missing
 // method is a runtime honest fail rather than a compile error. Expected
 // behaviour follows the correct Drizzle spec regardless of whether bad-dbms

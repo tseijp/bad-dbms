@@ -5,7 +5,7 @@ import { database, table, integer, text } from '../../src/index'
 // group key, each carrying the projected key column(s) and the per-group
 // aggregate alias(es). Order of groups is unspecified, so readers sort by the
 // group key before asserting.
-export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? (r as any[]) : [])
+export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? r : [])
 // sorts grouped rows by a key column so assertions are order-independent.
 export const byKey = (r: unknown, key: string): any[] =>
         rowsOf(r)
@@ -47,6 +47,6 @@ export const labelTable = async (pairs: Array<[number, string]>) => {
         })
         const db = database({ t })
         const rows = pairs.map(([g, label], i) => ({ id: i + 1, g, label }))
-        if (rows.length) await db.insert(t).values(rows as any)
+        if (rows.length) await db.insert(t).values(rows)
         return { db, t }
 }

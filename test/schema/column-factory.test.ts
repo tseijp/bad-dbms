@@ -5,7 +5,7 @@ import * as bad from '../../src/index'
 // export, so it is reached off the namespace import: the symbol is undefined
 // and calling it fails honestly at runtime, per test, rather than crashing
 // the whole module at import time.
-const getTableColumns = (t: unknown) => (bad as any).getTableColumns(t)
+const getTableColumns = (t: unknown) => bad.getTableColumns(t)
 const factories = { integer, uint, float, text } as const
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
@@ -31,11 +31,11 @@ const drizzleType: Record<FactoryName, string> = {
 describe('column factories', () => {
         it.each(factoryNames)('exposes %s column as a table property', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect((t as any).c).toBeDefined()
+                expect(t.c).toBeDefined()
         })
         it.each(factoryNames)('keeps the explicit factory name for %s', (name) => {
                 const t = table('t', { c: factories[name]('given_name') })
-                expect((t as any).c.name).toBe('given_name')
+                expect(t.c.name).toBe('given_name')
         })
         it.each(factoryNames)('builds two %s columns as distinct objects', (name) => {
                 const a = factories[name]('a')
@@ -45,51 +45,51 @@ describe('column factories', () => {
         it('allows two columns of the same name across two tables', () => {
                 const a = table('a', { id: integer('id') })
                 const b = table('b', { id: integer('id') })
-                expect((a as any).id).not.toBe((b as any).id)
+                expect(a.id).not.toBe(b.id)
         })
         // a factory reports a semantic data type, never an internal bit-width
         // code. bad-dbms reports i32/u32/f32, so these fail honestly.
         it.each(factoryNames)('reports a semantic data type for the %s factory', (name) => {
                 const t = table('t', { c: factories[name]('c') })
-                expect((t as any).c.dataType).toBe(drizzleType[name])
+                expect(t.c.dataType).toBe(drizzleType[name])
         })
         it('reports an integer data type for an integer column', () => {
                 const t = table('t', { c: integer('c') })
-                expect((t as any).c.dataType).toBe('integer')
+                expect(t.c.dataType).toBe('integer')
         })
         it('reports an integer data type for a uint column', () => {
                 const t = table('t', { c: uint('c') })
-                expect((t as any).c.dataType).toBe('integer')
+                expect(t.c.dataType).toBe('integer')
         })
         it('reports a float data type for a float column', () => {
                 const t = table('t', { c: float('c') })
-                expect((t as any).c.dataType).toBe('float')
+                expect(t.c.dataType).toBe('float')
         })
         it('reports a text data type for a text column', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.dataType).toBe('text')
+                expect(t.c.dataType).toBe('text')
         })
         it('does not surface an i32 bit-width code as an integer column type', () => {
                 const t = table('t', { c: integer('c') })
-                expect((t as any).c.dataType).not.toBe('i32')
+                expect(t.c.dataType).not.toBe('i32')
         })
         it('does not surface a u32 bit-width code as a text column type', () => {
                 const t = table('t', { c: text('c') })
-                expect((t as any).c.dataType).not.toBe('u32')
+                expect(t.c.dataType).not.toBe('u32')
         })
         // Drizzle tags each column with a column-type marker distinguishing
         // integer-backed from text-backed columns.
         it('distinguishes an integer column from a text column by columnType', () => {
                 const t = table('t', { n: integer('n'), s: text('s') })
-                expect((t as any).n.columnType).not.toBe((t as any).s.columnType)
+                expect(t.n.columnType).not.toBe(t.s.columnType)
         })
         it('tags an integer column with an integer columnType', () => {
                 const t = table('t', { c: integer('c') })
-                expect(String((t as any).c.columnType).toLowerCase()).toContain('int')
+                expect(String(t.c.columnType).toLowerCase()).toContain('int')
         })
         it('tags a text column with a text columnType', () => {
                 const t = table('t', { c: text('c') })
-                expect(String((t as any).c.columnType).toLowerCase()).toContain('text')
+                expect(String(t.c.columnType).toLowerCase()).toContain('text')
         })
         // getTableColumns is a Drizzle introspection API; bad-dbms exposes no
         // such export, so these fail honestly at runtime.

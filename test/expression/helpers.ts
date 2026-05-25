@@ -7,7 +7,7 @@ import { makeUsers, USERS_SEED } from '../_helpers'
 // projected expression column `x` is read across rows as `column(rows, 'x')`.
 // Expected values come from the correct Drizzle / SQL evaluation semantics,
 // never from observing bad-dbms behaviour.
-export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? (r as any[]) : [])
+export const rowsOf = (r: unknown): any[] => (Array.isArray(r) ? r : [])
 // the projected expression column read in row order.
 export const column = (r: unknown, key: string): any[] => rowsOf(r).map((row) => row[key])
 // seeds the canonical users table: ids 1/2/3, scores 10/20/30, names 11/22/33.

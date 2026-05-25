@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { database, desc, eq, gte, avg, max, min, sum, count, float, integer, table } from './src/interface'
 import * as DB from './src/index'
+Object.assign(window, DB)
 const cells = table('cells', {
         id: integer('id').primaryKey(),
         row: integer('row').notNull(),

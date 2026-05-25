@@ -12,12 +12,12 @@ import * as bad from '../../src/index'
 // file COMMENTED OUT the introspection describe as "Roadmap" — that was an
 // attack failure. The helpers are now reached off the namespace import so a
 // missing export fails honestly per test at runtime.
-const getTableColumns = (t: unknown) => (bad as any).getTableColumns(t)
-const getTableConfig = (t: unknown) => (bad as any).getTableConfig(t)
+const getTableColumns = (t: unknown) => bad.getTableColumns(t)
+const getTableConfig = (t: unknown) => bad.getTableConfig(t)
 describe('table node and declared shape', () => {
         it('records the table name on the node', () => {
                 const users = table('users', { id: integer('id') })
-                expect((users as any).node.name).toBe('users')
+                expect(users.node.name).toBe('users')
         })
         it('exposes the columns array on $meta', () => {
                 const t = table('t', { id: integer('id') })
@@ -59,7 +59,7 @@ describe('table introspection (Drizzle parity)', () => {
         it('returns the identical column object from getTableColumns', () => {
                 const t = table('t', { id: integer('id'), name: text('name') })
                 const cols = getTableColumns(t)
-                expect(cols.id).toBe((t as any).id)
+                expect(cols.id).toBe(t.id)
         })
         it('returns one entry per declared column from getTableColumns', () => {
                 const t = table('t', { a: integer('a'), b: integer('b'), c: integer('c') })
@@ -86,7 +86,7 @@ describe('table introspection (Drizzle parity)', () => {
                 const users = table('users', { id: integer('id').primaryKey() })
                 const posts = table('posts', {
                         id: integer('id').primaryKey(),
-                        userId: integer('user_id').references(() => (users as any).id),
+                        userId: integer('user_id').references(() => users.id),
                 })
                 const config = getTableConfig(posts)
                 expect(config.foreignKeys.length).toBe(1)
