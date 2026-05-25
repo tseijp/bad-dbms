@@ -1,4 +1,5 @@
 import { database, table, integer, text } from '../../src/index'
+import type { Table } from '../../src/index'
 // Every expected value in the delete tests is derived from Drizzle /
 // SQL-standard semantics, never from observing bad-dbms behaviour. These
 // fixtures only build schemas and seed data; they encode no expectations.
@@ -16,8 +17,8 @@ export const makeBooks = (authors: ReturnType<typeof makeAuthors>) =>
                 title: text('title'),
         })
 // A self-referential tree so multi-level cascade can be attacked.
-export const makeNodes = () => {
-        const nodes = table('nodes', {
+export const makeNodes = (): Table<any> => {
+        const nodes: Table<any> = table('nodes', {
                 id: integer('id').primaryKey(),
                 parentId: integer('parent_id').references(() => nodes.id, { onDelete: 'cascade' }),
         })

@@ -2,9 +2,10 @@ import type { SQL, SqlValue, ColumnDescriptor, FileAdapter, AdapterKind, Adapter
 
 export type Operand<T> = T | SQL<T>
 
-export interface TypedColumn<T> extends Omit<SQL<T>, keyof ExprMethods> {
+export interface TypedColumn<T> extends Omit<SQL<T>, keyof ExprMethods | 'node'> {
         $col: ColumnDescriptor
         kind: 'sql'
+        node: { type: 'column'; name: string; dataType: string; tableName?: string }
         _t?: T
         name: string
         dataType: string
