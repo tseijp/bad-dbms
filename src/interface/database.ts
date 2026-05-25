@@ -6,7 +6,7 @@ import { createAdapter } from '../backend/adapter'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
 import { tableNameOf, stripRid } from '../shared/helper'
-import type { Database as TypedDatabase } from './infer'
+import type { Database as TypedDatabase, TableLike } from './infer'
 type Backend = ReturnType<typeof createBackend>
 type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
 type RunFn = (ast: AnyAst) => unknown
@@ -255,5 +255,5 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
                 tables,
         }
 }
-export const database = _database as unknown as <T extends Record<string, Table<any>>>(tables: T, config?: DatabaseConfig) => TypedDatabase<T>
+export const database = _database as unknown as <T extends Record<string, TableLike>>(tables: T, config?: DatabaseConfig) => TypedDatabase<T>
 export type Database = ReturnType<typeof database>
