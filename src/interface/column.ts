@@ -8,7 +8,7 @@ export const dataTypeOf = (type: ColumnType, tag?: 'str'): string => {
         if (type === 'f32') return 'float'
         return 'integer'
 }
-export const column = <T = number>(type: ColumnType, name?: string, { tag, ...config }: ColumnConfig = {}): TypedColumn<T, false> => {
+export const column = <T = number>(type: ColumnType, name?: string, { tag, ...config }: ColumnConfig = {}): TypedColumn<T | null> => {
         const _desc: ColumnDescriptor = { name: name ?? '', type, tag, ...config }
         const self: any = make({ type: 'column', name: _desc.name, dataType: dataTypeOf(type, tag) })
         self.$col = _desc

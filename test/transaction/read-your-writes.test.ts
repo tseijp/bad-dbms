@@ -38,7 +38,7 @@ describe('a read inside a transaction sees that transactions own writes', () => 
                         await tx.update(t).set({ amount: 0 }).where(eq(t.id, 3))
                         return tx.select().from(t)
                 })
-                expect(amountsById(seen as Record<string, number>[])).toEqual([10, 20, 0, 40])
+                expect(amountsById(seen as { id: number; amount: number | null }[])).toEqual([10, 20, 0, 40])
         })
         it('a write inside a rolled-back transaction is not visible to reads after it', async () => {
                 const { db, t } = await seeded()

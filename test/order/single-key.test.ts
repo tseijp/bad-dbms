@@ -49,7 +49,7 @@ describe('single-key ordering across row counts and shapes', () => {
                 ],
         ] as const)('an ascending sort of %s yields the scores in order', async (_label, seed, expected) => {
                 const { db, t } = fresh(makeScored)
-                await db.insert(t).values(seed as Record<string, number>[])
+                await db.insert(t).values([...seed])
                 const rows = await db.select().from(t).orderBy(asc(t.score))
                 expect(seqOf(rows, 'score')).toEqual(expected)
         })
@@ -85,7 +85,7 @@ describe('single-key ordering across row counts and shapes', () => {
                 ],
         ] as const)('a descending sort of %s yields the scores in reverse order', async (_label, seed, expected) => {
                 const { db, t } = fresh(makeScored)
-                await db.insert(t).values(seed as Record<string, number>[])
+                await db.insert(t).values([...seed])
                 const rows = await db.select().from(t).orderBy(desc(t.score))
                 expect(seqOf(rows, 'score')).toEqual(expected)
         })

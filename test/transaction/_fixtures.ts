@@ -29,4 +29,5 @@ export const seeded = async () => {
 export const idsOf = (rows: { id: number }[]) => rows.map((r) => r.id).sort((a, b) => a - b)
 // amountsById reads amounts back keyed by id, so a mutation is observed
 // independent of row order.
-export const amountsById = (rows: Record<string, number>[]) => [...rows].sort((a, b) => a.id - b.id).map((r) => r.amount)
+export const amountsById = (rows: { id: number; amount: number | null }[]) =>
+        [...rows].sort((a, b) => a.id - b.id).map((r) => r.amount)

@@ -3,7 +3,7 @@ import type { TypedColumn, Table as TypedTable, DatabaseConfig as TypedDatabaseC
 
 export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
 
-export type Column<T = number | string | boolean | null | undefined> = TypedColumn<T, any>
+export type Column<T = number | string | boolean | null | undefined> = TypedColumn<T>
 export type Columns<Key extends string = string> = Record<Key, Column<any>>
 
 export interface TableMeta {

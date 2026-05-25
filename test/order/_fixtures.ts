@@ -30,7 +30,7 @@ export const makeNamed = () =>
                 name: text('name'),
         })
 // fresh builds an empty single-table database from a factory.
-export const fresh = <S extends ReturnType<typeof makeScored>>(make: () => S) => {
+export const fresh = <S>(make: () => S) => {
         const t = make()
         const db = database({ t })
         return { db, t: db.tables.t as S }

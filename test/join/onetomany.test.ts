@@ -23,7 +23,7 @@ describe('one-to-many expansion through a join', () => {
         it('reduces a left join into a per-user list of post ids', async () => {
                 const { db, users, posts } = await seedUsersPosts()
                 const rows = rowsOf(await leftJoin(db.select({ userId: users.id, postId: posts.id }).from(users), posts, eq(posts.userId, users.id)))
-                const grouped = rows.reduce((acc: Record<number, number[]>, row: any) => {
+                const grouped = rows.reduce((acc: Record<number, number[]>, row) => {
                         if (!acc[row.userId]) acc[row.userId] = []
                         if (row.postId !== null && row.postId !== undefined) acc[row.userId].push(row.postId)
                         return acc

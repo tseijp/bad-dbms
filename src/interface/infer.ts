@@ -2,18 +2,23 @@ import type { SQL, SqlValue, ColumnDescriptor, FileAdapter, AdapterKind, Adapter
 
 export type Operand<T> = T | SQL<T>
 
-export interface TypedColumn<T, Opt extends boolean = false> extends Omit<SQL<T>, keyof ExprMethods> {
+export interface TypedColumn<T> extends Omit<SQL<T>, keyof ExprMethods> {
         $col: ColumnDescriptor
         kind: 'sql'
         _t?: T
-        _opt?: Opt
-        primaryKey(): TypedColumn<T, false>
-        unique(): TypedColumn<T, Opt>
-        notNull(): TypedColumn<NonNullable<T>, false>
-        default(value: T): TypedColumn<T, true>
-        $defaultFn(fn: () => T): TypedColumn<T, true>
-        defaultFn(fn: () => T): TypedColumn<T, true>
-        references<U>(fn: () => SQL<U> | TypedColumn<U, any>, opts?: { onDelete?: string; onUpdate?: string }): TypedColumn<T, true>
+        name: string
+        dataType: string
+        columnType: string
+        primary: boolean
+        isUnique: boolean
+        hasDefault: boolean
+        default: (T | undefined) & ((value: T) => TypedColumn<T>)
+        primaryKey(): TypedColumn<NonNullable<T>>
+        unique(): TypedColumn<T>
+        notNull(): TypedColumn<NonNullable<T>>
+        $defaultFn(fn: () => T): TypedColumn<T>
+        defaultFn: (() => T) & ((fn: () => T) => TypedColumn<T>)
+        references<U>(fn: () => SQL<U> | TypedColumn<U>, opts?: { onDelete?: string; onUpdate?: string }): TypedColumn<T>
         eq(other: Operand<T>): SQL<boolean>
         ne(other: Operand<T>): SQL<boolean>
         lt(other: Operand<T>): SQL<boolean>
@@ -30,18 +35,17 @@ export interface TypedColumn<T, Opt extends boolean = false> extends Omit<SQL<T>
         toBool(): SQL<boolean>
 }
 
-type AnyCol = TypedColumn<any, any>
+type AnyCol = TypedColumn<any>
 export type ColumnsShape = { [k: string]: AnyCol }
 
-type T_<C> = C extends TypedColumn<infer V, any> ? V : never
-type O_<C> = C extends TypedColumn<any, infer P> ? P : false
-type OptKeys<S> = { [K in keyof S]: O_<S[K]> extends true ? K : never }[keyof S]
-type ReqKeys<S> = Exclude<keyof S, OptKeys<S>>
-type Unwrap<X> = X extends SQL<infer V> ? V : X extends TypedColumn<infer V, any> ? V : X
+type T_<C> = C extends TypedColumn<infer V> ? V : never
+type NullKeys<S> = { [K in keyof S]: null extends T_<S[K]> ? K : never }[keyof S]
+type ReqKeys<S> = Exclude<keyof S, NullKeys<S>>
+type Unwrap<X> = X extends SQL<infer V> ? V : X extends TypedColumn<infer V> ? V : X extends Record<string, any> ? { [K in keyof X]: Unwrap<X[K]> } : X
 
 export type RowOf<S> = { [K in keyof S]: T_<S[K]> }
-export type InsertRowOf<S> = { [K in ReqKeys<S>]: T_<S[K]> } & { [K in OptKeys<S>]?: T_<S[K]> | null }
-export type RowOfFields<F> = { [K in keyof F]: Unwrap<F[K]> }
+export type InsertRowOf<S> = { [K in ReqKeys<S>]: T_<S[K]> } & { [K in NullKeys<S>]?: T_<S[K]> | null }
+export type RowOfFields<F> = { [K in keyof F]: Unwrap<F[K]> } & {}
 export type SchemaOf<T> = T extends TableBase<infer S> ? S : never
 export type RowOfTable<T> = RowOf<SchemaOf<T>>
 export type InsertRowOfTable<T> = InsertRowOf<SchemaOf<T>>
@@ -71,7 +75,8 @@ export interface DatabaseConfig {
         adapterOptions?: AdapterOptions
 }
 
-type Fields = Record<string, SQL | AnyCol>
+type FieldVal = SQL | AnyCol | Record<string, SQL | AnyCol>
+type Fields = Record<string, FieldVal>
 type Changes = { rowCount: number; changes: number }
 type P<R> = PromiseLike<R> & { catch<U>(f: (e: unknown) => U): Promise<R | U> }
 
@@ -126,14 +131,11 @@ export interface QueryBuilders {
 
 export interface Tx extends QueryBuilders {
         rollback(): never
-        transaction<R>(fn: (tx: Tx) => R | Promise<R>): Promise<R>
+        transaction<R>(fn: (tx: Tx, cursor?: any) => R | Promise<R>): Promise<R>
 }
 
-type CursorRow<Tables> = Tables[keyof Tables] extends TableBase<infer S> ? RowOf<S> : Record<string, unknown>
-
 export interface Database<Tables extends Record<string, TableLike>> extends QueryBuilders {
-        transaction<R>(fn: (tx: Tx) => R | Promise<R>): Promise<R>
-        transaction(fn: (tx: Tx, cursor: CursorRow<Tables>) => unknown): { run(extra?: unknown): Promise<unknown> }
+        transaction<R>(fn: (tx: Tx, cursor?: any) => R | Promise<R>): Promise<R> & { run(extra?: unknown): Promise<unknown> }
         $count<T extends TableLike>(table: T, predicate?: SQL<boolean>): Promise<number>
         backend: unknown
         tables: Tables

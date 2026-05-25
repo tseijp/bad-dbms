@@ -79,7 +79,7 @@ describe('table introspection (Drizzle parity)', () => {
         it('lists the primary-key column from getTableConfig', () => {
                 const t = table('users', { id: integer('id').primaryKey(), name: text('name') })
                 const config = getTableConfig(t)
-                const pkCols = config.primaryKeys.flatMap((pk: any) => pk.columns.map((c: any) => c.name))
+                const pkCols = config.primaryKeys.flatMap((pk) => pk.columns.map((c) => c.name))
                 expect(pkCols).toContain('id')
         })
         it('lists a foreign key from getTableConfig', () => {

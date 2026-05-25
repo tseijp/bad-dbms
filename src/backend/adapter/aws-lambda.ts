@@ -4,7 +4,7 @@ const _sdk = () => import('@aws-sdk/client-s3')
 export const createAwsLambdaAdapter = (s3: any, bucket = 'tmp'): FileAdapter => ({
         async get(key) {
                 const { GetObjectCommand } = await _sdk()
-                const res: any = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined)
+                const res = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: key })).catch(() => undefined)
                 if (!res?.Body) return undefined
                 const buf = await res.Body.transformToByteArray()
                 return new Uint8Array(buf)

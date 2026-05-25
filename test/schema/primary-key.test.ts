@@ -47,7 +47,7 @@ describe('primary key constraint', () => {
         it('names the declared column as the primary key in getTableConfig', () => {
                 const t = table('users', { id: integer('id').primaryKey(), name: text('name') })
                 const config = getTableConfig(t)
-                const pkCols = config.primaryKeys.flatMap((pk: any) => pk.columns.map((c: any) => c.name))
+                const pkCols = config.primaryKeys.flatMap((pk) => pk.columns.map((c) => c.name))
                 expect(pkCols).toContain('id')
         })
         it('reports no primary key in getTableConfig when none is declared', () => {
@@ -61,7 +61,7 @@ describe('primary key constraint', () => {
                         b: integer('b').primaryKey(),
                 })
                 const config = getTableConfig(t)
-                const allPkCols = config.primaryKeys.flatMap((pk: any) => pk.columns.map((c: any) => c.name))
+                const allPkCols = config.primaryKeys.flatMap((pk) => pk.columns.map((c) => c.name))
                 expect(allPkCols.sort()).toEqual(['a', 'b'])
         })
         it('marks both columns of a composite key primary on the public flag', () => {
