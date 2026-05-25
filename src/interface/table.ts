@@ -1,5 +1,6 @@
 import { dataTypeOf } from './column'
-import type { Column, Columns, Table, TableMeta } from './types'
+import type { Column, TableMeta } from './types'
+import type { ColumnsShape, Table } from './infer'
 export type { Table, TableMeta } from './types'
 const finalizeColumn = (col: Column, key: string, tableName: string): Column => {
         const desc = col.$col
@@ -20,7 +21,7 @@ const finalizeColumn = (col: Column, key: string, tableName: string): Column => 
         meta.$defaultFn = desc.defaultFn
         return col
 }
-export const table = <S extends Columns>(name: string, schema: S): Table<S> => {
+export const table = <S extends ColumnsShape>(name: string, schema: S): Table<S> => {
         const meta: TableMeta = { name, columns: [] }
         const ret = { kind: 'sql' as const, node: { type: 'table' as const, name }, $meta: meta } as Table<S>
         for (const key in schema) {

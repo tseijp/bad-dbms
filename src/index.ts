@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { createCloudflareAdapter } from './backend/adapter/cloudflare'
 import { database, table, integer, text } from './interface'
-
+export * from './interface'
 interface Env {
         KV: any
 }

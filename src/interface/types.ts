@@ -1,40 +1,31 @@
-import type { SQL, SqlNode, SqlValue, ExprMethods, ColumnDescriptor, FileAdapter, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
+import type { SQL, SqlNode, SqlValue, JoinKind } from '../shared/types'
+import type { TypedColumn, Table as TypedTable, DatabaseConfig as TypedDatabaseConfig } from './infer'
+
 export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
-export interface Column<T = number | string | boolean> extends SQL<T>, ExprMethods {
-        $col: ColumnDescriptor
-        primaryKey(): Column<T>
-        unique(): Column<T>
-        notNull(): Column<T>
-        default(value: T): Column<T>
-        $defaultFn(fn: () => T): Column<T>
-        defaultFn(fn: () => T): Column<T>
-        references(fn: () => SQL, opts?: { onDelete?: string; onUpdate?: string }): Column<T>
-}
-export type Columns<Key extends string = string> = Record<Key, Column>
+
+export type Column<T = number | string | boolean | null | undefined> = TypedColumn<T>
+export type Columns<Key extends string = string> = Record<Key, Column<any>>
+
 export interface TableMeta {
         name: string
-        columns: Column[]
+        columns: Column<any>[]
 }
 export interface TableBase {
         $meta: TableMeta
         kind: 'sql'
         node: SqlNode
 }
-export type Table<S extends Columns = {}> = TableBase & S
-export interface DatabaseConfig {
-        execute?: (ast: unknown) => unknown
-        pageSize?: number
-        frameCount?: number
-        file?: FileAdapter
-        adapter?: AdapterKind
-        adapterOptions?: AdapterOptions
-}
-export type ProjItem = { alias: string; expr: SQL | SqlNode }
+export type Table<S extends Record<string, Column<any>> = Record<string, Column<any>>> = TypedTable<S>
+
+export type DatabaseConfig = TypedDatabaseConfig
+
+export type ProjItem = { alias: string; expr: SQL | unknown }
 export interface JoinClause {
         kind: JoinKind
         table: Table
         on: SQL
 }
+
 export interface SelectAst {
         op: 'Select'
         projection?: ProjItem[]
@@ -51,7 +42,7 @@ export interface SelectAst {
 export interface InsertAst {
         op: 'Insert'
         table: Table
-        values?: Record<string, number>[]
+        values?: Record<string, unknown>[]
         returning?: boolean
 }
 export interface UpdateAst {
