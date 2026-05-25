@@ -34,7 +34,8 @@ describe('arithmetic between two columns of one row', () => {
                         [10, 2],
                         [6, 3],
                 ])
-                const rows = await db.select({ x: t.a[method](t.b) }).from(t)
+                const col = t.a as unknown as Record<string, (a: unknown) => typeof t.a>
+                const rows = await db.select({ x: col[method](t.b) }).from(t)
                 expect(column(rows, 'x')).toEqual(expected)
         })
         it('takes one column modulo another in the same row', async () => {

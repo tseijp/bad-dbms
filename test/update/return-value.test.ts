@@ -39,7 +39,7 @@ describe('an update resolves to a run-result carrying a changes count', () => {
                 const { db, t } = await seeded()
                 const result = (await db.update(t).set({ score: 77 }).where(gte(t.score, 20))) as { changes: number }
                 const rows = await db.select().from(t)
-                const carrying = rows.filter((r: { score: number }) => r.score === 77)
+                const carrying = rows.filter((r: { score: number | null }) => r.score === 77)
                 expect(result.changes).toBe(carrying.length)
         })
 })

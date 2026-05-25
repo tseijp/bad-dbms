@@ -38,7 +38,7 @@ describe('a multi-column set mutates several columns at once', () => {
                 const { db, t } = await seeded()
                 await db.update(t).set({ name: 0, score: 0 })
                 const rows = await db.select().from(t)
-                const allZero = rows.every((r: { name: number; score: number }) => r.name === 0 && r.score === 0)
+                const allZero = rows.every((r: { name: number | null; score: number | null }) => r.name === 0 && r.score === 0)
                 expect(allZero).toBe(true)
         })
 })
