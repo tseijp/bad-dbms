@@ -1,5 +1,5 @@
-import type { SQL, SqlNode, SqlValue, JoinKind } from '../shared/types'
-import type { TypedColumn, Table as TypedTable, DatabaseConfig as TypedDatabaseConfig, ColumnsShape } from './infer'
+import type { SQL, SqlValue, JoinKind } from '../shared/types'
+import type { TypedColumn, Table } from './infer'
 
 export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
 
@@ -10,14 +10,6 @@ export interface TableMeta {
         name: string
         columns: Column<any>[]
 }
-export interface TableBase {
-        $meta: TableMeta
-        kind: 'sql'
-        node: SqlNode
-}
-export type Table<S extends ColumnsShape = ColumnsShape> = TypedTable<S>
-
-export type DatabaseConfig = TypedDatabaseConfig
 
 export type ProjItem = { alias: string; expr: SQL | unknown }
 export interface JoinClause {

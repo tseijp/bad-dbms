@@ -1,12 +1,12 @@
 import type { SQL, SqlValue, Row, PhysicalOp, Rid } from '../shared/types'
-import type { Table, Columns, DatabaseConfig, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinKind } from './types'
+import type { Columns, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinKind } from './types'
 import { createBackend } from '../backend/index'
 import { createMemoryAdapter } from '../backend/adapter/memory'
 import { createAdapter } from '../backend/adapter'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
 import { tableNameOf, stripRid } from '../shared/helper'
-import type { Database as TypedDatabase, TableLike } from './infer'
+import type { Database as TypedDatabase, TableLike, Table, DatabaseConfig } from './infer'
 type Backend = ReturnType<typeof createBackend>
 type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
 type RunFn = (ast: AnyAst) => unknown
@@ -256,4 +256,3 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
         }
 }
 export const database = _database as unknown as <T extends Record<string, TableLike>>(tables: T, config?: DatabaseConfig) => TypedDatabase<T>
-export type Database = ReturnType<typeof database>
