@@ -5,7 +5,7 @@ import * as bad from '../../src/index'
 // export, so it is reached off the namespace import: the symbol is undefined
 // and calling it fails honestly at runtime, per test, rather than crashing
 // the whole module at import time.
-const getTableColumns = (t: unknown) => bad.getTableColumns(t)
+const getTableColumns = (t: any) => bad.getTableColumns(t)
 const factories = { integer, uint, float, text } as const
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']

@@ -47,4 +47,4 @@ export const seededBoard = async () => {
         return { db, t }
 }
 // idsOf reads the surviving ids back, ascending.
-export const idsOf = (rows: { id: number }[]) => rows.map((r) => r.id).sort((a, b) => a - b)
+export const idsOf = (rows: any) => rows.map((r: any) => r.id).sort((a: any, b: any) => a - b)
