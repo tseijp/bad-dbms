@@ -19,7 +19,7 @@ export interface TypedColumn<T> extends Omit<SQL<T>, keyof ExprMethods | 'node'>
         notNull(): TypedColumn<NonNullable<T>>
         $defaultFn<V>(fn: () => V): TypedColumn<T>
         defaultFn: (() => NonNullable<T>) & (<V>(fn: () => V) => TypedColumn<T>)
-        references<U>(fn: () => SQL<U> | TypedColumn<U>, opts?: { onDelete?: string; onUpdate?: string }): TypedColumn<T>
+        references(fn: () => any, opts?: { onDelete?: string; onUpdate?: string }): this
         eq(other: Operand<T>): SQL<boolean>
         ne(other: Operand<T>): SQL<boolean>
         lt(other: Operand<T>): SQL<boolean>
