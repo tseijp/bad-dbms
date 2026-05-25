@@ -1,5 +1,6 @@
-import type { Column, Table } from './types'
+import type { Column } from './types'
 import type { TableLike } from './infer'
+type AnyTable = TableLike
 export interface ColumnRef {
         name: string
         column: Column
@@ -29,12 +30,12 @@ export interface TableConfig {
         checks: unknown[]
 }
 const colRef = (col: Column): ColumnRef => ({ name: col.$col.name, column: col })
-export const getTableColumns = (t: TableLike): Record<string, Column> => {
+export const getTableColumns = (t: AnyTable): Record<string, Column> => {
         const cols: Record<string, Column> = {}
         for (const col of t.$meta.columns) cols[col.$col.key ?? col.$col.name] = col
         return cols
 }
-export const getTableConfig = (t: TableLike): TableConfig => {
+export const getTableConfig = (t: AnyTable): TableConfig => {
         const columns = t.$meta.columns
         const primaryCols = columns.filter((c) => !!c.$col.primaryKey)
         const primaryKeys: ConstraintGroup[] = primaryCols.length > 0 ? [{ columns: primaryCols.map(colRef) }] : []

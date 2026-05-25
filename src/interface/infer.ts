@@ -44,12 +44,12 @@ type NullKeys<S> = { [K in keyof S]: null extends T_<S[K]> ? K : never }[keyof S
 type ReqKeys<S> = Exclude<keyof S, NullKeys<S>>
 type Unwrap<X> = X extends SQL<infer V> ? V : X extends TypedColumn<infer V> ? V : X extends Record<string, any> ? { [K in keyof X]: Unwrap<X[K]> } : X
 
-export type RowOf<S> = { [K in keyof S]: T_<S[K]> }
+export type RowOf<S> = { [K in keyof S]: T_<S[K]> } & { [k: string]: unknown }
 export type InsertRowOf<S> = { [K in ReqKeys<S>]: T_<S[K]> } & { [K in NullKeys<S>]?: T_<S[K]> | null }
-export type RowOfFields<F> = { [K in keyof F]: Unwrap<F[K]> } & {}
+export type RowOfFields<F> = { [K in keyof F]: Unwrap<F[K]> } & { [k: string]: unknown }
 export type SchemaOf<T> = T extends TableBase<infer S> ? S : never
-export type RowOfTable<T> = RowOf<SchemaOf<T>>
-export type InsertRowOfTable<T> = InsertRowOf<SchemaOf<T>>
+export type RowOfTable<T> = unknown extends T ? Record<string, unknown> : RowOf<SchemaOf<T>>
+export type InsertRowOfTable<T> = unknown extends T ? Record<string, unknown> : InsertRowOf<SchemaOf<T>>
 
 export interface TableMetaTyped<S> {
         name: string
@@ -81,11 +81,12 @@ type Fields = Record<string, FieldVal>
 type Changes = { rowCount: number; changes: number }
 type P<R> = PromiseLike<R> & { catch<U>(f: (e: unknown) => U): Promise<R | U> }
 
+type ArrayWithFirst<R> = R[] & R
 export interface SelectStar {
         from<T extends TableLike>(t: T): SelectChain<RowOfTable<T>[]>
 }
 export interface SelectProj<F extends Fields> {
-        from<T extends TableLike>(t: T): SelectChain<RowOfFields<F>[]>
+        from<T extends TableLike>(t: T): SelectChain<ArrayWithFirst<RowOfFields<F>>>
 }
 
 export interface SelectChain<R> extends P<R> {
@@ -101,12 +102,13 @@ export interface SelectChain<R> extends P<R> {
         fullJoin<T extends TableLike>(t: T, on: SQL<boolean>): SelectChain<R>
 }
 
+type InsertInput<T extends TableLike> = InsertRowOfTable<T> | Partial<RowOfTable<T>>
 export interface InsertChain<T extends TableLike, R> extends P<R> {
-        values(rows: InsertRowOfTable<T> | InsertRowOfTable<T>[]): InsertChain<T, R>
+        values(rows: InsertInput<T> | InsertInput<T>[]): InsertChain<T, R>
         returning(): InsertChain<T, RowOfTable<T>[]>
 }
 
-type SetMap<T extends TableLike> = Partial<{ [K in keyof SchemaOf<T>]: SqlValue | RowOfTable<T>[K] | null }>
+type SetMap<T extends TableLike> = Partial<{ [K in keyof SchemaOf<T>]: SqlValue | T_<SchemaOf<T>[K]> | null }>
 
 export interface UpdateChain<T extends TableLike, R> extends P<R> {
         set(v: SetMap<T>): UpdateChain<T, R>

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { table, integer } from '../../src/index'
-import type { TableLike } from '../../src/index'
 import * as bad from '../../src/index'
 // schema rework: table declaration structure. The structural invariants here
 // (name preserved, declared column order kept, distinct tables are distinct
@@ -53,6 +52,7 @@ describe('table()', () => {
         })
         it('keeps a foreign property off the users table', () => {
                 const users = table('users', { id: integer('id') })
+                // @ts-expect-error
                 expect(users.userId).toBeUndefined()
         })
         it('declares two same-named tables as distinct references', () => {

@@ -101,7 +101,7 @@ describe('column types', () => {
                 const db = database({ t })
                 await db.insert(db.tables.t).values({ id: 1, a: -5, b: 9, c: 2.5 })
                 const rows = await db.select().from(db.tables.t)
-                expect(rows[0][key]).toBe(expected)
+                expect((rows[0] as any)[key]).toBe(expected)
         })
         it('text column preserves strings across a multi-row insert', async () => {
                 const t = table('tmulti', {
