@@ -17,7 +17,7 @@ type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 // getTableConfig is a Drizzle introspection API reached off the namespace
 // import so a missing export fails honestly per test, not at module load.
-const getTableConfig = (t: unknown) => bad.getTableConfig(t)
+const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('primary key constraint', () => {
         it.each(factoryNames)('marks the %s column primary on the public flag', (name) => {
                 const t = table('t', { id: factories[name]('id').primaryKey() })

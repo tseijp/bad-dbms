@@ -13,7 +13,7 @@ import * as bad from '../../src/index'
 const factories = { integer, uint, float, text } as const
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
-const getTableConfig = (t: unknown) => bad.getTableConfig(t)
+const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('unique constraint', () => {
         it.each(factoryNames)('marks the %s column unique on the public flag', (name) => {
                 const t = table('t', { email: factories[name]('email').unique() })

@@ -13,12 +13,12 @@ export interface TypedColumn<T> extends Omit<SQL<T>, keyof ExprMethods | 'node'>
         primary: boolean
         isUnique: boolean
         hasDefault: boolean
-        default: (T | undefined) & ((value: T) => TypedColumn<T>)
+        default: (NonNullable<T> | undefined) & (<V>(value: V) => TypedColumn<T>)
         primaryKey(): TypedColumn<NonNullable<T>>
         unique(): TypedColumn<T>
         notNull(): TypedColumn<NonNullable<T>>
-        $defaultFn(fn: () => T): TypedColumn<T>
-        defaultFn: (() => T) & ((fn: () => T) => TypedColumn<T>)
+        $defaultFn<V>(fn: () => V): TypedColumn<T>
+        defaultFn: (() => NonNullable<T>) & (<V>(fn: () => V) => TypedColumn<T>)
         references<U>(fn: () => SQL<U> | TypedColumn<U>, opts?: { onDelete?: string; onUpdate?: string }): TypedColumn<T>
         eq(other: Operand<T>): SQL<boolean>
         ne(other: Operand<T>): SQL<boolean>

@@ -9,7 +9,7 @@ import * as bad from '../../src/index'
 // `$meta.columns[].$col.name` path onto the public column `name` property and
 // the Drizzle `getTableColumns` introspection helper, so a column-shape
 // divergence fails honestly rather than passing through an internal field.
-const getTableColumns = (t: unknown) => bad.getTableColumns(t)
+const getTableColumns = (t: any) => bad.getTableColumns(t)
 const columnNames = (t: any) => Object.values(getTableColumns(t)).map((c: any) => c.name)
 describe('table()', () => {
         it('reads the table name from the declared table', () => {

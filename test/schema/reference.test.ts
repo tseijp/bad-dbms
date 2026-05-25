@@ -14,7 +14,7 @@ import * as bad from '../../src/index'
 const factories = { integer, uint, float, text } as const
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
-const getTableConfig = (t: unknown) => bad.getTableConfig(t)
+const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('foreign key reference', () => {
         it('lists a declared foreign key in getTableConfig', () => {
                 const users = table('users', { id: integer('id').primaryKey() })

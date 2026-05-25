@@ -10,7 +10,7 @@ export interface ConstraintGroup {
 }
 export interface ForeignKeyRef {
         columns: ColumnRef[]
-        foreignTable: { name: string }
+        foreignTable: { name: string; $meta?: { name: string } }
         foreignColumns: ColumnRef[]
 }
 export interface ForeignKey {
