@@ -13,7 +13,7 @@ describe('other table shapes', () => {
                 const { db, events } = freshEvents()
                 await db.insert(events).values(EVENTS_SEED)
                 const rows = await db.select().from(events)
-                expect(rows.map((r: { id: number }) => r.id)).toEqual([1, 2, 3, 4, 5])
+                expect(rows.map((r) => r.id)).toEqual([1, 2, 3, 4, 5])
         })
         it('events row at index 2 deep-equals its literal', async () => {
                 const { db, events } = freshEvents()

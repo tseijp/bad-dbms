@@ -35,6 +35,6 @@ describe('shared seed helpers', () => {
         it('seedEvents preserves EVENTS_SEED heap order', async () => {
                 const { db, events } = await seedEvents()
                 const rows = await db.select().from(events)
-                expect(rows.map((r: { id: number }) => r.id)).toEqual([1, 2, 3, 4, 5])
+                expect(rows.map((r) => r.id)).toEqual([1, 2, 3, 4, 5])
         })
 })
