@@ -52,19 +52,20 @@ src/interface/          user 向け drizzle-like API + AST 構築
 ─────────────────────────────────────────────────────────────────
 src/backend/            catalog + executor + entry
   catalog.ts            relation / column / index の schema 管理
-  executor/             Volcano operator iterator 群
-    index.ts            executor entry (operator dispatch)
-    scan.ts             SeqScan / NamedScan
-    join.ts             NestedLoopJoin
-    group.ts            Aggregate / Sort / Distinct / Limit / Projection
-    modify.ts           Insert / Update / Delete
-    utils.ts            共有 helper
   adapter/              file adapter 群 (memory / nodejs / cloudflare / ...)
   index.ts              createBackend: 全層を wire する entry
 ─────────────────────────────────────────────────────────────────
 src/backend/access/     rid を介した tuple アクセス層
   heap.ts               固定長 record の置き場、rid 採番
   nbtree.ts             B+tree index、forward/backward scan
+─────────────────────────────────────────────────────────────────
+src/backend/executor/             Volcano operator iterator 群
+  index.ts            executor entry (operator dispatch)
+  scan.ts             SeqScan / NamedScan
+  join.ts             NestedLoopJoin
+  group.ts            Aggregate / Sort / Distinct / Limit / Projection
+  modify.ts           Insert / Update / Delete
+  utils.ts            共有 helper
 ─────────────────────────────────────────────────────────────────
 src/backend/storage/    byte 単位の物理層
   page.ts               1 page の header / tombstone / 値域
@@ -530,9 +531,9 @@ Delete  { rowCount: n, changes: n }
 ```ts
 import type { Database, RowOfTable, InsertRowOfTable, SchemaOf } from 'bad-dbms'
 
-type UserRow = RowOfTable<typeof users>          // { id: number; name: string; email: string | null; ... }
+type UserRow = RowOfTable<typeof users> // { id: number; name: string; email: string | null; ... }
 type UserInsert = InsertRowOfTable<typeof users> // notNull 列は必須、それ以外は optional
-type UsersSchema = SchemaOf<typeof users>        // column 集合
+type UsersSchema = SchemaOf<typeof users> // column 集合
 ```
 
 `db.select().from(users)` の戻りは `RowOfTable<typeof users>[]`、
