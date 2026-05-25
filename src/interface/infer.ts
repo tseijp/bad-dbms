@@ -2,17 +2,18 @@ import type { SQL, SqlValue, ColumnDescriptor, FileAdapter, AdapterKind, Adapter
 
 export type Operand<T> = T | SQL<T>
 
-export interface TypedColumn<T> extends Omit<SQL<T>, keyof ExprMethods> {
+export interface TypedColumn<T, Opt extends boolean = false> extends Omit<SQL<T>, keyof ExprMethods> {
         $col: ColumnDescriptor
         kind: 'sql'
         _t?: T
-        primaryKey(): TypedColumn<T>
-        unique(): TypedColumn<T>
-        notNull(): TypedColumn<NonNullable<T>>
-        default(value: T): TypedColumn<T>
-        $defaultFn(fn: () => T): TypedColumn<T>
-        defaultFn(fn: () => T): TypedColumn<T>
-        references<U>(fn: () => SQL<U>, opts?: { onDelete?: string; onUpdate?: string }): TypedColumn<T>
+        _opt?: Opt
+        primaryKey(): TypedColumn<T, false>
+        unique(): TypedColumn<T, Opt>
+        notNull(): TypedColumn<NonNullable<T>, false>
+        default(value: T): TypedColumn<T, true>
+        $defaultFn(fn: () => T): TypedColumn<T, true>
+        defaultFn(fn: () => T): TypedColumn<T, true>
+        references<U>(fn: () => SQL<U> | TypedColumn<U, any>, opts?: { onDelete?: string; onUpdate?: string }): TypedColumn<T, true>
         eq(other: Operand<T>): SQL<boolean>
         ne(other: Operand<T>): SQL<boolean>
         lt(other: Operand<T>): SQL<boolean>
@@ -29,23 +30,25 @@ export interface TypedColumn<T> extends Omit<SQL<T>, keyof ExprMethods> {
         toBool(): SQL<boolean>
 }
 
-export type ColumnsShape = { [k: string]: TypedColumn<any> }
+type AnyCol = TypedColumn<any, any>
+export type ColumnsShape = { [k: string]: AnyCol }
 
-type ColumnOf<S, K extends keyof S> = S[K] extends TypedColumn<infer T> ? T : never
-type NullableKeys<S> = { [K in keyof S]: undefined extends ColumnOf<S, K> ? K : null extends ColumnOf<S, K> ? K : never }[keyof S]
-type RequiredKeys<S> = Exclude<keyof S, NullableKeys<S>>
-type UnwrapSql<X> = X extends SQL<infer T> ? T : X extends TypedColumn<infer T> ? T : X
+type T_<C> = C extends TypedColumn<infer V, any> ? V : never
+type O_<C> = C extends TypedColumn<any, infer P> ? P : false
+type OptKeys<S> = { [K in keyof S]: O_<S[K]> extends true ? K : never }[keyof S]
+type ReqKeys<S> = Exclude<keyof S, OptKeys<S>>
+type Unwrap<X> = X extends SQL<infer V> ? V : X extends TypedColumn<infer V, any> ? V : X
 
-export type RowOf<S> = { [K in keyof S]: ColumnOf<S, K> }
-export type InsertRowOf<S> = { [K in RequiredKeys<S>]: ColumnOf<S, K> } & { [K in NullableKeys<S>]?: ColumnOf<S, K> | null }
+export type RowOf<S> = { [K in keyof S]: T_<S[K]> }
+export type InsertRowOf<S> = { [K in ReqKeys<S>]: T_<S[K]> } & { [K in OptKeys<S>]?: T_<S[K]> | null }
+export type RowOfFields<F> = { [K in keyof F]: Unwrap<F[K]> }
 export type SchemaOf<T> = T extends TableBase<infer S> ? S : never
 export type RowOfTable<T> = RowOf<SchemaOf<T>>
 export type InsertRowOfTable<T> = InsertRowOf<SchemaOf<T>>
-export type RowOfFields<F> = { [K in keyof F]: UnwrapSql<F[K]> }
 
 export interface TableMetaTyped<S> {
         name: string
-        columns: TypedColumn<any>[]
+        columns: AnyCol[]
         _schema?: S
 }
 
@@ -56,9 +59,8 @@ export interface TableBase<S> {
         _schema?: S
 }
 
-export type Table<S = ColumnsShape> = TableBase<S> & S
-
-export type TableLike = TableBase<unknown>
+export type Table<S extends ColumnsShape = ColumnsShape> = TableBase<S> & S
+export type TableLike = TableBase<any>
 
 export interface DatabaseConfig {
         execute?: (ast: unknown) => unknown
@@ -69,70 +71,68 @@ export interface DatabaseConfig {
         adapterOptions?: AdapterOptions
 }
 
-type FieldsRecord = Record<string, SQL | unknown>
-type DefaultRow = { rowCount: number; changes: number }
+type Fields = Record<string, SQL | AnyCol>
+type Changes = { rowCount: number; changes: number }
+type P<R> = PromiseLike<R> & { catch<U>(f: (e: unknown) => U): Promise<R | U> }
 
-export interface SelectBuilder<R> {
-        from<T extends TableLike>(t: T): SelectFromBuilder<R extends unknown[] ? (R[number] extends never ? RowOfTable<T>[] : R) : RowOfTable<T>[]>
+export interface SelectStar {
+        from<T extends TableLike>(t: T): SelectChain<RowOfTable<T>[]>
+}
+export interface SelectProj<F extends Fields> {
+        from<T extends TableLike>(t: T): SelectChain<RowOfFields<F>[]>
 }
 
-export interface SelectFromBuilder<R> {
-        where(c?: SQL<boolean>): SelectFromBuilder<R>
-        groupBy(...c: SQL[]): SelectFromBuilder<R>
-        having(c?: SQL<boolean>): SelectFromBuilder<R>
-        orderBy(...c: SQL[]): SelectFromBuilder<R>
-        limit(n: number): SelectFromBuilder<R>
-        offset(n: number): SelectFromBuilder<R>
-        innerJoin<T extends TableLike>(table: T, on: SQL<boolean>): SelectFromBuilder<R>
-        leftJoin<T extends TableLike>(table: T, on: SQL<boolean>): SelectFromBuilder<R>
-        rightJoin<T extends TableLike>(table: T, on: SQL<boolean>): SelectFromBuilder<R>
-        fullJoin<T extends TableLike>(table: T, on: SQL<boolean>): SelectFromBuilder<R>
-        then<U>(resolve: (v: R) => U, reject?: (e: unknown) => unknown): Promise<U>
-        catch<U>(reject: (e: unknown) => unknown): Promise<R | U>
+export interface SelectChain<R> extends P<R> {
+        where(c?: SQL<boolean>): SelectChain<R>
+        groupBy(...c: SQL[]): SelectChain<R>
+        having(c?: SQL<boolean>): SelectChain<R>
+        orderBy(...c: SQL[]): SelectChain<R>
+        limit(n: number): SelectChain<R>
+        offset(n: number): SelectChain<R>
+        innerJoin<T extends TableLike>(t: T, on: SQL<boolean>): SelectChain<R>
+        leftJoin<T extends TableLike>(t: T, on: SQL<boolean>): SelectChain<R>
+        rightJoin<T extends TableLike>(t: T, on: SQL<boolean>): SelectChain<R>
+        fullJoin<T extends TableLike>(t: T, on: SQL<boolean>): SelectChain<R>
 }
 
-export interface InsertBuilder<T extends TableLike, Ret> {
-        values(rows: InsertRowOfTable<T> | InsertRowOfTable<T>[]): InsertBuilder<T, Ret>
-        returning(): InsertBuilder<T, RowOfTable<T>[]>
-        then<U>(resolve: (v: Ret) => U, reject?: (e: unknown) => unknown): Promise<U>
-        catch<U>(reject: (e: unknown) => unknown): Promise<Ret | U>
+export interface InsertChain<T extends TableLike, R> extends P<R> {
+        values(rows: InsertRowOfTable<T> | InsertRowOfTable<T>[]): InsertChain<T, R>
+        returning(): InsertChain<T, RowOfTable<T>[]>
 }
 
-export interface UpdateBuilder<T extends TableLike, Ret> {
-        set(v: Partial<{ [K in keyof SchemaOf<T>]: SqlValue | RowOfTable<T>[K] | null }>): UpdateBuilder<T, Ret>
-        where(c?: SQL<boolean>): UpdateBuilder<T, Ret>
-        from<U extends TableLike>(t: U): UpdateBuilder<T, Ret>
-        returning(): UpdateBuilder<T, RowOfTable<T>[]>
-        then<U>(resolve: (v: Ret) => U, reject?: (e: unknown) => unknown): Promise<U>
-        catch<U>(reject: (e: unknown) => unknown): Promise<Ret | U>
+type SetMap<T extends TableLike> = Partial<{ [K in keyof SchemaOf<T>]: SqlValue | RowOfTable<T>[K] | null }>
+
+export interface UpdateChain<T extends TableLike, R> extends P<R> {
+        set(v: SetMap<T>): UpdateChain<T, R>
+        where(c?: SQL<boolean>): UpdateChain<T, R>
+        from<U extends TableLike>(t: U): UpdateChain<T, R>
+        returning(): UpdateChain<T, RowOfTable<T>[]>
 }
 
-export interface DeleteBuilder<T extends TableLike, Ret> {
-        where(c?: SQL<boolean>): DeleteBuilder<T, Ret>
-        returning(): DeleteBuilder<T, RowOfTable<T>[]>
-        then<U>(resolve: (v: Ret) => U, reject?: (e: unknown) => unknown): Promise<U>
-        catch<U>(reject: (e: unknown) => unknown): Promise<Ret | U>
+export interface DeleteChain<T extends TableLike, R> extends P<R> {
+        where(c?: SQL<boolean>): DeleteChain<T, R>
+        returning(): DeleteChain<T, RowOfTable<T>[]>
 }
 
 export interface QueryBuilders {
-        select(): SelectBuilder<unknown[]>
-        select<F extends FieldsRecord>(fields: F): SelectBuilder<RowOfFields<F>[]>
-        selectDistinct(): SelectBuilder<unknown[]>
-        selectDistinct<F extends FieldsRecord>(fields: F): SelectBuilder<RowOfFields<F>[]>
-        insert<T extends TableLike>(t: T): InsertBuilder<T, DefaultRow>
-        update<T extends TableLike>(t: T): UpdateBuilder<T, DefaultRow>
-        delete<T extends TableLike>(t: T): DeleteBuilder<T, DefaultRow>
+        select(): SelectStar
+        select<F extends Fields>(fields: F): SelectProj<F>
+        selectDistinct(): SelectStar
+        selectDistinct<F extends Fields>(fields: F): SelectProj<F>
+        insert<T extends TableLike>(t: T): InsertChain<T, Changes>
+        update<T extends TableLike>(t: T): UpdateChain<T, Changes>
+        delete<T extends TableLike>(t: T): DeleteChain<T, Changes>
 }
 
 export interface Tx extends QueryBuilders {
         rollback(): never
-        transaction<R>(fn: (tx: Tx) => Promise<R> | R): Promise<R>
+        transaction<R>(fn: (tx: Tx) => R | Promise<R>): Promise<R>
 }
 
 type CursorRow<Tables> = Tables[keyof Tables] extends TableBase<infer S> ? RowOf<S> : Record<string, unknown>
 
 export interface Database<Tables extends Record<string, TableLike>> extends QueryBuilders {
-        transaction<R>(fn: (tx: Tx) => Promise<R> | R): Promise<R>
+        transaction<R>(fn: (tx: Tx) => R | Promise<R>): Promise<R>
         transaction(fn: (tx: Tx, cursor: CursorRow<Tables>) => unknown): { run(extra?: unknown): Promise<unknown> }
         $count<T extends TableLike>(table: T, predicate?: SQL<boolean>): Promise<number>
         backend: unknown

@@ -2,7 +2,7 @@ import type { SQL, SqlNode, PhysicalOp, AggSpec, SortKey, ProjectorSpec, Row } f
 import type { SelectAst, ProjItem } from './types'
 import { colNameOf, compileExpr, compilePredicate, compileNode, EvalCtx } from './compile'
 import { tableNameOf } from '../shared/helper'
-const nodeOf = (expr: SQL | SqlNode): SqlNode => ((expr as SQL).kind === 'sql' ? (expr as SQL).node : (expr as SqlNode))
+const nodeOf = (expr: SQL | SqlNode | unknown): SqlNode => ((expr as SQL).kind === 'sql' ? (expr as SQL).node : (expr as SqlNode))
 const argNode = (n: SqlNode | undefined): SqlNode | undefined => (n && 'args' in n && n.args[0] ? nodeOf(n.args[0]) : undefined)
 const aggSig = (n: SqlNode | undefined): string | undefined => {
         if (!n || n.type !== 'aggregate') return undefined

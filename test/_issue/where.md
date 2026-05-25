@@ -1,135 +1,206 @@
-# where 型安全検証 report
+# where
 
-## 検証範囲
+## tsc エラー一覧
 
-`projects/bad-dbms/test/where/` 配下の以下ファイルに対し、`--strict` 付き tsc を実行した。
+- test/where/arithmetic-expression.test.ts(13,68): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; score: Column<number>; }>>'.
+- test/where/arithmetic-expression.test.ts(28,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(31,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(31,54): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(40,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(49,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(58,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(67,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(76,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(85,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(94,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(94,54): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(106,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(115,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(123,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/arithmetic-expression.test.ts(132,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(13,68): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; score: Column<number>; }>>'.
+- test/where/between.test.ts(25,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(37,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(37,46): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(45,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(61,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(73,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(73,53): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(81,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(86,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(107,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(119,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(131,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(140,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/between.test.ts(153,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(13,68): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; score: Column<number>; }>>'.
+- test/where/comparison.test.ts(30,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(40,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(46,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(46,46): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(51,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(53,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(59,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(59,47): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(65,37): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(73,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(73,43): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(73,55): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(78,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/comparison.test.ts(99,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(13,68): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; score: Column<number>; }>>'.
+- test/where/logical.test.ts(26,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(42,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(50,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(58,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(66,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(74,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(82,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(94,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(94,45): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(106,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(106,44): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(115,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(115,52): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(131,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(143,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(152,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(161,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(170,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(180,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(189,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/logical.test.ts(197,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(16,68): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; score: Column<number>; }>>'.
+- test/where/null-predicates.test.ts(16,101): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; score: Column<number>; }>>'.
+- test/where/null-predicates.test.ts(26,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(31,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(37,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(43,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(49,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(54,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(65,25): error TS2322: Type '{ id: number; a: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; a: Column<number>; b: Column<number>; }>>'.
+- test/where/null-predicates.test.ts(66,25): error TS2322: Type '{ id: number; b: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; a: Column<number>; b: Column<number>; }>>'.
+- test/where/null-predicates.test.ts(70,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(76,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(85,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(85,53): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(94,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(103,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(113,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/null-predicates.test.ts(113,54): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/row-shape.test.ts(17,58): error TS18046: 'a' is of type 'unknown'.
+- test/where/row-shape.test.ts(17,65): error TS18046: 'b' is of type 'unknown'.
+- test/where/row-shape.test.ts(18,33): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ score: number; }[]'.
+- test/where/row-shape.test.ts(28,61): error TS2769: No overload matches this call. (Overload 1 of 2, '(o: {}): string[]': Argument of type 'unknown' is not assignable to parameter of type '{}'. Overload 2 of 2, '(o: object): string[]': Argument of type 'unknown' is not assignable to parameter of type 'object'.)
+- test/where/row-shape.test.ts(35,44): error TS2769: No overload matches this call.
+- test/where/set-membership.test.ts(14,66): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; tag: Column<number>; }>>'.
+- test/where/set-membership.test.ts(14,97): error TS2322: Type '{ id: number; }' is not assignable to type 'InsertRowOfTable<Table<{ id: TypedColumn<number>; tag: Column<number>; }>>'.
+- test/where/set-membership.test.ts(26,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(39,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(59,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(67,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(83,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(91,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(100,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(100,54): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(111,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(119,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(128,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(141,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/set-membership.test.ts(150,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(15,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(15,45): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(15,60): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(24,40): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(25,41): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(32,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(37,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(39,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(44,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(46,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(53,31): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(53,45): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(53,59): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(65,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(65,51): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(73,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/successive-queries.test.ts(75,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(33,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(43,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(49,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(54,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(59,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(70,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(75,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(83,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(91,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/text-predicates.test.ts(109,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/transaction.test.ts(33,73): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(13,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(19,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(24,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(29,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(38,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(43,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(48,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
+- test/where/two-columns.test.ts(53,30): error TS2345: Argument of type 'unknown[]' is not assignable to parameter of type '{ id: number; }[]'.
 
-- `test/where/_fixtures.ts`
-- `test/where/arithmetic-expression.test.ts`
-- `test/where/between.test.ts`
-- `test/where/comparison.test.ts`
-- `test/where/logical.test.ts`
-- `test/where/null-predicates.test.ts`
-- `test/where/row-shape.test.ts`
-- `test/where/set-membership.test.ts`
-- `test/where/successive-queries.test.ts`
-- `test/where/text-predicates.test.ts`
-- `test/where/transaction.test.ts`
-- `test/where/two-columns.test.ts`
-
-実行コマンド (`projects/bad-dbms` 直下):
-
-```
-npx tsc --noEmit --strict --target ESNext --module ESNext --moduleResolution Bundler --jsx react-jsx --jsxImportSource react --skipLibCheck --lib ESNext,DOM test/where/*.test.ts
-```
-
-## エラー総数
-
-`test/where/` 配下のみで **305 件**。
-
-### エラーコード分布
-
-| TS code   | 件数 | 概要 |
-| --------- | ---: | ---- |
-| `TS2345`  |  301 | 引数型ミスマッチ。内訳: `Table<...>` → `Table<ColumnsShape>` 系 173 件、`unknown[]` → `{ id: number }[]` 等 128 件 |
-| `TS2769`  |    2 | overload 解決失敗 (`Object.keys(r)` などに `unknown` を渡せない) |
-| `TS18046` |    2 | `'a' is of type 'unknown'` (sort callback の `a.id - b.id`) |
-
-### ファイル別件数
-
-| ファイル                                       | 件数 |
-| ---------------------------------------------- | ---: |
-| `test/where/logical.test.ts`                   |   46 |
-| `test/where/successive-queries.test.ts`        |   35 |
-| `test/where/between.test.ts`                   |   34 |
-| `test/where/comparison.test.ts`                |   34 |
-| `test/where/set-membership.test.ts`            |   32 |
-| `test/where/null-predicates.test.ts`           |   31 |
-| `test/where/arithmetic-expression.test.ts`     |   30 |
-| `test/where/text-predicates.test.ts`           |   25 |
-| `test/where/two-columns.test.ts`               |   18 |
-| `test/where/row-shape.test.ts`                 |   11 |
-| `test/where/transaction.test.ts`               |    9 |
-
-(`test/where/_fixtures.ts` はテーブル定義を含まず、純ヘルパのため 0 件)
-
-## エラー一覧 (代表)
-
-### `Table<{...}>` not assignable to `Table<ColumnsShape>` (173 件)
-
-`db.select().from(<table>)` のすべての呼び出しで再発。代表のみ抜粋:
-
-- `arithmetic-expression.test.ts:13:25` — local `seededNullableScore` の `db.insert(db.tables.t).values(...)`
-- `arithmetic-expression.test.ts:26:33` — `db.select().from(users).where(gt(users.score.add(5), 20))`
-- `between.test.ts:*` — 全 `db.select().from(users|posts)` 呼び出し
-- `comparison.test.ts:*` — 同上
-- `logical.test.ts:*` — `and/or/not` を組み合わせた 全 `from(users|posts)` 呼び出し
-- `null-predicates.test.ts:*` — `isNull/isNotNull` 系 (内部で nullable table fixture を局所定義)
-- `set-membership.test.ts:*` — `inArray/notInArray`
-- `successive-queries.test.ts:*` — 連続クエリ
-- `text-predicates.test.ts:*` — `like/notLike/ilike` 系 (text 列)
-- `two-columns.test.ts:*` — 2 列予測 (`gt(t.a, t.b)` 等)
-- `transaction.test.ts` — `db.select().from(users)` および `tx.select().from(users)` (例外的に内部で局所 cast `found as { id: number }[]` 済みで残り 9 件のみ)
-
-### `unknown[]` → `{ id: number }[]` (128 件)
-
-`db.select().from(t).where(...)` の戻りが `unknown[]` で、ヘルパ `idsOf`, `scoresOf` の引数 `{ id: number }[]` / `{ score: number }[]` に渡せない。
-
-代表:
-
-- `arithmetic-expression.test.ts:28:30` — `expect(idsOf(bonused)).toEqual([2, 3])`
-- `between.test.ts:25:30` 等
-- `comparison.test.ts:30:30` 等
-- `successive-queries.test.ts:*` 多数
-
-### `row-shape.test.ts` の TS2769 / TS18046 (4 件)
-
-- `row-shape.test.ts:17:58` (TS18046): `[...rows].sort((a, b) => a.id - b.id)` の `a`, `b` が `unknown`
-- `row-shape.test.ts:17:65` (TS18046): 同上 `b`
-- `row-shape.test.ts:28:61` (TS2769): `rows.map((r) => Object.keys(r).sort().join(','))` の `Object.keys(r)` に `unknown` を渡せない
-- `row-shape.test.ts:35:44` (TS2769): `all.find((r: { id: number }) => r.id === 1)` の predicate が `unknown[].find` のオーバーロードと噛み合わない
-
-これらはすべて **B (select 戻りが `unknown[]`)** の連鎖。
-
-## グルーピング
-
-### グループ A: `Table<T>` invariance (173 件)
-
-select / transaction / update report と完全に同じ根本問題。`from(t)` が `Table<ColumnsShape>` を invariant に要求し、`table(...)` 由来の具象型 `Table<{ id: TypedColumn<number>; name: TypedColumn<number>; score: TypedColumn<number> }>` などが降格できない。
-
-where 固有要素として:
-
-- `where(...)` の引数 (`eq`, `gt`, `lt`, `between`, `and`, `or`, `not`, `like`, `inArray`, `isNull` 等) は **すべて型エラーになっていない**。つまり SQL predicate ファクトリの引数型は十分に緩く設計されている。
-- 同様に `users.score.add(5)` のような expression chain も TS では通っている。問題は `.from(table)` のみ。
-
-### グループ B: `db.select().from(t)` が `unknown[]` を返す (128 件 + 連鎖 4 件)
-
-select / transaction / update report と同根本。`.from(t)` の戻り row 型が立たないため、`rows.map(r => r.id)`, `[...rows].sort((a,b) => a.id - b.id)`, `Object.keys(rows[0])` のような row レベル操作が一律に失敗する。
-
-`test/where/_fixtures.ts` のヘルパ:
+## 観測されたテストコードの呼び出し形
 
 ```ts
-export const idsOf = (rows: { id: number }[]) => rows.map(...)
-export const scoresOf = (rows: { score: number }[]) => rows.map(...)
+await db.insert(db.tables.t).values([{ id: 1, score: 10 }, { id: 2 }, { id: 3, score: 30 }])
 ```
 
-が `{ id: number }[]` / `{ score: number }[]` を期待しているため、`unknown[]` を渡すと TS2345 が量産される。
+```ts
+const rows = await db.select().from(users).where(op(users.score, arg))
+expect(idsOf(rows)).toEqual(expected)
+```
 
-### グループ C: `transaction.test.ts` の内部 cast (グループ B を回避)
+```ts
+const rows = await db.select().from(t).where(eq(t.score, null as unknown as number))
+```
 
-`transaction.test.ts` は **テスト側で `as { id: number }[]` 等の局所 cast を毎回掛けている** ため、where では `from()` 経由の TS2345 のみが 9 件残るにとどまる。
-他ファイル (cast を掛けていない) との対比から、cast の有無で B グループ件数が大きく変わることが分かる。
+```ts
+const rows = await db.select().from(db.tables.t).where(eq(db.tables.t.a, db.tables.t.b))
+```
 
-### グループ D: `successive-queries.test.ts` の連続性 (35 件)
+```ts
+const rows = await db.select().from(users).where(gte(users.score, 20))
+const ordered = [...rows].sort((a, b) => a.id - b.id)
+expect(scoresOf(ordered)).toEqual([20, 30])
+```
 
-`logical.test.ts` 46 件に次ぐ第 2 位の件数。同一テーブル → 連続 select の組合せが多く、`from(t)` 呼び出し回数自体が多いため A + B 双方が同時に重なる。本質的にはグループ A / B と同じ問題で固有原因なし。
+```ts
+const rows = await db.select().from(users).where(gt(users.score, 15))
+const keySets = rows.map((r) => Object.keys(r).sort().join(','))
+```
 
-## 修正の方向性 hint
+```ts
+const all = await db.select().from(users)
+const filtered = await db.select().from(users).where(eq(users.id, 1))
+const allRowOne = all.find((r: { id: number }) => r.id === 1)
+```
 
-すべて `src/` 側の API シグネチャ調整で吸収できる。select / transaction / update report と同じ修正で 99% 解消する。
+```ts
+await db.insert(db.tables.t).values([
+        { id: 1, a: 5, b: 5 },
+        { id: 2, a: 7 },
+        { id: 3, b: 9 },
+])
+```
 
-1. **(最優先) `Table<ColumnsShape>` invariance の解消**: `from`, `insert`, `update`, `delete` の table 引数を `<T extends ColumnsShape>(t: Table<T>)` の generic 形に。グループ A 173 件解消。
+```ts
+const found = await db.transaction(async (tx) => {
+        return tx.select().from(users).where(eq(users.id, 2))
+})
+expect(idsOf(found as { id: number }[])).toEqual([2])
+```
 
-2. **`from(t).where(...)` の row 推論**: 上記と組で `from<T>(t: Table<T>): Query<RowOf<T>>` 形にし、`where(...)` chain でも row 型を維持する。これでグループ B 128 件 + row-shape 連鎖 4 件 (TS18046, TS2769) も解消。
+```ts
+const popular = await db.select().from(posts).where(gt(posts.score, posts.id))
+expect(idsOf(popular)).toEqual([1, 2, 3])
+```
 
-3. (where 固有の課題は無し) `where` 周りの predicate ファクトリ (`eq/gt/lt/between/inArray/like/isNull/and/or/not` ...) は型エラーゼロなので、今回の検証範囲では追加修正不要。
+## エラー件数
+
+142
