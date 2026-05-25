@@ -51,7 +51,7 @@ src/interface/          user 向け drizzle-like API + AST 構築
   database.ts           database({tables}) + transaction()
 ─────────────────────────────────────────────────────────────────
 src/backend/            catalog + executor + entry
-  adapter/              file adapter 群 (memory / nodejs / cloudflare / ...)
+  adapter/              file adapter 群 (memory / nodejs / browser / ...)
   catalog.ts            relation / column / index の schema 管理
   index.ts              createBackend: 全層を wire する entry
 ─────────────────────────────────────────────────────────────────
