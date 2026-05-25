@@ -14,7 +14,7 @@ describe('multi-level cascade through a self-referential tree', () => {
                         { id: 3, parentId: 2 },
                         { id: 4, parentId: 3 },
                 ])
-                return { db, nodes: db.tables.nodes }
+                return { db, nodes }
         }
         it('deleting a parent removes its direct children', async () => {
                 const { db, nodes } = await seededTree()

@@ -1,5 +1,5 @@
 import { database, table, integer, text } from '../../src/index'
-import type { Table } from '../../src/index'
+import type { Table, TypedColumn } from '../../src/index'
 // Every expected value in the delete tests is derived from Drizzle /
 // SQL-standard semantics, never from observing bad-dbms behaviour. These
 // fixtures only build schemas and seed data; they encode no expectations.
@@ -17,8 +17,9 @@ export const makeBooks = (authors: ReturnType<typeof makeAuthors>) =>
                 title: text('title'),
         })
 // A self-referential tree so multi-level cascade can be attacked.
-export const makeNodes = (): Table<any> => {
-        const nodes: Table<any> = table('nodes', {
+type NodesShape = { id: TypedColumn<number>; parentId: TypedColumn<number | null> }
+export const makeNodes = (): Table<NodesShape> => {
+        const nodes: Table<NodesShape> = table('nodes', {
                 id: integer('id').primaryKey(),
                 parentId: integer('parent_id').references(() => nodes.id, { onDelete: 'cascade' }),
         })
@@ -47,4 +48,4 @@ export const seededBoard = async () => {
         return { db, t }
 }
 // idsOf reads the surviving ids back, ascending.
-export const idsOf = (rows: any) => rows.map((r: any) => r.id).sort((a: any, b: any) => a - b)
+export const idsOf = <T extends { id: number }>(rows: T[]) => rows.map((r) => r.id).sort((a, b) => a - b)
