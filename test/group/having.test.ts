@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { rowsOf, seedEvents } from '../_helpers'
 import { count, sum, eq, gt, gte, lt, lte, ne } from '../../src/index'
-import { seedEvents } from '../_helpers'
-import { rowsOf } from './helpers'
 // group feature: having filters whole groups by an aggregate predicate. It is
 // a Drizzle clause that only makes sense after groupBy. bad-dbms's select
 // builder exposes no .having method, so these fail honestly via a runtime

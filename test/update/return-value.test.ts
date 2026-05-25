@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt, gte, lt } from '../../src/index'
-import { makeBoard, fresh, seeded } from './_fixtures'
+import { makeBoard, freshBoard, seeded } from './helpers'
 // The expectations here are derived from the Drizzle / SQLite update contract.
 // In Drizzle over the SQLite driver, an update without returning() resolves to
 // a run-result object carrying a `changes` count of how many rows the
@@ -31,7 +31,7 @@ describe('an update resolves to a run-result carrying a changes count', () => {
                 expect(result).toMatchObject({ changes: 3 })
         })
         it('updating an empty table reports a changes count of zero', async () => {
-                const { db, t } = fresh()
+                const { db, t } = freshBoard()
                 const result = await db.update(t).set({ score: 1 }).where(gt(t.id, 0))
                 expect(result).toMatchObject({ changes: 0 })
         })

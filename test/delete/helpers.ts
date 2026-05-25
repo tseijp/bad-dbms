@@ -1,10 +1,6 @@
-import { database, table, integer, text } from '../../src/index'
+import { table, integer, text } from '../../src/index'
 import type { Table, TypedColumn } from '../../src/index'
-// Every expected value in the delete tests is derived from Drizzle /
-// SQL-standard semantics, never from observing bad-dbms behaviour. These
-// fixtures only build schemas and seed data; they encode no expectations.
-// A parent table and a child table wired with a foreign key so cascade and
-// referential-integrity behaviour can be attacked.
+import { fresh } from '../_helpers'
 export const makeAuthors = () =>
         table('authors', {
                 id: integer('id').primaryKey(),
@@ -16,7 +12,6 @@ export const makeBooks = (authors: ReturnType<typeof makeAuthors>) =>
                 authorId: integer('author_id').references(() => authors.id, { onDelete: 'cascade' }),
                 title: text('title'),
         })
-// A self-referential tree so multi-level cascade can be attacked.
 type NodesShape = { id: TypedColumn<number>; parentId: TypedColumn<number | null> }
 export const makeNodes = (): Table<NodesShape> => {
         const nodes: Table<NodesShape> = table('nodes', {
@@ -25,19 +20,12 @@ export const makeNodes = (): Table<NodesShape> => {
         })
         return nodes
 }
-// A plain board for the value-level scenarios.
 export const makeBoard = () =>
         table('board', {
                 id: integer('id').primaryKey(),
                 score: integer('score'),
         })
-// freshBoard builds an empty board database and returns the handle.
-export const freshBoard = () => {
-        const t = makeBoard()
-        const db = database({ t })
-        return { db, t: db.tables.t as ReturnType<typeof makeBoard> }
-}
-// seededBoard builds a board with three rows of spread-out scores.
+export const freshBoard = () => fresh(makeBoard)
 export const seededBoard = async () => {
         const { db, t } = freshBoard()
         await db.insert(t).values([
@@ -47,5 +35,3 @@ export const seededBoard = async () => {
         ])
         return { db, t }
 }
-// idsOf reads the surviving ids back, ascending.
-export const idsOf = <T extends { id: number }>(rows: T[]) => rows.map((r) => r.id).sort((a, b) => a - b)

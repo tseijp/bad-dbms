@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, text, eq, like } from '../../src/index'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 describe('deleting rows selected by a text predicate', () => {
         // A text column holds string values. A delete driven by a
         // string equality or LIKE pattern must match on the actual

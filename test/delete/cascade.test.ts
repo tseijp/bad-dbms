@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, eq, count } from '../../src/index'
-import { makeAuthors, makeBooks, idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
+import { makeAuthors, makeBooks } from './helpers'
 describe('foreign key ON DELETE CASCADE removes dependent rows', () => {
         // Drizzle declares onDelete: 'cascade' on the child FK. SQL
         // then removes every child row when its parent is deleted.

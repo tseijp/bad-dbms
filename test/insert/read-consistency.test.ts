@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { count, eq } from '../../src/index'
 import { USERS_SEED, POSTS_SEED } from '../_helpers'
-import { freshUsers, freshUsersPosts } from './_fixtures'
+import { freshUsers, freshUsersPosts } from './helpers'
 describe('insert then read consistency', () => {
         it('count aggregate after USERS_SEED equals 3', async () => {
                 const { db, users } = freshUsers()

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, eq, ne, gt, gte, lt, lte } from '../../src/index'
 import { seedUsers } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 // A table with a nullable score: id 2 is inserted without a score, so its
 // score is genuinely NULL. Used to attack comparison against NULL.
 const seededNullableScore = async () => {

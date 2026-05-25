@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { findBy, rowsOf, seedEvents } from '../_helpers'
 import { count, sum, gt, gte, lt, lte, ne, between } from '../../src/index'
-import { seedEvents } from '../_helpers'
-import { rowsOf, groupWith } from './helpers'
 // group feature: groupBy after where. The predicate trims rows first, then
 // the survivors are bucketed. A group vanishes if where removes all its rows.
 // Expectations follow the correct Drizzle / SQL spec.
@@ -9,7 +8,7 @@ describe('groupBy after where', () => {
         it('groups only the rows surviving a where predicate', async () => {
                 const { db, events } = await seedEvents()
                 const result = await db.select({ kind: events.kind, n: count() }).from(events).where(gt(events.v, 150)).groupBy(events.kind)
-                expect(groupWith(result, 'kind', 1).n).toBe(2)
+                expect(findBy(result, 'kind', 1)!.n).toBe(2)
         })
         it.each([
                 [0, 1],
@@ -18,7 +17,7 @@ describe('groupBy after where', () => {
         ])('counts kind %i as %i after where v>150', async (kind, expected) => {
                 const { db, events } = await seedEvents()
                 const result = await db.select({ kind: events.kind, n: count() }).from(events).where(gt(events.v, 150)).groupBy(events.kind)
-                expect(groupWith(result, 'kind', kind).n).toBe(expected)
+                expect(findBy(result, 'kind', kind)!.n).toBe(expected)
         })
         it('drops a group entirely when where removes all its rows', async () => {
                 const { db, events } = await seedEvents()
@@ -48,6 +47,6 @@ describe('groupBy after where', () => {
                         .from(events)
                         .where(gt(events.v, 150))
                         .groupBy(events.kind)
-                expect(groupWith(result, 'kind', 1).s).toBe('700')
+                expect(findBy(result, 'kind', 1)!.s).toBe('700')
         })
 })

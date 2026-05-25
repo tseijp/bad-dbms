@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
-import { makeScored, makeRanked, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeScored, makeRanked, seqOf } from './helpers'
 describe('ordering by a computed expression', () => {
         // A reader sorts not by a stored column but by a value derived
         // from the row — a sum of two columns, or a column scaled. The

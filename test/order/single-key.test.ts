@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
-import { makeScored, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeScored, seqOf } from './helpers'
 describe('single-key ordering across row counts and shapes', () => {
         // The same ascending sort must hold whether the table has one
         // row, a handful, or many — and whatever scrambled order they

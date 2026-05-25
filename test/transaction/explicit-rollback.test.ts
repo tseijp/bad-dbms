@@ -1,14 +1,14 @@
 import { describe, it, expect } from 'vitest'
 import { eq, gt } from '../../src/index'
-import { fresh, seeded, amountsById } from './_fixtures'
+import { seeded, amountsById, freshLedger } from './helpers'
 describe('an explicit tx.rollback aborts the transaction', () => {
         // Drizzle exposes tx.rollback(): calling it aborts the
         // transaction so none of its writes survive, without the
         // caller having to throw a bespoke error.
         it('calling tx.rollback undoes an insert made earlier in the body', async () => {
-                const { db, t } = fresh()
+                const { db, t } = freshLedger()
                 await db
-                        .transaction(async (tx) => {
+                        .transaction(async (tx: any) => {
                                 await tx.insert(t).values({ id: 1, amount: 100 })
                                 ;(tx as { rollback: () => void }).rollback()
                         })
@@ -19,7 +19,7 @@ describe('an explicit tx.rollback aborts the transaction', () => {
         it('calling tx.rollback undoes an update made earlier in the body', async () => {
                 const { db, t } = await seeded()
                 await db
-                        .transaction(async (tx) => {
+                        .transaction(async (tx: any) => {
                                 await tx.update(t).set({ amount: 0 }).where(eq(t.id, 1))
                                 ;(tx as { rollback: () => void }).rollback()
                         })
@@ -30,7 +30,7 @@ describe('an explicit tx.rollback aborts the transaction', () => {
         it('a transaction that rolls back explicitly leaves the row count unchanged', async () => {
                 const { db, t } = await seeded()
                 await db
-                        .transaction(async (tx) => {
+                        .transaction(async (tx: any) => {
                                 await tx.delete(t).where(gt(t.id, 0))
                                 ;(tx as { rollback: () => void }).rollback()
                         })

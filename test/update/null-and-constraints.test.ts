@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, eq } from '../../src/index'
-import { makeTyped, makeUniqueBoard } from './_fixtures'
+import { makeTyped, makeUniqueBoard } from './helpers'
 // Every expectation here is the Drizzle / SQL contract for what an update may
 // and may not do: a nullable column can be set to NULL; a notNull column
 // cannot; a unique column cannot be set to a value another row already holds;

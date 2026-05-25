@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, eq, count } from '../../src/index'
-import { makeBoard, idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
+import { makeBoard } from './helpers'
 describe('a delete on one table leaves a sibling table intact', () => {
         // Two unrelated tables share a connection. A delete on one
         // must never reach the other.

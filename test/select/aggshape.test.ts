@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { keysOf, rowsOf, seedUsers } from '../_helpers'
 import { count, sum, avg } from '../../src/index'
-import { rowsOf, keysOf, seedUsers } from './helpers'
 // select rework: the row shape select() produces for an aggregate projection.
 // Drizzle's select() always resolves to an ARRAY of row objects, one row for
 // a group-by-less aggregate. The select feature owns only this shape; the

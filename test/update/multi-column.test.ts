@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { eq } from '../../src/index'
-import { seeded, rowById } from './_fixtures'
+import { seeded, rowById } from './helpers'
 describe('a multi-column set mutates several columns at once', () => {
         // A reader rewriting a whole record passes several columns in
         // one set call; all of them change together.

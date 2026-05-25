@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freshUsers, freshPosts, freshEvents } from './_fixtures'
+import { freshUsers, freshPosts, freshEvents } from './helpers'
 describe('column omission', () => {
         // Correct spec: a column declared .default(0) and omitted on
         // insert takes its declared default; score is default(0).

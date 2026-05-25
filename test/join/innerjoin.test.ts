@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { rowsOf, seedUsersPosts, sortBy, valuesOf } from '../_helpers'
+import { seedPair } from './helpers'
 import { eq, gt } from '../../src/index'
-import { rowsOf, by, column, innerJoin, seedUsersPosts, seedPair } from './helpers'
 // join feature: innerJoin keeps only matched pairs. Every scenario follows the
 // correct Drizzle spec. bad-dbms may not expose join builders; the builder is
 // reached untyped via the helper so a missing method is a runtime honest fail.
@@ -8,32 +9,32 @@ import { rowsOf, by, column, innerJoin, seedUsersPosts, seedPair } from './helpe
 describe('innerJoin keeps only matched pairs', () => {
         it('joins every post to its owning user', async () => {
                 const { db, users, posts } = await seedUsersPosts()
-                const result = await innerJoin(db.select({ userId: users.id, postId: posts.id }).from(users), posts, eq(posts.userId, users.id))
+                const result = await db.select({ userId: users.id, postId: posts.id }).from(users).innerJoin(posts, eq(posts.userId, users.id))
                 expect(rowsOf(result)).toHaveLength(4)
         })
         it('repeats user 1 once per post they own', async () => {
                 const { db, users, posts } = await seedUsersPosts()
-                const result = await innerJoin(db.select({ userId: users.id, postId: posts.id }).from(users), posts, eq(posts.userId, users.id))
-                expect(column(result, 'userId').slice().sort()).toEqual([1, 1, 2, 3])
+                const result = await db.select({ userId: users.id, postId: posts.id }).from(users).innerJoin(posts, eq(posts.userId, users.id))
+                expect(valuesOf(result, 'userId').slice().sort((a, b) => Number(a) - Number(b))).toEqual([1, 1, 2, 3])
         })
         it('pairs each post id with the right user id when sorted by post', async () => {
                 const { db, users, posts } = await seedUsersPosts()
-                const result = await innerJoin(db.select({ userId: users.id, postId: posts.id }).from(users), posts, eq(posts.userId, users.id))
-                expect(by(result, 'postId').map((r) => r.userId)).toEqual([1, 1, 2, 3])
+                const result = await db.select({ userId: users.id, postId: posts.id }).from(users).innerJoin(posts, eq(posts.userId, users.id))
+                expect(sortBy(result, 'postId').map((r) => r.userId)).toEqual([1, 1, 2, 3])
         })
         it('orders the joined rows by post id ascending', async () => {
                 const { db, users, posts } = await seedUsersPosts()
-                const result = await innerJoin(db.select({ userId: users.id, postId: posts.id }).from(users), posts, eq(posts.userId, users.id))
-                expect(by(result, 'postId').map((r) => r.postId)).toEqual([1, 2, 3, 4])
+                const result = await db.select({ userId: users.id, postId: posts.id }).from(users).innerJoin(posts, eq(posts.userId, users.id))
+                expect(sortBy(result, 'postId').map((r) => r.postId)).toEqual([1, 2, 3, 4])
         })
         it('narrows an inner join to one user with a where clause', async () => {
                 const { db, users, posts } = await seedUsersPosts()
-                const result = await innerJoin(db.select({ userId: users.id, postId: posts.id }).from(users), posts, eq(posts.userId, users.id)).where(eq(users.id, 1))
+                const result = await db.select({ userId: users.id, postId: posts.id }).from(users).innerJoin(posts, eq(posts.userId, users.id)).where(eq(users.id, 1))
                 expect(rowsOf(result)).toHaveLength(2)
         })
         it('keeps only the high-score posts after an inner join with where', async () => {
                 const { db, users, posts } = await seedUsersPosts()
-                const result = await innerJoin(db.select({ userId: users.id, postScore: posts.score }).from(users), posts, eq(posts.userId, users.id)).where(gt(posts.score, 6))
+                const result = await db.select({ userId: users.id, postScore: posts.score }).from(users).innerJoin(posts, eq(posts.userId, users.id)).where(gt(posts.score, 6))
                 expect(rowsOf(result)).toHaveLength(2)
         })
         it('drops every row when the join predicate matches no pair', async () => {
@@ -47,7 +48,7 @@ describe('innerJoin keeps only matched pairs', () => {
                                 [2, 99, 7],
                         ],
                 )
-                const result = await innerJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).innerJoin(r, eq(r.fk, l.id))
                 expect(rowsOf(result)).toEqual([])
         })
         it.each([
@@ -95,7 +96,7 @@ describe('innerJoin keeps only matched pairs', () => {
                 ],
         ])('produces the right inner-join row count for the %s shape', async (_label, left, right, expected) => {
                 const { db, l, r } = await seedPair(left, right)
-                const result = await innerJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).innerJoin(r, eq(r.fk, l.id))
                 expect(rowsOf(result)).toHaveLength(expected)
         })
         // dense matrix: a fixed left table of three rows joined to a varying
@@ -176,7 +177,7 @@ describe('innerJoin keeps only matched pairs', () => {
                 ],
         ])('inner-joins three left rows to the %s right table', async (_label, right, expected) => {
                 const { db, l, r } = await seedPair(leftThree, right)
-                const result = await innerJoin(db.select({ id: l.id, rv: r.rv }).from(l), r, eq(r.fk, l.id))
+                const result = await db.select({ id: l.id, rv: r.rv }).from(l).innerJoin(r, eq(r.fk, l.id))
                 expect(rowsOf(result)).toHaveLength(expected)
         })
         // dense matrix: an inner join then a where on the left key keeps only
@@ -189,7 +190,7 @@ describe('innerJoin keeps only matched pairs', () => {
                 [4, 0],
         ])('keeps %i inner-join rows after filtering to user id %i', async (id, expected) => {
                 const { db, users, posts } = await seedUsersPosts()
-                const result = await innerJoin(db.select({ userId: users.id, postId: posts.id }).from(users), posts, eq(posts.userId, users.id)).where(eq(users.id, id))
+                const result = await db.select({ userId: users.id, postId: posts.id }).from(users).innerJoin(posts, eq(posts.userId, users.id)).where(eq(users.id, id))
                 expect(rowsOf(result)).toHaveLength(expected)
         })
 })

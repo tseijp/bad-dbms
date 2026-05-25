@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { firstRow, scalar } from '../_helpers'
+import { numTable } from './helpers'
 import { count, countDistinct, sum, sumDistinct, avgDistinct } from '../../src/index'
-import { scalar, aggRow, numTable } from './helpers'
 // aggregate feature: distinct aggregates collapse duplicate values before
 // aggregating.
 //
@@ -64,7 +65,7 @@ describe('distinct aggregates collapse duplicates', () => {
         it('reads both plain and distinct sums of a duplicated table at once', async () => {
                 const { db, t } = await numTable([2, 2, 3])
                 const result = await db.select({ s: sum(t.v), sd: sumDistinct(t.v) }).from(t)
-                expect(aggRow(result)).toEqual({ s: '7', sd: '5' })
+                expect(firstRow(result)).toEqual({ s: '7', sd: '5' })
         })
         it('inserts duplicates, then watches countDistinct stay flat as count climbs', async () => {
                 const { db, t } = await numTable([1, 2, 3])
@@ -74,7 +75,7 @@ describe('distinct aggregates collapse duplicates', () => {
                         { id: 5, v: 2 },
                 ])
                 const after = await db.select({ n: count(), d: countDistinct(t.v) }).from(t)
-                expect([aggRow(before), aggRow(after)]).toEqual([
+                expect([firstRow(before), firstRow(after)]).toEqual([
                         { n: 3, d: 3 },
                         { n: 5, d: 3 },
                 ])
@@ -104,7 +105,7 @@ describe('distinct aggregates collapse duplicates', () => {
         it.each(matrix)('reads plain and distinct count of the %s dataset at once', async (_label, values, n, d) => {
                 const { db, t } = await numTable(values)
                 const result = await db.select({ n: count(), d: countDistinct(t.v) }).from(t)
-                expect(aggRow(result)).toEqual({ n, d })
+                expect(firstRow(result)).toEqual({ n, d })
         })
         // distinct-sum matrix: the sum of the unique values in each dataset,
         // resolved as a Drizzle string.

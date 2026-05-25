@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
-import { makeScored, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeScored, seqOf } from './helpers'
 describe('limit keeps the top of an ordered result', () => {
         // A reader who only wants the top few of a sorted board reaches
         // for limit. The window is taken after the sort, so it is the

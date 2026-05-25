@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, eq, isNull, isNotNull } from '../../src/index'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 describe('deleting rows selected by a NULL predicate', () => {
         // A nullable column genuinely holds NULL where no value was
         // given. isNull / isNotNull must select on actual NULL, and a

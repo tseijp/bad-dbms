@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc } from '../../src/index'
-import { makeNamed, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeNamed, seqOf } from './helpers'
 // Every expectation here is the SQL / Drizzle contract for ordering a text
 // column: strings sort lexicographically by their characters. bad-dbms is a
 // numeric column store suspected of coercing text through Number(); if so a

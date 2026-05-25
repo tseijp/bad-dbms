@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { rowsOf, seedEvents, seedPosts } from '../_helpers'
 import { count, sum, asc, desc } from '../../src/index'
-import { seedEvents, seedPosts } from '../_helpers'
-import { rowsOf } from './helpers'
 // group feature: groupBy combined with ordering. orderBy after groupBy sorts
 // the group rows; it can sort by the group key or by an aggregate expression.
 // bad-dbms cannot resolve an aggregate-expression sort key, so the

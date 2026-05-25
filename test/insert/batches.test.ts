@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freshUsers } from './_fixtures'
+import { freshUsers } from './helpers'
 describe('sequential insert batches', () => {
         it('two sequential single-row inserts accumulate to two rows', async () => {
                 const { db, users } = freshUsers()

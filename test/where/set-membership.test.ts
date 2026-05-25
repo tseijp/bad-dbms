@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, eq, inArray, notInArray } from '../../src/index'
 import { seedUsers } from '../_helpers'
-import { idsOf } from './_fixtures'
+import { idsOf } from '../_helpers'
 // A table with a nullable column: ids 2 and 4 are inserted without a tag, so
 // their tag is genuinely NULL — the spec-correct ground for set membership
 // against NULL.

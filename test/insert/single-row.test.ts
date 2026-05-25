@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { freshUsers } from './_fixtures'
+import { freshUsers } from './helpers'
 // The expectations here are derived from the Drizzle / SQLite insert contract.
 // In Drizzle over the SQLite driver, an insert without returning() resolves to
 // a run-result object carrying a `changes` count of how many rows it wrote — a

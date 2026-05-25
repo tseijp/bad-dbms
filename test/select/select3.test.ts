@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { USERS_SEED, keysOf, makeEvents, makeUsers, rowsOf, seedUsers, valuesOf } from '../_helpers'
+import { LABELS, seedLabels } from './helpers'
 import { database } from '../../src/index'
-import { makeUsers, makeEvents, USERS_SEED } from '../_helpers'
-import { rowsOf, valuesOf, keysOf, seedUsers, seedLabels, LABELS } from './helpers'
 // select rework: query isolation. Each select() call is an independent query
 // — a projection from one read never leaks into the next, and two tables on
 // one connection are read without cross-talk.

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc, desc, gt, lt, and } from '../../src/index'
-import { makeScored, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeScored, seqOf } from './helpers'
 describe('ordering composed with other clauses', () => {
         // Ordering is one clause among several. These scenarios place
         // orderBy alongside a top-N limit and confirm the sort drives

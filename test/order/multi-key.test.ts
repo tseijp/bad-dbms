@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { database, table, integer, asc, desc } from '../../src/index'
-import { makeRanked, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeRanked, seqOf } from './helpers'
 // A two-key table whose secondary key is nullable, so the placement of NULL
 // inside a tie group can be attacked. rank groups rows; score, when present,
 // orders within a group; some rows leave score NULL.

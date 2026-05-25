@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { asc } from '../../src/index'
-import { makeScored, fresh, seqOf } from './_fixtures'
+import { fresh } from '../_helpers'
+import { makeScored, seqOf } from './helpers'
 describe('offset skips the front of an ordered result', () => {
         // A reader paging through a sorted board uses offset to skip
         // the rows already seen. offset drops from the front; the rest

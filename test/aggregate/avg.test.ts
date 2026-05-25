@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
+import { scalar, seedUsers } from '../_helpers'
+import { numTable } from './helpers'
 import { avg, gte, lt } from '../../src/index'
-import { seedUsers } from '../_helpers'
-import { scalar, numTable } from './helpers'
 // aggregate feature: avg over varying datasets.
 //
 // rework-3 audit: the earlier version of this file only picked datasets whose
