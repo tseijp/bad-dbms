@@ -1,4 +1,4 @@
-import { database, table, integer, text } from '../../src/index'
+import { database, table, integer, text, TableLike } from '../../src/index'
 // A table whose rows are inserted in a deliberately scrambled order so that
 // any observed ordering is the work of orderBy, never of insertion order.
 export const makeScored = () =>
@@ -30,7 +30,7 @@ export const makeNamed = () =>
                 name: text('name'),
         })
 // fresh builds an empty single-table database from a factory.
-export const fresh = <S>(make: () => S) => {
+export const fresh = <S extends TableLike>(make: () => S) => {
         const t = make()
         const db = database({ t })
         return { db, t: db.tables.t as S }
