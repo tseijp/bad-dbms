@@ -60,12 +60,12 @@ src/backend/access/     rid を介した tuple アクセス層
   nbtree.ts             B+tree index、forward/backward scan
 ─────────────────────────────────────────────────────────────────
 src/backend/executor/             Volcano operator iterator 群
-  index.ts            executor entry (operator dispatch)
-  scan.ts             SeqScan / NamedScan
-  join.ts             NestedLoopJoin
-  group.ts            Aggregate / Sort / Distinct / Limit / Projection
-  modify.ts           Insert / Update / Delete
-  utils.ts            共有 helper
+  index.ts              executor entry (operator dispatch)
+  scan.ts               SeqScan / NamedScan
+  join.ts               NestedLoopJoin
+  group.ts              Aggregate / Sort / Distinct / Limit / Projection
+  modify.ts             Insert / Update / Delete
+  utils.ts              共有 helper
 ─────────────────────────────────────────────────────────────────
 src/backend/storage/    byte 単位の物理層
   page.ts               1 page の header / tombstone / 値域
