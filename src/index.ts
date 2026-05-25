@@ -1,20 +1,6 @@
 import { Hono } from 'hono'
 import { createCloudflareAdapter } from './backend/adapter/cloudflare'
-import { database } from './interface/database'
-import { table } from './interface/table'
-import { integer, text } from './interface/column'
-
-export * from './interface/expressions/conditions'
-export * from './interface/expressions/select'
-export * from './interface/functions/aggregate'
-export * from './interface/column'
-export * from './interface/introspect'
-export * from './interface/compile'
-export * from './interface/database'
-export * from './interface/plan'
-export * from './interface/sql'
-export * from './interface/table'
-export * from './interface/types'
+import { database, table, integer, text } from './interface'
 
 interface Env {
         KV: any

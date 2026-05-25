@@ -5,6 +5,12 @@ import { createSeqScan, createNamedScan, createFilter, createProjection } from '
 import { createNestedLoopJoin } from './join'
 import { createAggregate, createSort, createDistinct, createLimit } from './group'
 import { createUpdate, createDelete, createInsert } from './modify'
+export * from './group'
+export * from './index'
+export * from './join'
+export * from './modify'
+export * from './scan'
+export * from './utils'
 const build = async (catalog: Catalog, ast: PhysicalOp): Promise<RowIterator> => {
         if (!ast || !ast.op) throw new Error(`error: no ast or op`)
         if (ast.op === 'SeqScan') return createSeqScan(catalog, ast)
