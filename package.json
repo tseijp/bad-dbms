@@ -5,6 +5,7 @@
                 "dev": "vite",
                 "build": "vite build",
                 "test": "npx vitest run --coverage",
+                "type": "npx tsc --noEmit",
                 "tee": "NO_COLOR=1 npm run test 2>&1 | tee log.md",
                 "preview": "$npm_execpath run build && vite preview",
                 "deploy": "$npm_execpath run build && wrangler deploy",
