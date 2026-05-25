@@ -1,5 +1,5 @@
 import type { SQL, SqlNode, SqlValue, JoinKind } from '../shared/types'
-import type { TypedColumn, Table as TypedTable, DatabaseConfig as TypedDatabaseConfig } from './infer'
+import type { TypedColumn, Table as TypedTable, DatabaseConfig as TypedDatabaseConfig, ColumnsShape } from './infer'
 
 export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
 
@@ -15,7 +15,7 @@ export interface TableBase {
         kind: 'sql'
         node: SqlNode
 }
-export type Table<S extends Record<string, Column<any>> = Record<string, Column<any>>> = TypedTable<S>
+export type Table<S = ColumnsShape> = TypedTable<S>
 
 export type DatabaseConfig = TypedDatabaseConfig
 
