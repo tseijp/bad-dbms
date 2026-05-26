@@ -59,7 +59,7 @@ src/backend/access/     rid を介した tuple アクセス層
   heap.ts               固定長 record の置き場、rid 採番
   nbtree.ts             B+tree index、forward/backward scan
 ─────────────────────────────────────────────────────────────────
-src/backend/executor/             Volcano operator iterator 群
+src/backend/executor/   Volcano operator iterator 群
   index.ts              executor entry (operator dispatch)
   scan.ts               SeqScan / NamedScan
   join.ts               NestedLoopJoin
@@ -354,17 +354,17 @@ const joined = await db
 chain method:
 
 ```sql
-.from(table)                        FROM
-.where(cond)                        WHERE
-.groupBy(...cols)                   GROUP BY
-.having(cond)                       HAVING (aggregate 後の filter)
-.orderBy(...cols)                   ORDER BY (asc / desc で wrap)
-.limit(n)                           LIMIT
-.offset(n)                          OFFSET
-.innerJoin(table, on)               INNER JOIN
-.leftJoin(table, on)                LEFT JOIN
-.rightJoin(table, on)               RIGHT JOIN
-.fullJoin(table, on)                FULL JOIN
+.from(table)          FROM
+.where(cond)          WHERE
+.groupBy(...cols)     GROUP BY
+.having(cond)         HAVING (aggregate 後の filter)
+.orderBy(...cols)     ORDER BY (asc / desc で wrap)
+.limit(n)             LIMIT
+.offset(n)            OFFSET
+.innerJoin(table, on) INNER JOIN
+.leftJoin(table, on)  LEFT JOIN
+.rightJoin(table, on) RIGHT JOIN
+.fullJoin(table, on)  FULL JOIN
 ```
 
 戻り値は row 配列。`.groupBy` 無しで aggregate のみを projection した場合は単一 row object に unwrap される。
