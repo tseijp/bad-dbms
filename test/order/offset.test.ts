@@ -20,7 +20,7 @@ describe('offset skips the front of an ordered result', () => {
                 [3, [70, 90]],
                 [4, [90]],
                 [5, []],
-        ] as const)('skipping the first %i ascending rows leaves the documented tail', async (n, expected) => {
+        ])('skipping the first %i ascending rows leaves the documented tail', async (n, expected) => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.score)).offset(n)

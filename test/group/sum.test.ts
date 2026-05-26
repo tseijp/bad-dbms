@@ -40,7 +40,7 @@ describe('per-group sum', () => {
                                 [0, 20],
                                 [1, 30],
                                 [1, 40],
-                        ] as Array<[number, number]>,
+                        ],
                         0,
                         '30',
                 ],
@@ -50,7 +50,7 @@ describe('per-group sum', () => {
                                 [0, -5],
                                 [0, -15],
                                 [1, 100],
-                        ] as Array<[number, number]>,
+                        ],
                         0,
                         '-20',
                 ],
@@ -60,11 +60,11 @@ describe('per-group sum', () => {
                                 [5, -10],
                                 [5, 10],
                                 [5, 50],
-                        ] as Array<[number, number]>,
+                        ],
                         5,
                         '50',
                 ],
-                ['singleton group', [[9, 42]] as Array<[number, number]>, 9, '42'],
+                ['singleton group', [[9, 42]], 9, '42'],
         ])('sums the %s shape per group', async (_label, pairs, key, expected) => {
                 const { db, t } = await groupTable(pairs)
                 const result = await db
@@ -100,7 +100,7 @@ describe('per-group sum', () => {
         })
         // dense matrix: one fixed multi-group dataset, per-group sum asserted
         // for every group key as a Drizzle string.
-        const richData: Array<[number, number]> = [
+        const richData = [
                 [0, 10],
                 [0, 20],
                 [0, 30],

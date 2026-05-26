@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { table, integer } from '../../src/index'
-import * as bad from '../../src/index'
+import { table, integer, getTableColumns } from '../../src/index'
 // schema rework: table declaration structure. The structural invariants here
 // (name preserved, declared column order kept, distinct tables are distinct
 // references) are genuine Drizzle-parity facts and would hold in Drizzle too.
@@ -9,7 +8,6 @@ import * as bad from '../../src/index'
 // `$meta.columns[].$col.name` path onto the public column `name` property and
 // the Drizzle `getTableColumns` introspection helper, so a column-shape
 // divergence fails honestly rather than passing through an internal field.
-const getTableColumns = (t: any) => bad.getTableColumns(t)
 const columnNames = (t: any) => Object.values(getTableColumns(t)).map((c: any) => c.name)
 describe('table()', () => {
         it('reads the table name from the declared table', () => {
@@ -43,7 +41,7 @@ describe('table()', () => {
                 [5, { a: integer('a'), b: integer('b'), c: integer('c'), d: integer('d'), e: integer('e') }],
         ])('declares a table with %i columns', (count, cols) => {
                 const t = table('t', cols)
-                expect(Object.keys(getTableColumns(t))).toHaveLength(count as number)
+                expect(Object.keys(getTableColumns(t))).toHaveLength(count)
         })
         it('declares two different tables as distinct references', () => {
                 const users = table('users', { id: integer('id') })

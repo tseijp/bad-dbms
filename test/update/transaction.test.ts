@@ -35,15 +35,12 @@ describe('an update inside a transaction', () => {
                         await tx.update(t).set({ score: 77 }).where(eq(t.id, 3))
                         return tx.select().from(t).where(eq(t.id, 3))
                 })
-                expect((seen as { score: number }[])[0].score).toBe(77)
+                expect(seen[0].score).toBe(77)
         })
         it('a per-row tick update sets every visited rows score to zero', async () => {
                 const { db, t } = await seeded()
                 const runner = db.transaction((tx, c) => {
-                        return tx
-                                .update(t)
-                                .set({ score: 0 })
-                                .where(eq(t.id, (c as { id: number }).id))
+                        return tx.update(t).set({ score: 0 }).where(eq(t.id, c.id))
                 })
                 await runner.run()
                 const rows = await db.select().from(t)
@@ -55,7 +52,7 @@ describe('an update inside a transaction', () => {
                         return tx
                                 .update(t)
                                 .set({ score: t.score.add(5) })
-                                .where(eq(t.id, (c as { id: number }).id))
+                                .where(eq(t.id, c.id))
                 })
                 await runner.run()
                 const rows = await db.select().from(t)

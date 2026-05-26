@@ -34,7 +34,7 @@ describe('updating a column to NULL', () => {
         it('setting a nullable column to null stores a genuine null', async () => {
                 const { db, t } = await seededTyped()
                 await db.update(t).set({ score: null }).where(eq(t.id, 2))
-                const rows = (await db.select().from(t)) as { id: number; score: number | null }[]
+                const rows = await db.select().from(t)
                 const target = rows.find((r) => r.id === 2)
                 expect(target?.score).toBeNull()
         })
@@ -68,7 +68,7 @@ describe('an update that would break a constraint is rejected', () => {
                         .set({ label: null })
                         .where(eq(t.id, 1))
                         .catch(() => undefined)
-                const rows = (await db.select().from(t)) as { id: number; label: string }[]
+                const rows = await db.select().from(t)
                 expect(rows.find((r) => r.id === 1)?.label).toBe('first')
         })
         it('setting a unique column to a value another row holds rejects the update', async () => {
@@ -83,14 +83,14 @@ describe('an update that would break a constraint is rejected', () => {
                         .set({ code: 100 })
                         .where(eq(t.id, 2))
                         .catch(() => undefined)
-                const rows = (await db.select().from(t)) as { id: number; code: number }[]
+                const rows = await db.select().from(t)
                 const codes = [...rows].sort((a, b) => a.id - b.id).map((r) => r.code)
                 expect(codes).toEqual([100, 200, 300])
         })
         it('setting a unique column to a value no row holds is allowed', async () => {
                 const { db, t } = await seededUnique()
                 await db.update(t).set({ code: 999 }).where(eq(t.id, 2))
-                const rows = (await db.select().from(t)) as { id: number; code: number }[]
+                const rows = await db.select().from(t)
                 expect(rows.find((r) => r.id === 2)?.code).toBe(999)
         })
 })
@@ -100,19 +100,19 @@ describe('updating a text column stores the string given', () => {
         it('setting a text column to a new string stores the string verbatim', async () => {
                 const { db, t } = await seededTyped()
                 await db.update(t).set({ label: 'renamed' }).where(eq(t.id, 2))
-                const rows = (await db.select().from(t)) as { id: number; label: string }[]
+                const rows = await db.select().from(t)
                 expect(rows.find((r) => r.id === 2)?.label).toBe('renamed')
         })
         it('a text update leaves the other rows strings untouched', async () => {
                 const { db, t } = await seededTyped()
                 await db.update(t).set({ label: 'renamed' }).where(eq(t.id, 2))
-                const rows = (await db.select().from(t)) as { id: number; label: string }[]
+                const rows = await db.select().from(t)
                 expect(rows.find((r) => r.id === 1)?.label).toBe('first')
         })
         it('a text column can be updated to an empty string distinct from null', async () => {
                 const { db, t } = await seededTyped()
                 await db.update(t).set({ label: '' }).where(eq(t.id, 3))
-                const rows = (await db.select().from(t)) as { id: number; label: string }[]
+                const rows = await db.select().from(t)
                 expect(rows.find((r) => r.id === 3)?.label).toBe('')
         })
 })
@@ -132,13 +132,13 @@ describe('an update that collides the primary key is rejected', () => {
                         .set({ id: 1 })
                         .where(eq(t.id, 2))
                         .catch(() => undefined)
-                const rows = (await db.select().from(t)) as { id: number }[]
+                const rows = await db.select().from(t)
                 expect([...rows].map((r) => r.id).sort((a, b) => a - b)).toEqual([1, 2, 3])
         })
         it('moving a primary key to a value no row holds is allowed', async () => {
                 const { db, t } = await seededTyped()
                 await db.update(t).set({ id: 9 }).where(eq(t.id, 2))
-                const rows = (await db.select().from(t)) as { id: number }[]
+                const rows = await db.select().from(t)
                 expect([...rows].map((r) => r.id).sort((a, b) => a - b)).toEqual([1, 3, 9])
         })
         it('a whole-table update that collapses every primary key onto one value rejects', async () => {

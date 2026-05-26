@@ -7,7 +7,7 @@ describe('a committed transaction applies all of its writes', () => {
         // callback resolves, every write is durably visible.
         it('a single insert inside a transaction is visible afterward', async () => {
                 const { db, t } = freshLedger()
-                await db.transaction(async (tx: any) => {
+                await db.transaction(async (tx) => {
                         await tx.insert(t).values({ id: 1, amount: 100 })
                 })
                 const rows = await db.select().from(t)
@@ -16,7 +16,7 @@ describe('a committed transaction applies all of its writes', () => {
         it.each([[1], [2], [3], [5], [10]])('a transaction inserting %i rows leaves exactly %i rows committed', async (n) => {
                 const { db, t } = freshLedger()
                 const rows = Array.from({ length: n }, (_v, i) => ({ id: i + 1, amount: i }))
-                await db.transaction(async (tx: any) => {
+                await db.transaction(async (tx) => {
                         await tx.insert(t).values(rows)
                 })
                 const back = await db.select().from(t)
@@ -24,7 +24,7 @@ describe('a committed transaction applies all of its writes', () => {
         })
         it('several DML statements in one transaction all take effect together', async () => {
                 const { db, t } = await seeded()
-                await db.transaction(async (tx: any) => {
+                await db.transaction(async (tx) => {
                         await tx.insert(t).values({ id: 4, amount: 40 })
                         await tx.update(t).set({ amount: 0 }).where(eq(t.id, 1))
                         await tx.delete(t).where(eq(t.id, 2))
@@ -34,7 +34,7 @@ describe('a committed transaction applies all of its writes', () => {
         })
         it('an update inside a transaction commits the new value', async () => {
                 const { db, t } = await seeded()
-                await db.transaction(async (tx: any) => {
+                await db.transaction(async (tx) => {
                         await tx.update(t).set({ amount: 99 }).where(eq(t.id, 2))
                 })
                 const rows = await db.select().from(t)
@@ -42,15 +42,15 @@ describe('a committed transaction applies all of its writes', () => {
         })
         it('a delete inside a transaction commits the removal', async () => {
                 const { db, t } = await seeded()
-                await db.transaction(async (tx: any) => {
+                await db.transaction(async (tx) => {
                         await tx.delete(t).where(eq(t.id, 3))
                 })
                 const rows = await db.select().from(t)
-                expect(idsOf(rows as { id: number }[])).toEqual([1, 2])
+                expect(idsOf(rows)).toEqual([1, 2])
         })
         it('the tx handle exposes select, insert, update and delete as callable methods', async () => {
                 const { db } = freshLedger()
-                const kinds = await db.transaction(async (tx: any) => {
+                const kinds = await db.transaction(async (tx) => {
                         return [typeof tx.select, typeof tx.insert, typeof tx.update, typeof tx.delete]
                 })
                 expect(kinds).toEqual(['function', 'function', 'function', 'function'])

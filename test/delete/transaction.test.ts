@@ -27,7 +27,7 @@ describe('a delete inside a transaction', () => {
         it('a per-row tick deletes every visited row whose score clears a cutoff', async () => {
                 const { db, t } = await seededBoard()
                 const runner = db.transaction((tx, c) => {
-                        const cur = c as { id: number; score: number }
+                        const cur = c
                         return tx.delete(t).where(and(eq(t.id, cur.id), gt(t.score, 15)))
                 })
                 await runner.run()
@@ -40,7 +40,7 @@ describe('a delete inside a transaction', () => {
                         await tx.delete(t).where(ne(t.id, 2))
                         return tx.select().from(t)
                 })
-                expect(idsOf(seen as { id: number }[])).toEqual([2])
+                expect(idsOf(seen)).toEqual([2])
         })
         it('a between-driven delete inside a transaction removes the matched band', async () => {
                 const { db, t } = await seededBoard()

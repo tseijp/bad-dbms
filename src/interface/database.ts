@@ -6,12 +6,12 @@ import { createAdapter } from '../backend/adapter'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
 import { tableNameOf, stripRid } from '../shared/helper'
-import type { Database as TypedDatabase, TableLike, Table, DatabaseConfig } from './infer'
+import type { Database, TableLike, Table, DatabaseConfig } from './infer'
 type Backend = ReturnType<typeof createBackend>
 type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
 type RunFn = (ast: AnyAst) => unknown
 const isSqlValue = (v: unknown): v is SQL => !!v && typeof v === 'object' && (v as { kind?: string }).kind === 'sql'
-const projectionOf = (fields?: Columns | Record<string, SQL>) => (fields ? Object.keys(fields).map((k) => ({ alias: k, expr: (fields as Record<string, SQL>)[k] })) : undefined)
+const projectionOf = (fields?: Columns | Record<string, SQL>) => (fields ? Object.keys(fields).map((k) => ({ alias: k, expr: fields[k] })) : undefined)
 const referenceOf = (c: { references?: { fn: () => SQL; onDelete?: string } }) => {
         const tc = (c.references?.fn() as { $col?: { key?: string; name?: string; tableName?: string } } | undefined)?.$col
         if (!c.references || !tc?.tableName) return undefined
@@ -85,7 +85,7 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
                 if (execute) result = execute(plan)
                 else if (backend) result = backend.execute(plan)
                 const r = await Promise.resolve(result)
-                return (Array.isArray(r) ? (r as Row[]) : []).map(stripRid)
+                return (Array.isArray(r) ? r : []).map(stripRid)
         }
         const _run: RunFn = async (ast) => {
                 if (ast.op === 'Select') return _rowsOf(planSelect(ast, _ctx).plan)
@@ -138,13 +138,13 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
         }
         const _buildTx = () => ({
                 select(f?: Columns | Record<string, SQL>) {
-                        return builder(_run, { op: 'Select', projection: projectionOf(f) } as SelectAst, _select)
+                        return builder(_run, { op: 'Select', projection: projectionOf(f) }, _select)
                 },
                 selectDistinct(f?: Columns | Record<string, SQL>) {
-                        return builder(_run, { op: 'Select', projection: projectionOf(f), distinct: true } as SelectAst, _select)
+                        return builder(_run, { op: 'Select', projection: projectionOf(f), distinct: true }, _select)
                 },
                 insert(t: Table) {
-                        return builder(_run, { op: 'Insert', table: t } as InsertAst, (ast, b) => ({
+                        return builder(_run, { op: 'Insert', table: t }, (ast: InsertAst, b) => ({
                                 values(rows: Record<string, number> | Record<string, number>[]) {
                                         ast.values = Array.isArray(rows) ? rows : [rows]
                                         return b()
@@ -156,7 +156,7 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
                         }))
                 },
                 update(t: Table) {
-                        return builder(_run, { op: 'Update', table: t } as UpdateAst, (ast, b) => ({
+                        return builder(_run, { op: 'Update', table: t }, (ast: UpdateAst, b) => ({
                                 set(v: Record<string, SqlValue>) {
                                         ast.set = v
                                         return b()
@@ -172,7 +172,7 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
                         }))
                 },
                 delete(t: Table) {
-                        return builder(_run, { op: 'Delete', table: t } as DeleteAst, (ast, b) => ({
+                        return builder(_run, { op: 'Delete', table: t }, (ast: DeleteAst, b) => ({
                                 where(c?: SQL) {
                                         if (c) ast.where = c
                                         return b()
@@ -195,23 +195,22 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
                         throw e
                 }
         }
-        const _txHandle = (): Tx =>
-                ({
-                        ..._buildTx(),
-                        rollback() {
-                                throw { __rollback: ROLLBACK }
-                        },
-                        transaction(fn) {
-                                return _runScope(fn)
-                        },
-                }) as Tx
+        const _txHandle = (): Tx => ({
+                ..._buildTx(),
+                rollback() {
+                        throw { __rollback: ROLLBACK }
+                },
+                transaction(fn) {
+                        return _runScope(fn)
+                },
+        })
         function transaction<R>(fn: (tx: Tx) => Promise<R> | R): Promise<R>
         function transaction(fn: (tx: Tx, c: unknown) => unknown): { run(extra?: unknown): Promise<unknown> }
         function transaction(fn: (tx: Tx, c?: unknown) => unknown): unknown {
-                if ((fn as Function).length < 2) return _runScope(fn as (tx: Tx) => unknown)
+                if (fn.length < 2) return _runScope(fn)
                 return {
                         async run(extra?: unknown) {
-                                const primary = Object.values(tables)[0] as Table | undefined
+                                const primary = Object.values(tables)[0]
                                 if (!primary || !backend) return extra
                                 const rel = backend.catalog.find(tableNameOf(primary))
                                 const rows: Row[] = []
@@ -255,4 +254,4 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
                 tables,
         }
 }
-export const database = _database as unknown as <T extends Record<string, TableLike>>(tables: T, config?: DatabaseConfig) => TypedDatabase<T>
+export const database = _database as unknown as <T extends Record<string, TableLike>>(tables: T, config?: DatabaseConfig) => Database<T>

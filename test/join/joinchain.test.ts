@@ -66,9 +66,9 @@ describe('chaining multiple joins across three tables', () => {
         // tags table. The chained inner-join row count equals the number of
         // tag rows whose postId points at one of posts 1..4.
         it.each([
-                ['no tags', [] as Array<[number, number, number]>, 0],
-                ['one tag', [[1, 1, 100]] as Array<[number, number, number]>, 1],
-                ['one tag missing post', [[1, 9, 100]] as Array<[number, number, number]>, 0],
+                ['no tags', [], 0],
+                ['one tag', [[1, 1, 100]], 1],
+                ['one tag missing post', [[1, 9, 100]], 0],
                 [
                         'one tag per post',
                         [
@@ -76,7 +76,7 @@ describe('chaining multiple joins across three tables', () => {
                                 [2, 2, 2],
                                 [3, 3, 3],
                                 [4, 4, 4],
-                        ] as Array<[number, number, number]>,
+                        ],
                         4,
                 ],
                 [
@@ -84,7 +84,7 @@ describe('chaining multiple joins across three tables', () => {
                         [
                                 [1, 1, 1],
                                 [2, 1, 2],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -93,7 +93,7 @@ describe('chaining multiple joins across three tables', () => {
                                 [1, 1, 1],
                                 [2, 1, 2],
                                 [3, 1, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -102,7 +102,7 @@ describe('chaining multiple joins across three tables', () => {
                                 [1, 1, 1],
                                 [2, 9, 2],
                                 [3, 2, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -111,7 +111,7 @@ describe('chaining multiple joins across three tables', () => {
                                 [1, 7, 1],
                                 [2, 8, 2],
                                 [3, 9, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         0,
                 ],
         ])('chains users-posts-tags for the %s tag table', async (_label, tagRows, expected) => {

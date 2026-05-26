@@ -33,14 +33,14 @@ describe('orderBy places NULL values at a defined end', () => {
         it('the non-null scores still come back in ascending order around the NULLs', async () => {
                 const { db, t } = await seededNullable()
                 const rows = await db.select().from(t).orderBy(asc(t.score))
-                const nonNull = (seqOf(rows, 'score') as (number | null)[]).filter((s) => s != null)
+                const nonNull = seqOf(rows, 'score').filter((s) => s != null)
                 expect(nonNull).toEqual([10, 20, 30])
         })
         it('a NULL score reads back as null, never as the number zero', async () => {
                 const { db, t } = await seededNullable()
                 const rows = await db.select().from(t).orderBy(asc(t.score))
                 // the first row under ASC is a NULL row; its score must be null
-                expect((rows[0] as { score: number | null }).score).toBeNull()
+                expect(rows[0].score).toBeNull()
         })
         it('sorting a column that is entirely NULL keeps every row and orders none', async () => {
                 const { db, t } = fresh(makeNullable)

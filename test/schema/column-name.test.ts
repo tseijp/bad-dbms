@@ -11,7 +11,7 @@ import { table, integer, uint, float, text } from '../../src/index'
 //     `hasDefault` are all strictly `false`, never `undefined`.
 // bad-dbms records `$col.*` as `true | undefined`, so the strict-false
 // assertions fail honestly and are never weakened.
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 describe('column name resolution', () => {

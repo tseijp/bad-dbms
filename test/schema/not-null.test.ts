@@ -10,7 +10,7 @@ import { table, integer, uint, float, text } from '../../src/index'
 //   * a primary-key column is implicitly NOT NULL even without `.notNull()`.
 // These follow the Drizzle spec; the assertions fail honestly and are never
 // weakened to the implementation.
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 describe('not null constraint', () => {

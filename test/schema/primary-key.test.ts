@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { table, integer, uint, float, text } from '../../src/index'
-import * as bad from '../../src/index'
+import { table, integer, uint, float, text, getTableConfig } from '../../src/index'
 // schema rework: attack the primary-key constraint against the correct
 // Drizzle spec, not the bad-dbms `$col` descriptor shape.
 //
@@ -12,12 +11,11 @@ import * as bad from '../../src/index'
 //     getTableConfig reports a single composite key over both columns.
 // bad-dbms records `$col.primaryKey` as `true | undefined` and exposes no
 // introspection, so these fail honestly and are never weakened.
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 // getTableConfig is a Drizzle introspection API reached off the namespace
 // import so a missing export fails honestly per test, not at module load.
-const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('primary key constraint', () => {
         it.each(factoryNames)('marks the %s column primary on the public flag', (name) => {
                 const t = table('t', { id: factories[name]('id').primaryKey() })

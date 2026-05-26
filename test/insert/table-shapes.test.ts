@@ -49,21 +49,63 @@ describe('other table shapes', () => {
                 expect(rows.length).toBe(3)
         })
         it.each([
-                ['users', () => { const { db, users: t } = freshUsers(); return { db, t } }, USERS_SEED],
-                ['posts', () => { const { db, posts: t } = freshPosts(); return { db, t } }, POSTS_SEED],
-                ['events', () => { const { db, events: t } = freshEvents(); return { db, t } }, EVENTS_SEED],
-        ] as const)('a %s seed insert resolves to a changes count matching the seed length', async (_label, build, seed) => {
+                [
+                        'users',
+                        () => {
+                                const { db, users: t } = freshUsers()
+                                return { db, t }
+                        },
+                        USERS_SEED,
+                ],
+                [
+                        'posts',
+                        () => {
+                                const { db, posts: t } = freshPosts()
+                                return { db, t }
+                        },
+                        POSTS_SEED,
+                ],
+                [
+                        'events',
+                        () => {
+                                const { db, events: t } = freshEvents()
+                                return { db, t }
+                        },
+                        EVENTS_SEED,
+                ],
+        ])('a %s seed insert resolves to a changes count matching the seed length', async (_label, build, seed) => {
                 const { db, t } = build()
-                const r = await db.insert(t).values(seed as Record<string, number>[])
+                const r = await db.insert(t).values(seed)
                 expect(r).toMatchObject({ changes: seed.length })
         })
         it.each([
-                ['users', () => { const { db, users: t } = freshUsers(); return { db, t } }, USERS_SEED],
-                ['posts', () => { const { db, posts: t } = freshPosts(); return { db, t } }, POSTS_SEED],
-                ['events', () => { const { db, events: t } = freshEvents(); return { db, t } }, EVENTS_SEED],
-        ] as const)('%s seed insert reads back the full seed length', async (_label, build, seed) => {
+                [
+                        'users',
+                        () => {
+                                const { db, users: t } = freshUsers()
+                                return { db, t }
+                        },
+                        USERS_SEED,
+                ],
+                [
+                        'posts',
+                        () => {
+                                const { db, posts: t } = freshPosts()
+                                return { db, t }
+                        },
+                        POSTS_SEED,
+                ],
+                [
+                        'events',
+                        () => {
+                                const { db, events: t } = freshEvents()
+                                return { db, t }
+                        },
+                        EVENTS_SEED,
+                ],
+        ])('%s seed insert reads back the full seed length', async (_label, build, seed) => {
                 const { db, t } = build()
-                await db.insert(t).values(seed as Record<string, number>[])
+                await db.insert(t).values(seed)
                 const rows = await db.select().from(t)
                 expect(rows.length).toBe(seed.length)
         })

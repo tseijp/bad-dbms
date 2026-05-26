@@ -64,7 +64,7 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 const { db, t } = fresh(makeRanked)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.rank), asc(t.score))
-                const ranks = seqOf(rows, 'rank') as number[]
+                const ranks = seqOf(rows, 'rank')
                 const sorted = [...ranks].sort((a, b) => a - b)
                 expect(ranks).toEqual(sorted)
         })
@@ -73,7 +73,7 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 ['rank asc, score desc', asc, desc, [4, 2, 1, 3, 5]],
                 ['rank desc, score asc', desc, asc, [5, 3, 1, 2, 4]],
                 ['rank desc, score desc', desc, desc, [5, 1, 3, 4, 2]],
-        ] as const)('the ranked board under %s produces the documented id order', async (_label, rankDir, scoreDir, expected) => {
+        ])('the ranked board under %s produces the documented id order', async (_label, rankDir, scoreDir, expected) => {
                 const { db, t } = fresh(makeRanked)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(rankDir(t.rank), scoreDir(t.score))
@@ -98,7 +98,7 @@ describe('multi-key ordering breaks ties with a secondary key', () => {
                 const { db, t } = await seededNullableSecondary()
                 const rows = await db.select().from(t).orderBy(asc(t.rank), asc(t.score))
                 const rankOne = rows.filter((r: { rank: number | null }) => r.rank === 1)
-                const nonNull = (seqOf(rankOne, 'score') as (number | null)[]).filter((s) => s != null)
+                const nonNull = seqOf(rankOne, 'score').filter((s) => s != null)
                 expect(nonNull).toEqual([20, 50])
         })
 })

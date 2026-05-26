@@ -36,7 +36,7 @@ describe('self join pairs a table with itself', () => {
                                 [1, 0, 10],
                                 [2, 1, 20],
                                 [3, 2, 30],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -46,7 +46,7 @@ describe('self join pairs a table with itself', () => {
                                 [2, 1, 20],
                                 [3, 1, 30],
                                 [4, 1, 40],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -55,7 +55,7 @@ describe('self join pairs a table with itself', () => {
                                 [1, 0, 10],
                                 [2, 0, 20],
                                 [3, 0, 30],
-                        ] as Array<[number, number, number]>,
+                        ],
                         0,
                 ],
                 [
@@ -63,7 +63,7 @@ describe('self join pairs a table with itself', () => {
                         [
                                 [1, 0, 10],
                                 [2, 1, 20],
-                        ] as Array<[number, number, number]>,
+                        ],
                         1,
                 ],
                 [
@@ -71,7 +71,7 @@ describe('self join pairs a table with itself', () => {
                         [
                                 [1, 9, 10],
                                 [2, 9, 20],
-                        ] as Array<[number, number, number]>,
+                        ],
                         0,
                 ],
         ])('self-joins the %s into the right pair count', async (_label, rows, expected) => {

@@ -6,7 +6,7 @@ import type { Row } from '../../src/shared/types'
 export const fresh = <S extends TableLike>(make: () => S) => {
         const t = make()
         const db = database({ t })
-        return { db, t: db.tables.t as S }
+        return { db, t: db.tables.t }
 }
 export const makeUsers = () =>
         table('users', {
@@ -75,7 +75,7 @@ export const seedUsersPosts = async () => {
         await db.insert(posts).values(POSTS_SEED)
         return { db, users: db.tables.users, posts: db.tables.posts }
 }
-export const rowsOf = (r: unknown): Row[] => (Array.isArray(r) ? (r as Row[]) : [])
+export const rowsOf = (r: unknown): Row[] => (Array.isArray(r) ? r : [])
 export const firstRow = (r: unknown): Row | undefined => rowsOf(r)[0]
 export const valuesOf = (r: unknown, key: string): unknown[] => rowsOf(r).map((row) => row[key])
 export const keysOf = (r: unknown): string[] => Object.keys(rowsOf(r)[0] ?? {}).sort()
@@ -85,7 +85,10 @@ const compare = (a: unknown, b: unknown): number => {
         if (a === b) return 0
         if (a === null || a === undefined) return 1
         if (b === null || b === undefined) return -1
-        return (a as number | string) < (b as number | string) ? -1 : 1
+        return a < b ? -1 : 1
 }
-export const sortBy = (r: unknown, key: string): Row[] => rowsOf(r).slice().sort((a, b) => compare(a[key], b[key]))
+export const sortBy = (r: unknown, key: string): Row[] =>
+        rowsOf(r)
+                .slice()
+                .sort((a, b) => compare(a[key], b[key]))
 export const idsOf = <T extends { id: number }>(rows: T[]): number[] => rows.map((r) => r.id).sort((a, b) => a - b)

@@ -23,7 +23,7 @@ const finalizeColumn = (col: Column, key: string, tableName: string): Column => 
 }
 export const table = <S extends ColumnsShape>(name: string, schema: S): Table<S> => {
         const meta: TableMeta = { name, columns: [] }
-        const ret = { kind: 'sql' as const, node: { type: 'table' as const, name }, $meta: meta } as Table<S>
+        const ret = { kind: 'sql', node: { type: 'table', name }, $meta: meta } as Table<S>
         for (const key in schema) {
                 const col = finalizeColumn(schema[key], key, name)
                 ;(ret as Record<string, unknown>)[key] = col

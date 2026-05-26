@@ -28,7 +28,7 @@ describe('re-deleting and deleting beyond the matched set', () => {
         it('an empty SUM over a fully deleted table is null, not zero', async () => {
                 const { db, t } = await seededBoard()
                 await db.delete(t)
-                const result = (await db.select({ s: sum(t.score) }).from(t)) as { s: number | null }[]
+                const result = await db.select({ s: sum(t.score) }).from(t)
                 // SQL: SUM of no rows is NULL
                 expect(result[0].s).toBeNull()
         })

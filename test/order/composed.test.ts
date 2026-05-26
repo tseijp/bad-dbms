@@ -49,7 +49,7 @@ describe('ordering composed with other clauses', () => {
                 const inside = await db.transaction(async (tx) => {
                         return tx.select().from(t).orderBy(asc(t.score))
                 })
-                expect(seqOf(inside as Record<string, number>[], 'id')).toEqual(seqOf(outside, 'id'))
+                expect(seqOf(inside, 'id')).toEqual(seqOf(outside, 'id'))
         })
         // orderBy composed with where: the filter chooses which rows survive,
         // then the sort orders only those survivors. This is the single most

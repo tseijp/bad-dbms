@@ -13,10 +13,10 @@ const cmpValue = (a: unknown, b: unknown): number => {
         const an = a === null || a === undefined
         const bn = b === null || b === undefined
         if (an || bn) return an && bn ? 0 : an ? -1 : 1
-        const av = orderKey(a)
-        const bv = orderKey(b)
-        if ((av as number) < (bv as number)) return -1
-        if ((av as number) > (bv as number)) return 1
+        const av = orderKey(a)!
+        const bv = orderKey(b)!
+        if (av < bv) return -1
+        if (av > bv) return 1
         return 0
 }
 const updateAgg = (state: AggState, kind: string, v: unknown, distinct: boolean, hasField: boolean) => {
@@ -68,7 +68,7 @@ export const createAggregate = async (child: RowIterator, groupBy: string[], agg
         child.close()
         const _out: Row[] = []
         for (const k of _order) {
-                const g = _groups.get(k) as AggGroup
+                const g = _groups.get(k)!
                 const row: Row = {}
                 for (let i = 0; i < groupBy.length; i++) row[groupBy[i]] = g.key[i]
                 for (let i = 0; i < aggs.length; i++) row[aggs[i].name] = finalAgg(g.states[i], aggs[i].kind)

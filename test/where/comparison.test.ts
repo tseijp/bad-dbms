@@ -24,7 +24,7 @@ describe('comparison operators narrow a user list', () => {
                 ['gte', gte, 20, [2, 3]],
                 ['lt', lt, 20, [1]],
                 ['lte', lte, 20, [1, 2]],
-        ] as const)('%s against the score 20 keeps the documented ids', async (_label, op, arg, expected) => {
+        ])('%s against the score 20 keeps the documented ids', async (_label, op, arg, expected) => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select().from(users).where(op(users.score, arg))
                 expect(idsOf(rows)).toEqual(expected)
@@ -92,7 +92,7 @@ describe('comparison operators narrow a user list', () => {
                 ['gte', gte, [1, 3]],
                 ['lt', lt, []],
                 ['lte', lte, [1]],
-        ] as const)('%s against 10 excludes the null-scored row', async (_label, op, expected) => {
+        ])('%s against 10 excludes the null-scored row', async (_label, op, expected) => {
                 const { db, t } = await seededNullableScore()
                 const rows = await db.select().from(t).where(op(t.score, 10))
                 // id 2 holds NULL: every operator must leave it out
@@ -100,10 +100,7 @@ describe('comparison operators narrow a user list', () => {
         })
         it('a comparison whose argument is null matches no row at all', async () => {
                 const { db, t } = await seededNullableScore()
-                const rows = await db
-                        .select()
-                        .from(t)
-                        .where(eq(t.score, null as unknown as number))
+                const rows = await db.select().from(t).where(eq(t.score, null))
                 // x = NULL is unknown for every x, even where x is itself NULL
                 expect(rows).toEqual([])
         })

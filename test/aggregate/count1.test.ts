@@ -27,7 +27,7 @@ describe('count over varying row counts', () => {
                 expect(scalar(result, 'n')).toBe(0)
         })
         it.each([
-                [0, [] as number[]],
+                [0, []],
                 [1, [10]],
                 [2, [10, 20]],
                 [5, [10, 20, 30, 40, 50]],
@@ -50,12 +50,12 @@ describe('count over varying row counts', () => {
         })
         it.each([
                 ['eq 20', (u: any) => eq(u.score, 20), 1],
-                ['ne 20', (u: any) => ne(u.score, 20), 2],
-                ['gt 10', (u: any) => gt(u.score, 10), 2],
-                ['gte 20', (u: any) => gte(u.score, 20), 2],
-                ['lt 30', (u: any) => lt(u.score, 30), 2],
-                ['lte 20', (u: any) => lte(u.score, 20), 2],
-                ['gt 999', (u: any) => gt(u.score, 999), 0],
+                ['ne 20', (u) => ne(u.score, 20), 2],
+                ['gt 10', (u) => gt(u.score, 10), 2],
+                ['gte 20', (u) => gte(u.score, 20), 2],
+                ['lt 30', (u) => lt(u.score, 30), 2],
+                ['lte 20', (u) => lte(u.score, 20), 2],
+                ['gt 999', (u) => gt(u.score, 999), 0],
         ])('counts the subset surviving predicate %s', async (_label, predicate, expected) => {
                 const { db, users } = await seedUsers()
                 const result = await db.select({ n: count() }).from(users).where(predicate(users))
@@ -144,11 +144,11 @@ describe('count over a valuesOf with NULL values', () => {
                 expect([scalar(all, 'n'), scalar(nonNull, 'n')]).toEqual([5, 3])
         })
         it.each([
-                ['no nulls', [10, 20, 30] as Array<number | null>, 3],
-                ['one null', [10, null, 30] as Array<number | null>, 2],
-                ['all null', [null, null, null] as Array<number | null>, 0],
-                ['leading null', [null, 20, 30, 40] as Array<number | null>, 3],
-                ['trailing null', [10, 20, null] as Array<number | null>, 2],
+                ['no nulls', [10, 20, 30], 3],
+                ['one null', [10, null, 30], 2],
+                ['all null', [null, null, null], 0],
+                ['leading null', [null, 20, 30, 40], 3],
+                ['trailing null', [10, 20, null], 2],
         ])('counts the non-null values of the %s dataset with count(valuesOf)', async (_label, values, expected) => {
                 const { db, t } = await seedNullable(values)
                 const result = await db.select({ n: count(t.v) }).from(t)

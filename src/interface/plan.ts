@@ -33,7 +33,7 @@ const rewriteHaving = (node: SQL | SqlNode, projection?: ProjItem[]): SqlNode =>
         if (n.type === 'binop' || n.type === 'unop' || n.type === 'func') return { ...n, args: (n.args ?? []).map((a) => ({ kind: 'sql', node: rewriteHaving(a, projection) }) as SQL) }
         return n
 }
-const isObjectSpec = (e: unknown): e is Record<string, SQL> => !!e && typeof e === 'object' && !('kind' in (e as object)) && !('type' in (e as object))
+const isObjectSpec = (e: unknown): e is Record<string, SQL> => !!e && typeof e === 'object' && !('kind' in e) && !('type' in e)
 const relabel = (node: SqlNode, from: string, to: string): SqlNode => {
         if (node.type === 'column') return node.tableName === from ? { ...node, tableName: to } : node
         if (node.type === 'binop' || node.type === 'unop' || node.type === 'func') return { ...node, args: (node.args ?? []).map((a) => ({ kind: 'sql', node: relabel(nodeOf(a), from, to) }) as SQL) }
@@ -43,7 +43,7 @@ const selfJoinOn = (on: SQL, table: string, rightName: string): SQL => {
         const n = nodeOf(on)
         if (n.type !== 'binop' || n.args.length !== 2) return on
         const right = relabel(nodeOf(n.args[1]), table, rightName)
-        return { kind: 'sql', node: { ...n, args: [n.args[0], { kind: 'sql', node: right } as SQL] } } as SQL
+        return { kind: 'sql', node: { ...n, args: [n.args[0], { kind: 'sql', node: right }] } } as SQL
 }
 const planSource = (ast: SelectAst, ctx: EvalCtx): { source: PhysicalOp; ctx: EvalCtx; isJoin: boolean } => {
         if (!ast.joins?.length) return { source: { op: 'SeqScan', table: tableNameOf(ast.table) }, ctx, isJoin: false }
@@ -68,7 +68,7 @@ const projector = (p: ProjItem, ctx: EvalCtx): ProjectorSpec => {
         return {
                 alias: p.alias,
                 eval: (row) => {
-                        if (tables.length > 0 && tables.every((t) => (row as Record<string, Row | null>)[t] === null)) return null
+                        if (tables.length > 0 && tables.every((t) => row[t] === null)) return null
                         const out: Row = {}
                         for (const f of fields) out[f.key] = f.eval(row)
                         return out
@@ -81,7 +81,7 @@ const planAggregate = (child: PhysicalOp, ast: SelectAst, aggsIn: AggSpec[], ctx
         let plan = child
         let aggs = aggsIn
         if (isJoin) {
-                const pre: ProjectorSpec[] = (ast.groupBy ?? []).map((g, i) => ({ alias: groupBy[i], eval: compileNode(g as SQL, ctx) }))
+                const pre: ProjectorSpec[] = (ast.groupBy ?? []).map((g, i) => ({ alias: groupBy[i], eval: compileNode(g, ctx) }))
                 const aggNodes = (ast.projection ?? []).map((p) => nodeOf(p.expr)).filter((n): n is Extract<SqlNode, { type: 'aggregate' }> => n.type === 'aggregate')
                 aggs.forEach((a, i) => pre.push({ alias: a.field || a.name, eval: aggNodes[i].args[0] ? compileNode(aggNodes[i].args[0], ctx) : () => 1 }))
                 plan = projection(plan, pre)
@@ -96,7 +96,7 @@ const planAggregate = (child: PhysicalOp, ast: SelectAst, aggsIn: AggSpec[], ctx
 }
 const sortKeys = (orderBy: unknown[], resolve: (n: SqlNode) => string | undefined, ctx: EvalCtx): SortKey[] =>
         orderBy.map((o) => {
-                const n = nodeOf(o as SQL | SqlNode)
+                const n = nodeOf(o)
                 const [col, dir] = n.type === 'order' ? [n.col, n.dir] : [o as SQL, 'asc' as const]
                 const field = resolve(nodeOf(col))
                 return field !== undefined ? { field, dir } : { field: '', dir, eval: compileExpr(col, ctx) }

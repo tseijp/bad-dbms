@@ -37,7 +37,7 @@ describe('an update resolves to a run-result carrying a changes count', () => {
         })
         it('the changes count matches the rows that actually carry the new value', async () => {
                 const { db, t } = await seeded()
-                const result = (await db.update(t).set({ score: 77 }).where(gte(t.score, 20))) as { changes: number }
+                const result = await db.update(t).set({ score: 77 }).where(gte(t.score, 20))
                 const rows = await db.select().from(t)
                 const carrying = rows.filter((r: { score: number | null }) => r.score === 77)
                 expect(result.changes).toBe(carrying.length)
@@ -49,22 +49,22 @@ describe('update with returning yields the updated rows', () => {
         // not a count.
         it('returning gives back the updated row with its new value', async () => {
                 const { db, t } = await seeded()
-                const updated = (await db.update(t).set({ score: 99 }).where(eq(t.id, 2)).returning()) as Record<string, number>[]
+                const updated = await db.update(t).set({ score: 99 }).where(eq(t.id, 2)).returning()
                 expect(updated).toEqual([{ id: 2, name: 200, score: 99 }])
         })
         it('returning a multi-row update yields one object per modified row', async () => {
                 const { db, t } = await seeded()
-                const updated = (await db.update(t).set({ score: 0 }).where(lt(t.score, 25)).returning()) as { id: number }[]
+                const updated = await db.update(t).set({ score: 0 }).where(lt(t.score, 25)).returning()
                 expect(updated.map((r) => r.id).sort()).toEqual([1, 2])
         })
         it('returning on an update that matched nothing yields an empty array', async () => {
                 const { db, t } = await seeded()
-                const updated = (await db.update(t).set({ score: 0 }).where(eq(t.id, 999)).returning()) as unknown[]
+                const updated = await db.update(t).set({ score: 0 }).where(eq(t.id, 999)).returning()
                 expect(updated).toEqual([])
         })
         it('a returned row reflects the post-update value, not the old one', async () => {
                 const { db, t } = await seeded()
-                const updated = (await db.update(t).set({ score: 1 }).where(eq(t.id, 3)).returning()) as { score: number }[]
+                const updated = await db.update(t).set({ score: 1 }).where(eq(t.id, 3)).returning()
                 expect(updated[0].score).toBe(1)
         })
 })

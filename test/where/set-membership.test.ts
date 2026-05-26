@@ -145,7 +145,7 @@ describe('set membership filters by an explicit id list', () => {
                 const rows = await db
                         .select()
                         .from(users)
-                        .where(inArray(users.id, [1, null as unknown as number, 3]))
+                        .where(inArray(users.id, [1, null, 3]))
                 // a NULL element of the list cannot make a row match; 1 and 3 still do
                 expect(idsOf(rows)).toEqual([1, 3])
         })

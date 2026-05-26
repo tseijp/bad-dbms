@@ -30,7 +30,7 @@ describe('per-group avg', () => {
                                 [0, 100],
                                 [0, 100],
                                 [1, 7],
-                        ] as Array<[number, number]>,
+                        ],
                         0,
                         '100',
                 ],
@@ -39,7 +39,7 @@ describe('per-group avg', () => {
                         [
                                 [3, 10],
                                 [3, 30],
-                        ] as Array<[number, number]>,
+                        ],
                         3,
                         '20',
                 ],
@@ -48,11 +48,11 @@ describe('per-group avg', () => {
                         [
                                 [5, -20],
                                 [5, -40],
-                        ] as Array<[number, number]>,
+                        ],
                         5,
                         '-30',
                 ],
-                ['singleton', [[8, 42]] as Array<[number, number]>, 8, '42'],
+                ['singleton', [[8, 42]], 8, '42'],
         ])('averages the %s shape per group', async (_label, pairs, key, expected) => {
                 const { db, t } = await groupTable(pairs)
                 const result = await db
@@ -93,7 +93,7 @@ describe('per-group avg', () => {
                                 [0, 1],
                                 [0, 1],
                                 [0, 2],
-                        ] as Array<[number, number]>,
+                        ],
                         0,
                         1.3333333333333333,
                 ],
@@ -102,7 +102,7 @@ describe('per-group avg', () => {
                         [
                                 [1, 1],
                                 [1, 2],
-                        ] as Array<[number, number]>,
+                        ],
                         1,
                         1.5,
                 ],
@@ -113,7 +113,7 @@ describe('per-group avg', () => {
                                 [2, 1],
                                 [2, 1],
                                 [2, 2],
-                        ] as Array<[number, number]>,
+                        ],
                         2,
                         1.25,
                 ],
@@ -127,7 +127,7 @@ describe('per-group avg', () => {
         })
         // dense matrix: one fixed dataset with cleanly divisible group means,
         // each resolved as a Drizzle string.
-        const meanData: Array<[number, number]> = [
+        const meanData = [
                 [0, 10],
                 [0, 30],
                 [1, 100],

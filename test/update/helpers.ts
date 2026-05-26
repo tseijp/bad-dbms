@@ -28,5 +28,5 @@ export const seeded = async () => {
         ])
         return { db, t }
 }
-export const rowById = (rows: Record<string, unknown>[], id: number) => rows.find((r) => r.id === id) as Record<string, unknown> | undefined
+export const rowById = (rows: Record<string, unknown>[], id: number) => rows.find((r) => r.id === id)
 export const scoresInIdOrder = (rows: Record<string, unknown>[]) => [...rows].sort((a, b) => (a.id as number) - (b.id as number)).map((r) => r.score)

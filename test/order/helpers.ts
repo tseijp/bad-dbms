@@ -20,4 +20,4 @@ export const makeNamed = () =>
                 id: integer('id').primaryKey(),
                 name: text('name'),
         })
-export const seqOf = (rows: Record<string, unknown>[], key: string) => rows.map((r) => r[key])
+export const seqOf = (rows: Record<string, unknown>[], key: string) => rows.map((r) => r[key]) as number[]

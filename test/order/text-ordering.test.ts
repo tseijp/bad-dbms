@@ -68,6 +68,6 @@ describe('orderBy sorts a text column lexicographically', () => {
                 const { db, t } = await seededNames()
                 const up = await db.select().from(t).orderBy(asc(t.name))
                 const down = await db.select().from(t).orderBy(desc(t.name))
-                expect(seqOf(down, 'id')).toEqual([...(seqOf(up, 'id') as number[])].reverse())
+                expect(seqOf(down, 'id')).toEqual([...seqOf(up, 'id')].reverse())
         })
 })

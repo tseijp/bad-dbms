@@ -10,7 +10,7 @@ import { table, integer, uint, float, text } from '../../src/index'
 //   * a plain column has `hasDefault` strictly `false`, never `undefined`.
 // bad-dbms records `$col.defaultFn` only, so these fail honestly and are
 // never weakened to the implementation.
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 describe('functional default', () => {

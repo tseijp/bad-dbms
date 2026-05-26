@@ -15,7 +15,11 @@ describe('innerJoin keeps only matched pairs', () => {
         it('repeats user 1 once per post they own', async () => {
                 const { db, users, posts } = await seedUsersPosts()
                 const result = await db.select({ userId: users.id, postId: posts.id }).from(users).innerJoin(posts, eq(posts.userId, users.id))
-                expect(valuesOf(result, 'userId').slice().sort((a, b) => Number(a) - Number(b))).toEqual([1, 1, 2, 3])
+                expect(
+                        valuesOf(result, 'userId')
+                                .slice()
+                                .sort((a, b) => Number(a) - Number(b)),
+                ).toEqual([1, 1, 2, 3])
         })
         it('pairs each post id with the right user id when sorted by post', async () => {
                 const { db, users, posts } = await seedUsersPosts()
@@ -57,21 +61,21 @@ describe('innerJoin keeps only matched pairs', () => {
                         [
                                 [1, 10],
                                 [2, 20],
-                        ] as Array<[number, number]>,
+                        ],
                         [
                                 [1, 1, 100],
                                 [2, 2, 200],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
                         'one-to-many',
-                        [[1, 10]] as Array<[number, number]>,
+                        [[1, 10]],
                         [
                                 [1, 1, 100],
                                 [2, 1, 200],
                                 [3, 1, 300],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -79,19 +83,19 @@ describe('innerJoin keeps only matched pairs', () => {
                         [
                                 [1, 10],
                                 [2, 20],
-                        ] as Array<[number, number]>,
-                        [[1, 1, 100]] as Array<[number, number, number]>,
+                        ],
+                        [[1, 1, 100]],
                         1,
                 ],
-                ['none matched', [[1, 10]] as Array<[number, number]>, [[1, 9, 100]] as Array<[number, number, number]>, 0],
+                ['none matched', [[1, 10]], [[1, 9, 100]], 0],
                 [
                         'many-to-one',
                         [
                                 [1, 10],
                                 [2, 10],
                                 [3, 10],
-                        ] as Array<[number, number]>,
-                        [[1, 1, 100]] as Array<[number, number, number]>,
+                        ],
+                        [[1, 1, 100]],
                         1,
                 ],
         ])('produces the right inner-join row count for the %s shape', async (_label, left, right, expected) => {
@@ -102,22 +106,22 @@ describe('innerJoin keeps only matched pairs', () => {
         // dense matrix: a fixed left table of three rows joined to a varying
         // right table. The inner-join row count equals the number of right
         // rows whose fk points at an existing left id.
-        const leftThree: Array<[number, number]> = [
+        const leftThree = [
                 [1, 10],
                 [2, 20],
                 [3, 30],
         ]
         it.each([
-                ['no right rows', [] as Array<[number, number, number]>, 0],
-                ['one match', [[1, 1, 100]] as Array<[number, number, number]>, 1],
-                ['one miss', [[1, 9, 100]] as Array<[number, number, number]>, 0],
+                ['no right rows', [], 0],
+                ['one match', [[1, 1, 100]], 1],
+                ['one miss', [[1, 9, 100]], 0],
                 [
                         'all three match once',
                         [
                                 [1, 1, 1],
                                 [2, 2, 2],
                                 [3, 3, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -125,7 +129,7 @@ describe('innerJoin keeps only matched pairs', () => {
                         [
                                 [1, 2, 1],
                                 [2, 2, 2],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -134,7 +138,7 @@ describe('innerJoin keeps only matched pairs', () => {
                                 [1, 1, 1],
                                 [2, 1, 2],
                                 [3, 1, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -143,7 +147,7 @@ describe('innerJoin keeps only matched pairs', () => {
                                 [1, 1, 1],
                                 [2, 9, 2],
                                 [3, 2, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -152,7 +156,7 @@ describe('innerJoin keeps only matched pairs', () => {
                                 [1, 7, 1],
                                 [2, 8, 2],
                                 [3, 9, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         0,
                 ],
                 [
@@ -162,7 +166,7 @@ describe('innerJoin keeps only matched pairs', () => {
                                 [2, 1, 2],
                                 [3, 9, 3],
                                 [4, 9, 4],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -172,7 +176,7 @@ describe('innerJoin keeps only matched pairs', () => {
                                 [2, 2, 2],
                                 [3, 2, 3],
                                 [4, 2, 4],
-                        ] as Array<[number, number, number]>,
+                        ],
                         4,
                 ],
         ])('inner-joins three left rows to the %s right table', async (_label, right, expected) => {

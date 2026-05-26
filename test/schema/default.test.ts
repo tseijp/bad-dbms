@@ -11,7 +11,7 @@ import { table, integer, uint, float, text } from '../../src/index'
 //     is falsy — presence is tracked separately from the value.
 // bad-dbms records `$col.defaultValue` only, so these fail honestly and are
 // never weakened to the implementation.
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 const intDefaults: Array<[string, number]> = [

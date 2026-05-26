@@ -14,8 +14,7 @@ describe('comparison operators yield a boolean per row', () => {
                 ['lte', 'lte', 20, [true, true, false]],
         ])('evaluates score.%s(20) to a boolean sequence', async (_label, method, arg, expected) => {
                 const { db, users } = await seedUsers()
-                const col = users.score as unknown as Record<string, (a: number) => typeof users.score>
-                const rows = await db.select({ x: col[method](arg) }).from(users)
+                const rows = await db.select({ x: users.score[method as 'eq'](arg) }).from(users)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
         })
         it('returns strict booleans, not 1 and 0, from a comparison', async () => {
@@ -39,8 +38,7 @@ describe('comparison operators yield a boolean per row', () => {
                         [7, 7],
                         [2, 8],
                 ])
-                const col = t.a as unknown as Record<string, (a: unknown) => typeof t.a>
-                const rows = await db.select({ x: col[method](t.b) }).from(t)
+                const rows = await db.select({ x: t.a[method as 'eq'](t.b) }).from(t)
                 expect(valuesOf(rows, 'x')).toEqual(expected)
         })
         it('compares an arithmetic expression against a literal', async () => {
