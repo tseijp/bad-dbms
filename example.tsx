@@ -25,12 +25,11 @@ const columnName = (index: number): string => {
         return `${columnName(prefix - 1)}${String.fromCharCode(65 + code)}`
 }
 const bindColumn = (name: string) => {
-        const tableRef = cellValues as any
-        if (tableRef[name]) return
+        if ((cellValues as any)[name]) return
         const column = make({ type: 'column', name, dataType: 'float', tableName: TABLE }) as any
         column.$col = { name, key: name, type: 'f32', tableName: TABLE }
-        tableRef[name] = column
-        tableRef.$meta.columns.push(column)
+        ;(cellValues as any)[name] = column
+        ;(cellValues as any).$meta.columns.push(column)
 }
 const addColumnHeap = async (name: string, values: number[]) => {
         bindColumn(name)
@@ -48,7 +47,7 @@ const dropColumnHeap = async (name: string) => {
         if (index < 0) return
         const [column] = rel.columns.splice(index, 1)
         delete (cellValues as any)[name]
-        ;(cellValues as any).$meta.columns = (cellValues as any).$meta.columns.filter((item: any) => item.$col?.key !== name)
+        cellValues.$meta.columns = cellValues.$meta.columns.filter((item: any) => item.$col?.key !== name)
         rel.heaps.splice(index, 1)
         rel.codecs.splice(index, 1)
         await backend().smgr.unlink(backend().smgr.open(storageId(rel.relId, column.forkId)), 0)
@@ -69,7 +68,7 @@ const scan = async (name: string) => {
         const column = (cellValues as any)[name]
         const [stats] = await db.select({ sum: sum(column), avg: avg(column), min: min(column), max: max(column), count: count() }).from(cellValues)
         const [high] = await db.select({ count: count() }).from(cellValues).where(gte(column, 50))
-        const top = (await db.select({ id: cellValues.id, value: column }).from(cellValues).orderBy(desc(column)).limit(5)) as Record<string, any>[]
+        const top = await db.select({ id: cellValues.id, value: column }).from(cellValues).orderBy(desc(column)).limit(5)
         return { stats, high, top: top.map((row) => [`${name}${Number(row.id)}`, Number(row.value).toFixed(2)] as [string, string]) }
 }
 const sideOf = (reports: Awaited<ReturnType<typeof scan>>[]) => {
@@ -117,7 +116,7 @@ function App() {
         const [cols, setCols] = useState(BASE_COLS)
         const [side, setSide] = useState<Record<string, [string, string | number][]>>({ 'all cells': [], 'top 5 cells': [] })
         const refresh = async (nextCols = cols) => {
-                setRows((await db.select().from(cellValues)) as Record<string, any>[])
+                setRows(await db.select().from(cellValues))
                 setSide(sideOf(await Promise.all(nextCols.map(scan))))
         }
         const reset = async () => {
@@ -149,6 +148,8 @@ function App() {
                 await refresh()
         }
         useEffect(() => {
+                if (location.hash) return void refresh(BASE_COLS)
+                location.hash = '#xxx'
                 void reset()
         }, [])
         return (
