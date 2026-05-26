@@ -7,150 +7,162 @@ import * as DB from './src/index'
 
 Object.assign(window, DB)
 
-const BASE_COLS = [...'ABCDEFGHIJ']
+const TABLE = 'cell_values'
 const ROW_COUNT = 24
-const columnShape = (cols: string[]) => Object.fromEntries(cols.map((name) => [name, float(name).notNull()]))
-
-const cellValues = table('cell_values', {
-        id: integer('id').primaryKey(),
-        ...columnShape(BASE_COLS),
-})
-
-const db = database({ cellValues }, { adapter: 'memory' })
+const BASE_COLS = [...'ABCDEFGHIJ']
+const cellValues = table(TABLE, { id: integer('id').primaryKey(), ...Object.fromEntries(BASE_COLS.map((name) => [name, float(name).notNull()])) })
+const db = database({ cellValues }, { adapter: 'browser' })
 Object.assign(window, { db }, DB)
 
 const backend = () => db.backend as any
-const relation = () => backend().catalog.resolve('cell_values')
-const storageRelId = (relId: number, forkId: number) => relId * 10000 + forkId
-const columnNameOf = (index: number): string => {
+const relation = () => backend().catalog.resolve(TABLE)
+const storageId = (relId: number, forkId: number) => relId * 10000 + forkId
+const newRows = (cols: string[]) => Array.from({ length: ROW_COUNT }, (_, i) => ({ id: i + 1, ...Object.fromEntries(cols.map((name) => [name, +(Math.random() * 100).toFixed(2)])) }))
+const columnName = (index: number): string => {
         const code = index % 26
         const prefix = Math.floor(index / 26)
         if (prefix === 0) return String.fromCharCode(65 + code)
-        return `${columnNameOf(prefix - 1)}${String.fromCharCode(65 + code)}`
+        return `${columnName(prefix - 1)}${String.fromCharCode(65 + code)}`
 }
-const seedRows = (cols: string[]) =>
-        Array.from({ length: ROW_COUNT }, (_, row) => ({
-                id: row + 1,
-                ...Object.fromEntries(cols.map((name) => [name, +(Math.random() * 100).toFixed(2)])),
-        }))
-
-const insertColumn = async (name: string, values: number[]) => {
+const bindColumn = (name: string) => {
         const tableRef = cellValues as any
-        if (!tableRef[name]) {
-                const column = make({ type: 'column', name, dataType: 'float', tableName: 'cell_values' }) as any
-                column.$col = { name, key: name, type: 'f32', tableName: 'cell_values' }
-                tableRef[name] = column
-                tableRef.$meta.columns.push(column)
-        }
+        if (tableRef[name]) return
+        const column = make({ type: 'column', name, dataType: 'float', tableName: TABLE }) as any
+        column.$col = { name, key: name, type: 'f32', tableName: TABLE }
+        tableRef[name] = column
+        tableRef.$meta.columns.push(column)
+}
+const addColumnHeap = async (name: string, values: number[]) => {
+        bindColumn(name)
         const rel = relation()
         const forkId = 10 + rel.columns.length
-        const heap = createHeap({ buffer: backend().buffer, smgr: backend().smgr, fsm: backend().fsm, relId: storageRelId(rel.relId, forkId), valueSize: 4, valueType: 'f32' })
+        const heap = createHeap({ buffer: backend().buffer, smgr: backend().smgr, fsm: backend().fsm, relId: storageId(rel.relId, forkId), valueSize: 4, valueType: 'f32' })
         rel.columns.push({ name, type: 'f32', byteSize: 4, forkId, isPrimary: false, isUnique: false, notNull: false, isText: false })
         rel.heaps.push(heap)
         rel.codecs.push({ strings: [], intern: new Map(), nulls: new Set() })
         for (const value of values) await heap.insert(value)
 }
-const deleteColumn = async (name: string) => {
-        const tableRef = cellValues as any
-        delete tableRef[name]
-        tableRef.$meta.columns = tableRef.$meta.columns.filter((column: any) => column.$col?.key !== name)
+const dropColumnHeap = async (name: string) => {
         const rel = relation()
         const index = rel.columns.findIndex((column: any) => column.name === name)
         if (index < 0) return
         const [column] = rel.columns.splice(index, 1)
+        delete (cellValues as any)[name]
+        ;(cellValues as any).$meta.columns = (cellValues as any).$meta.columns.filter((item: any) => item.$col?.key !== name)
         rel.heaps.splice(index, 1)
         rel.codecs.splice(index, 1)
-        await backend().smgr.unlink(backend().smgr.open(storageRelId(rel.relId, column.forkId)), 0)
+        await backend().smgr.unlink(backend().smgr.open(storageId(rel.relId, column.forkId)), 0)
 }
-const resetColumns = async () => {
-        const extra = relation()
+const syncColumns = async (cols: string[], values: Record<string, number[]> = {}) => {
+        for (const name of relation()
                 .columns.map((column: any) => column.name)
-                .filter((name: string) => !['id', ...BASE_COLS].includes(name))
-        for (const name of extra) await deleteColumn(name)
+                .filter((name: string) => name !== 'id')) {
+                if (cols.includes(name)) continue
+                await dropColumnHeap(name)
+        }
+        for (const name of cols) {
+                if (relation().columns.some((column: any) => column.name === name)) continue
+                await addColumnHeap(name, values[name] ?? [])
+        }
 }
-const analyze = async (name: string) => {
+const scan = async (name: string) => {
         const column = (cellValues as any)[name]
         const [stats] = await db.select({ sum: sum(column), avg: avg(column), min: min(column), max: max(column), count: count() }).from(cellValues)
         const [high] = await db.select({ count: count() }).from(cellValues).where(gte(column, 50))
         const top = (await db.select({ id: cellValues.id, value: column }).from(cellValues).orderBy(desc(column)).limit(5)) as Record<string, any>[]
-        return { stats, high, top: top.map((row) => ({ name: `${name}${Number(row.id)}`, value: Number(row.value) })) }
+        return { stats, high, top: top.map((row) => [`${name}${Number(row.id)}`, Number(row.value).toFixed(2)] as [string, string]) }
 }
+const sideOf = (reports: Awaited<ReturnType<typeof scan>>[]) => {
+        const total = reports.reduce((acc, report) => ({ count: acc.count + Number(report.stats.count), sum: acc.sum + Number(report.stats.sum), high: acc.high + Number(report.high?.count ?? 0) }), { count: 0, sum: 0, high: 0 })
+        return {
+                'all cells': [
+                        ['count', total.count],
+                        ['sum', total.sum.toFixed(1)],
+                        ['avg', (total.sum / total.count).toFixed(2)],
+                        ['min', Math.min(...reports.map((r) => Number(r.stats.min))).toFixed(1)],
+                        ['max', Math.max(...reports.map((r) => Number(r.stats.max))).toFixed(1)],
+                        ['where >=50', total.high],
+                ] as [string, string | number][],
+                'top 5 cells': reports
+                        .flatMap((report) => report.top)
+                        .sort((a, b) => Number(b[1]) - Number(a[1]))
+                        .slice(0, 5),
+        }
+}
+const Cell = ({ row, name, save }: { row: Record<string, any>; name: string; save: (id: number, name: string, value: string) => void }) => (
+        <input
+                key={`${row.id}-${name}-${row[name]}`}
+                defaultValue={Number(row[name] ?? 0).toFixed(1)}
+                onBlur={(event) => save(Number(row.id), name, event.target.value)}
+                onKeyDown={(event) => {
+                        if (event.key === 'Enter') event.currentTarget.blur()
+                }}
+                className={`w-full border-t border-l border-slate-200 px-2 py-1 text-right text-sm outline-0 focus:bg-blue-50 ${Number(row[name] ?? 0) >= 50 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'}`}
+        />
+)
+const Card = ({ title, rows }: { title: string; rows: [string, string | number][] }) => (
+        <div className="rounded border bg-white p-3">
+                <h2 className="mb-2 font-bold">{title}</h2>
+                {rows.map(([name, value]) => (
+                        <div key={name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
+                                <span className="text-slate-500">{name}</span>
+                                <strong>{value}</strong>
+                        </div>
+                ))}
+        </div>
+)
 
 function App() {
         const [rows, setRows] = useState<Record<string, any>[]>([])
         const [cols, setCols] = useState(BASE_COLS)
-        const [metrics, setMetrics] = useState<[string, string | number | undefined][]>([])
-        const [top, setTop] = useState<{ name: string; value: number }[]>([])
+        const [side, setSide] = useState<Record<string, [string, string | number][]>>({ 'all cells': [], 'top 5 cells': [] })
         const refresh = async (nextCols = cols) => {
-                const reports = await Promise.all(nextCols.map(analyze))
-                const totalCount = reports.reduce((total, report) => total + Number(report.stats.count), 0)
-                const totalSum = reports.reduce((total, report) => total + Number(report.stats.sum), 0)
                 setRows((await db.select().from(cellValues)) as Record<string, any>[])
-                setMetrics([
-                        ['count', totalCount],
-                        ['sum', totalSum.toFixed(1)],
-                        ['avg', (totalSum / totalCount).toFixed(2)],
-                        ['min', Math.min(...reports.map((report) => Number(report.stats.min))).toFixed(1)],
-                        ['max', Math.max(...reports.map((report) => Number(report.stats.max))).toFixed(1)],
-                        ['where >=50', reports.reduce((total, report) => total + Number(report.high?.count ?? 0), 0)],
-                ])
-                setTop(
-                        reports
-                                .flatMap((report) => report.top)
-                                .sort((a, b) => b.value - a.value)
-                                .slice(0, 5),
-                )
+                setSide(sideOf(await Promise.all(nextCols.map(scan))))
         }
-        const reseed = async () => {
-                await resetColumns()
+        const reset = async () => {
                 await db.delete(cellValues)
-                await db.insert(cellValues).values(seedRows(BASE_COLS))
+                await syncColumns(BASE_COLS)
+                await db.insert(cellValues).values(newRows(BASE_COLS))
                 setCols(BASE_COLS)
                 await refresh(BASE_COLS)
         }
-        const addColumn = async () => {
-                const name = columnNameOf(cols.length)
-                const nextCols = [...cols, name]
-                await insertColumn(
-                        name,
-                        rows.map(() => +(Math.random() * 100).toFixed(2)),
-                )
-                setCols(nextCols)
-                await refresh(nextCols)
+        const add = async () => {
+                const name = columnName(cols.length)
+                const next = [...cols, name]
+                await syncColumns(next, { [name]: rows.map(() => +(Math.random() * 100).toFixed(2)) })
+                setCols(next)
+                await refresh(next)
         }
-        const dropColumn = async () => {
+        const drop = async () => {
                 if (cols.length <= 1) return
-                const nextCols = cols.slice(0, -1)
-                await deleteColumn(cols[cols.length - 1])
-                setCols(nextCols)
-                await refresh(nextCols)
+                const next = cols.slice(0, -1)
+                await syncColumns(next)
+                setCols(next)
+                await refresh(next)
         }
-        const commit = async (id: number, name: string, value: string) => {
+        const save = async (id: number, name: string, value: string) => {
                 await db
                         .update(cellValues)
                         .set({ [name]: +value || 0 })
                         .where(eq(cellValues.id, id))
                 await refresh()
         }
-        const blurOnEnter = (event: React.KeyboardEvent<HTMLInputElement>) => {
-                if (event.key !== 'Enter') return
-                event.currentTarget.blur()
-        }
         useEffect(() => {
-                void reseed()
+                void reset()
         }, [])
         return (
                 <main className="min-h-screen bg-slate-50 p-6">
                         <header className="mx-auto mb-4 flex max-w-[1200px] justify-between">
                                 <h1 className="text-2xl font-bold text-slate-900">bad-dbms sheet</h1>
                                 <div className="flex gap-2">
-                                        <button className="rounded border px-3 py-2" onClick={reseed}>
+                                        <button className="rounded border px-3 py-2" onClick={reset}>
                                                 Reseed
                                         </button>
-                                        <button className="rounded border px-3 py-2" onClick={addColumn}>
+                                        <button className="rounded border px-3 py-2" onClick={add}>
                                                 Insert column
                                         </button>
-                                        <button className="rounded border px-3 py-2" onClick={dropColumn}>
+                                        <button className="rounded border px-3 py-2" onClick={drop}>
                                                 Drop column
                                         </button>
                                 </div>
@@ -168,31 +180,16 @@ function App() {
                                                         <div key={row.id} className="contents">
                                                                 <div className="grid place-items-center bg-slate-100 text-xs font-bold text-slate-600">{index + 1}</div>
                                                                 {cols.map((name) => (
-                                                                        <input key={`${row.id}-${name}-${row[name]}`} defaultValue={Number(row[name] ?? 0).toFixed(1)} onBlur={(event) => commit(Number(row.id), name, event.target.value)} onKeyDown={blurOnEnter} className={`w-full border-t border-l border-slate-200 px-2 py-1 text-right text-sm outline-0 focus:bg-blue-50 ${Number(row[name] ?? 0) >= 50 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'}`} />
+                                                                        <Cell key={name} row={row} name={name} save={save} />
                                                                 ))}
                                                         </div>
                                                 ))}
                                         </div>
                                 </div>
                                 <aside className="flex flex-col gap-2 text-sm">
-                                        <div className="rounded border bg-white p-3">
-                                                <h2 className="mb-2 font-bold">all cells</h2>
-                                                {metrics.map(([name, value]) => (
-                                                        <div key={name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
-                                                                <span className="text-slate-500">{name}</span>
-                                                                <strong>{value}</strong>
-                                                        </div>
-                                                ))}
-                                        </div>
-                                        <div className="rounded border bg-white p-3">
-                                                <h2 className="mb-2 font-bold">top 5 cells</h2>
-                                                {top.map((row) => (
-                                                        <div key={row.name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
-                                                                <span className="text-slate-500">{row.name}</span>
-                                                                <strong>{row.value.toFixed(2)}</strong>
-                                                        </div>
-                                                ))}
-                                        </div>
+                                        {Object.entries(side).map(([title, rows]) => (
+                                                <Card key={title} title={title} rows={rows} />
+                                        ))}
                                 </aside>
                         </div>
                 </main>
