@@ -107,7 +107,7 @@ export const createNBTree = ({ buffer, smgr, fsm, relId, forkId, cmp = defaultCm
                         await _writeRoot(nr)
                         return
                 }
-                const parentId = path.pop() as number
+                const parentId = path.pop()!
                 const f = await _pin(parentId)
                 const p = createPage(f.bytes)
                 const h = p.getHeader()

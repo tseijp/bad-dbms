@@ -27,7 +27,7 @@ export const createDenoAdapter = (dir = 'tmp'): FileAdapter => ({
                 const { join } = await _path()
                 const bytes = await Deno.readFile(join(dir, key)).catch(() => undefined)
                 if (!bytes) return undefined
-                return bytes as Uint8Array
+                return bytes
         },
         async put(key, bytes) {
                 const { dirname, join } = await _path()

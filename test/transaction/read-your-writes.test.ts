@@ -30,7 +30,7 @@ describe('a read inside a transaction sees that transactions own writes', () => 
                         await tx.delete(t).where(eq(t.id, 1))
                         return tx.select().from(t)
                 })
-                expect(idsOf(seen as { id: number }[])).toEqual([2, 3])
+                expect(idsOf(seen)).toEqual([2, 3])
         })
         it('two writes then a read in one transaction reflect both writes', async () => {
                 const { db, t } = await seeded()

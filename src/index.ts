@@ -34,14 +34,14 @@ app.get('/users/:id', async (c) => {
 })
 
 app.post('/users', async (c) => {
-        const body = (await c.req.json()) as { id: number; name: string; age?: number }
+        const body = await c.req.json()
         const [row] = await dbOf(c.env).insert(users).values(body).returning()
         return c.json(row, 201)
 })
 
 app.patch('/users/:id', async (c) => {
         const id = Number(c.req.param('id'))
-        const body = (await c.req.json()) as Partial<{ name: string; age: number }>
+        const body = await c.req.json()
         const [row] = await dbOf(c.env).update(users).set(body).where(users.id.eq(id)).returning()
         if (!row) return c.json({ error: 'not found' }, 404)
         return c.json(row)
