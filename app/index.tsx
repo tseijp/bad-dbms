@@ -1,11 +1,31 @@
 import './style.css'
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { addSheetColumn, BASE_COLS, cells, db, dropSheetColumn, resetSheet, restoreSheet, saveCell, scan, sideOf } from './schema'
+import { addColumn, BASE_COLS, cells, db, dropColumn, resetSheet, restoreSheet, saveCell, scan } from './schema'
+type ScanReport = Awaited<ReturnType<typeof scan>>
+type SideRow = { name: string; value: string | number }
+const sideOf = (reports: ScanReport[]) => {
+        const total = reports.reduce((acc, report) => ({ count: acc.count + Number(report.stats.count), sum: acc.sum + Number(report.stats.sum), high: acc.high + Number(report.high?.count ?? 0) }), { count: 0, sum: 0, high: 0 })
+        const top = reports
+                .flatMap((report) => report.top.map((row) => ({ name: `${report.name}${Number(row.id)}`, value: Number(row.value).toFixed(2), rank: Number(row.value) })))
+                .sort((a, b) => b.rank - a.rank)
+                .slice(0, 5)
+        return {
+                'all cells': [
+                        { name: 'count', value: total.count },
+                        { name: 'sum', value: total.sum.toFixed(1) },
+                        { name: 'avg', value: (total.sum / total.count).toFixed(2) },
+                        { name: 'min', value: Math.min(...reports.map((r) => Number(r.stats.min))).toFixed(1) },
+                        { name: 'max', value: Math.max(...reports.map((r) => Number(r.stats.max))).toFixed(1) },
+                        { name: 'where >=50', value: total.high },
+                ],
+                'top 5 cells': top.map(({ name, value }) => ({ name, value })),
+        }
+}
 function App() {
         const [rows, setRows] = useState<Record<string, any>[]>([])
         const [cols, setCols] = useState(BASE_COLS)
-        const [side, setSide] = useState<Record<string, [string, string | number][]>>({ 'all cells': [], 'top 5 cells': [] })
+        const [side, setSide] = useState<Record<string, SideRow[]>>({ 'all cells': [], 'top 5 cells': [] })
         const refresh = async (nextCols = cols) => {
                 setRows(await db.select().from(cells))
                 setSide(sideOf(await Promise.all(nextCols.map(scan))))
@@ -16,12 +36,12 @@ function App() {
                 await refresh(next)
         }
         const add = async () => {
-                const next = await addSheetColumn(cols, rows)
+                const next = await addColumn(cols, rows)
                 setCols(next)
                 await refresh(next)
         }
         const drop = async () => {
-                const next = await dropSheetColumn(cols, rows)
+                const next = await dropColumn(cols, rows)
                 setCols(next)
                 await refresh(next)
         }
@@ -82,10 +102,10 @@ function App() {
                                         {Object.entries(side).map(([title, rows]) => (
                                                 <div key={title} className="rounded border bg-white p-3">
                                                         <h2 className="mb-2 font-bold">{title}</h2>
-                                                        {rows.map(([name, value]) => (
-                                                                <div key={name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
-                                                                        <span className="text-slate-500">{name}</span>
-                                                                        <strong>{value}</strong>
+                                                        {rows.map((row) => (
+                                                                <div key={row.name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
+                                                                        <span className="text-slate-500">{row.name}</span>
+                                                                        <strong>{row.value}</strong>
                                                                 </div>
                                                         ))}
                                                 </div>
