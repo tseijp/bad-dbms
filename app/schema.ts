@@ -1,4 +1,4 @@
-import { avg, count, database, desc, eq, float, gte, integer, make, max, min, sum, table, text } from '../src/interface'
+import { count, database, desc, eq, float, gte, integer, make, max, min, sum, table, text } from '../src/interface'
 import type { TypedColumn } from '../src/interface'
 import { createHeap } from '../src/backend/access/heap'
 import * as DB from '../src/index'
@@ -111,10 +111,19 @@ export const saveCell = async (id: number, name: string, value: string) => {
                 .set({ [name]: +value || 0 })
                 .where(eq(cells.id, id))
 }
+export const scanStats = async (cols: string[]) => {
+        const fields: Record<string, any> = { count: count() }
+        for (const name of cols) {
+                fields[`sum${name}`] = sum(cells[name])
+                fields[`min${name}`] = min(cells[name])
+                fields[`max${name}`] = max(cells[name])
+        }
+        const [stats] = await db.select(fields).from(cells)
+        return stats
+}
 export const scan = async (name: string) => {
         const col = cells[name]
-        const [stats] = await db.select({ sum: sum(col), avg: avg(col), min: min(col), max: max(col), count: count() }).from(cells)
         const [high] = await db.select({ count: count() }).from(cells).where(gte(col, 50))
         const top = await db.select({ id: cells.id, value: col }).from(cells).orderBy(desc(col)).limit(5)
-        return { name, stats, high, top }
+        return { name, high, top }
 }

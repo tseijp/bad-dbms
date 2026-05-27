@@ -1,34 +1,37 @@
 import './style.css'
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { addColumn, BASE_COLS, cells, db, dropColumn, resetSheet, restoreSheet, saveCell, scan } from './schema'
-type ScanReport = Awaited<ReturnType<typeof scan>>
-type SideRow = { name: string; value: string | number }
-const sideOf = (reports: ScanReport[]) => {
-        const total = reports.reduce((acc, report) => ({ count: acc.count + Number(report.stats.count), sum: acc.sum + Number(report.stats.sum), high: acc.high + Number(report.high?.count ?? 0) }), { count: 0, sum: 0, high: 0 })
-        const top = reports
-                .flatMap((report) => report.top.map((row) => ({ name: `${report.name}${Number(row.id)}`, value: Number(row.value).toFixed(2), rank: Number(row.value) })))
-                .sort((a, b) => b.rank - a.rank)
-                .slice(0, 5)
+import { addColumn, BASE_COLS, cells, db, dropColumn, resetSheet, restoreSheet, saveCell, scan, scanStats } from './schema'
+const sideOf = (cols: string[], stats: Awaited<ReturnType<typeof scanStats>>, reports: Awaited<ReturnType<typeof scan>>[]) => {
+        const count = Number(stats.count) * cols.length
+        let sum = 0
+        let high = 0
+        const top: { name: string; value: number }[] = []
+        for (const name of cols) sum += Number(stats[`sum${name}`])
+        for (const report of reports) {
+                high += Number(report.high?.count ?? 0)
+                for (const row of report.top) top.push({ name: `${report.name}${Number(row.id)}`, value: Number(row.value) })
+        }
+        top.sort((a, b) => b.value - a.value)
         return {
                 'all cells': [
-                        { name: 'count', value: total.count },
-                        { name: 'sum', value: total.sum.toFixed(1) },
-                        { name: 'avg', value: (total.sum / total.count).toFixed(2) },
-                        { name: 'min', value: Math.min(...reports.map((r) => Number(r.stats.min))).toFixed(1) },
-                        { name: 'max', value: Math.max(...reports.map((r) => Number(r.stats.max))).toFixed(1) },
-                        { name: 'where >=50', value: total.high },
+                        { name: 'count', value: count },
+                        { name: 'sum', value: sum.toFixed(1) },
+                        { name: 'avg', value: (sum / count).toFixed(2) },
+                        { name: 'min', value: Math.min(...cols.map((name) => Number(stats[`min${name}`]))).toFixed(1) },
+                        { name: 'max', value: Math.max(...cols.map((name) => Number(stats[`max${name}`]))).toFixed(1) },
+                        { name: 'where >=50', value: high },
                 ],
-                'top 5 cells': top.map(({ name, value }) => ({ name, value })),
+                'top 5 cells': top.slice(0, 5).map(({ name, value }) => ({ name, value: value.toFixed(2) })),
         }
 }
 function App() {
         const [rows, setRows] = useState<Record<string, any>[]>([])
         const [cols, setCols] = useState(BASE_COLS)
-        const [side, setSide] = useState<Record<string, SideRow[]>>({ 'all cells': [], 'top 5 cells': [] })
+        const [side, setSide] = useState<Record<string, { name: string; value: string | number }[]>>({ 'all cells': [], 'top 5 cells': [] })
         const refresh = async (nextCols = cols) => {
                 setRows(await db.select().from(cells))
-                setSide(sideOf(await Promise.all(nextCols.map(scan))))
+                setSide(sideOf(nextCols, await scanStats(nextCols), await Promise.all(nextCols.map(scan))))
         }
         const reset = async () => {
                 const next = await resetSheet()
