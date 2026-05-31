@@ -28,13 +28,13 @@ describe('composed expression chains evaluate left-to-right', () => {
         // left-to-right, with no operator-precedence re-ordering.
         it.each([
                 ['add then sub', (s: any) => s.add(5).sub(3), [12, 22, 32]],
-                ['sub then mul', (s: any) => s.sub(5).mul(2), [10, 30, 50]],
-                ['mul then div', (s: any) => s.mul(3).div(2), [15, 30, 45]],
-                ['add then mul then sub', (s: any) => s.add(2).mul(2).sub(4), [20, 40, 60]],
-                ['div then add then mul', (s: any) => s.div(10).add(1).mul(3), [6, 9, 12]],
-                ['mod then add', (s: any) => s.mod(7).add(100), [103, 106, 102]],
-                ['mul then mod', (s: any) => s.mul(2).mod(7), [6, 5, 4]],
-                ['four-step chain', (s: any) => s.add(1).mul(2).sub(2).div(2), [10, 20, 30]],
+                ['sub then mul', (s) => s.sub(5).mul(2), [10, 30, 50]],
+                ['mul then div', (s) => s.mul(3).div(2), [15, 30, 45]],
+                ['add then mul then sub', (s) => s.add(2).mul(2).sub(4), [20, 40, 60]],
+                ['div then add then mul', (s) => s.div(10).add(1).mul(3), [6, 9, 12]],
+                ['mod then add', (s) => s.mod(7).add(100), [103, 106, 102]],
+                ['mul then mod', (s) => s.mul(2).mod(7), [6, 5, 4]],
+                ['four-step chain', (s) => s.add(1).mul(2).sub(2).div(2), [10, 20, 30]],
         ])('evaluates the %s chain left-to-right', async (_label, build, expected) => {
                 const { db, users } = await seedUsers()
                 const rows = await db.select({ x: build(users.score) }).from(users)

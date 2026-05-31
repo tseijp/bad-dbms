@@ -10,7 +10,7 @@ export const createVercelAdapter = (kv: any): FileAdapter => ({
         async get(key) {
                 const value = await kv.get(key).catch(() => null)
                 if (value === null || value === undefined) return undefined
-                return _decode(value as string)
+                return _decode(value)
         },
         async put(key, bytes) {
                 await kv.set(key, _encode(bytes))

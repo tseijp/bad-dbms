@@ -40,7 +40,7 @@ describe('per-group min and max', () => {
                                 [0, 5],
                                 [0, 95],
                                 [0, 50],
-                        ] as Array<[number, number]>,
+                        ],
                         0,
                         5,
                         95,
@@ -51,18 +51,18 @@ describe('per-group min and max', () => {
                                 [1, -10],
                                 [1, -3],
                                 [1, -50],
-                        ] as Array<[number, number]>,
+                        ],
                         1,
                         -50,
                         -3,
                 ],
-                ['singleton', [[2, 7]] as Array<[number, number]>, 2, 7, 7],
+                ['singleton', [[2, 7]], 2, 7, 7],
                 [
                         'equal values',
                         [
                                 [3, 8],
                                 [3, 8],
-                        ] as Array<[number, number]>,
+                        ],
                         3,
                         8,
                         8,
@@ -96,7 +96,7 @@ describe('per-group min and max', () => {
                 expect(findBy(result, 'kind', 0)!).toEqual({ kind: 0, n: 2, s: '300', a: '150', lo: 100, hi: 200 })
         })
         // dense matrix: one fixed dataset, per-group min and max for every key.
-        const rangeData: Array<[number, number]> = [
+        const rangeData = [
                 [0, 50],
                 [0, 10],
                 [0, 90],

@@ -56,19 +56,19 @@ describe('rightJoin keeps every right row', () => {
         })
         // dense matrix: a fixed left pair right-joined to a varying right
         // table. The right-join row count equals the number of right rows.
-        const leftPair: Array<[number, number]> = [
+        const leftPair = [
                 [1, 10],
                 [2, 20],
         ]
         it.each([
-                ['one right row matched', [[1, 1, 100]] as Array<[number, number, number]>, 1],
-                ['one right row orphan', [[1, 9, 100]] as Array<[number, number, number]>, 1],
+                ['one right row matched', [[1, 1, 100]], 1],
+                ['one right row orphan', [[1, 9, 100]], 1],
                 [
                         'two matched',
                         [
                                 [1, 1, 1],
                                 [2, 2, 2],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -76,7 +76,7 @@ describe('rightJoin keeps every right row', () => {
                         [
                                 [1, 8, 1],
                                 [2, 9, 2],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -85,7 +85,7 @@ describe('rightJoin keeps every right row', () => {
                                 [1, 1, 1],
                                 [2, 9, 2],
                                 [3, 2, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -94,7 +94,7 @@ describe('rightJoin keeps every right row', () => {
                                 [1, 1, 1],
                                 [2, 1, 2],
                                 [3, 9, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
         ])('right-joins the %s right table to a fixed left pair', async (_label, right, expected) => {

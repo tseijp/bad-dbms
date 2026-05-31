@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { table, integer, uint, float, text } from '../../src/index'
-import * as bad from '../../src/index'
+import { table, integer, uint, float, text, getTableConfig } from '../../src/index'
 // schema rework: attack the foreign-key reference against the correct Drizzle
 // spec, not the bad-dbms `$col.references` shape.
 //
@@ -11,10 +10,9 @@ import * as bad from '../../src/index'
 //   * a plain column contributes no foreign key to the table config.
 // bad-dbms records a raw `$col.references = { fn, onDelete }` and exposes no
 // introspection, so these fail honestly and are never weakened.
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
-const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('foreign key reference', () => {
         it('lists a declared foreign key in getTableConfig', () => {
                 const users = table('users', { id: integer('id').primaryKey() })
@@ -38,7 +36,7 @@ describe('foreign key reference', () => {
                 })
                 const fk = getTableConfig(posts).foreignKeys[0]
                 const ref = fk.reference()
-                expect(ref.columns.map((c: any) => c.name)).toContain('user_id')
+                expect(ref.columns.map((c) => c.name)).toContain('user_id')
         })
         it('resolves a foreign key to its target table name', () => {
                 const users = table('users', { id: integer('id').primaryKey() })

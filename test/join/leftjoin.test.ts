@@ -42,11 +42,11 @@ describe('leftJoin keeps every left row', () => {
                         [
                                 [1, 10],
                                 [2, 20],
-                        ] as Array<[number, number]>,
+                        ],
                         [
                                 [1, 1, 100],
                                 [2, 2, 200],
-                        ] as Array<[number, number, number]>,
+                        ],
                         2,
                 ],
                 [
@@ -54,8 +54,8 @@ describe('leftJoin keeps every left row', () => {
                         [
                                 [1, 10],
                                 [2, 20],
-                        ] as Array<[number, number]>,
-                        [[1, 1, 100]] as Array<[number, number, number]>,
+                        ],
+                        [[1, 1, 100]],
                         2,
                 ],
                 [
@@ -63,8 +63,8 @@ describe('leftJoin keeps every left row', () => {
                         [
                                 [1, 10],
                                 [2, 20],
-                        ] as Array<[number, number]>,
-                        [] as Array<[number, number, number]>,
+                        ],
+                        [],
                         2,
                 ],
                 [
@@ -72,11 +72,11 @@ describe('leftJoin keeps every left row', () => {
                         [
                                 [1, 10],
                                 [2, 20],
-                        ] as Array<[number, number]>,
+                        ],
                         [
                                 [1, 1, 100],
                                 [2, 1, 200],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
         ])('produces the right left-join row count for the %s shape', async (_label, left, right, expected) => {
@@ -92,21 +92,21 @@ describe('leftJoin keeps every left row', () => {
         // dense matrix: a fixed left table of three rows left-joined to a
         // varying right table. The left-join row count is at least 3 (every
         // left row survives) and grows by one for each extra match.
-        const leftThree: Array<[number, number]> = [
+        const leftThree = [
                 [1, 10],
                 [2, 20],
                 [3, 30],
         ]
         it.each([
-                ['no right rows', [] as Array<[number, number, number]>, 3],
-                ['one match', [[1, 1, 100]] as Array<[number, number, number]>, 3],
+                ['no right rows', [], 3],
+                ['one match', [[1, 1, 100]], 3],
                 [
                         'all three match once',
                         [
                                 [1, 1, 1],
                                 [2, 2, 2],
                                 [3, 3, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -114,7 +114,7 @@ describe('leftJoin keeps every left row', () => {
                         [
                                 [1, 1, 1],
                                 [2, 1, 2],
-                        ] as Array<[number, number, number]>,
+                        ],
                         4,
                 ],
                 [
@@ -123,7 +123,7 @@ describe('leftJoin keeps every left row', () => {
                                 [1, 1, 1],
                                 [2, 1, 2],
                                 [3, 1, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         5,
                 ],
                 [
@@ -131,7 +131,7 @@ describe('leftJoin keeps every left row', () => {
                         [
                                 [1, 1, 1],
                                 [2, 9, 2],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -139,7 +139,7 @@ describe('leftJoin keeps every left row', () => {
                         [
                                 [1, 7, 1],
                                 [2, 8, 2],
-                        ] as Array<[number, number, number]>,
+                        ],
                         3,
                 ],
                 [
@@ -148,7 +148,7 @@ describe('leftJoin keeps every left row', () => {
                                 [1, 2, 1],
                                 [2, 2, 2],
                                 [3, 2, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                         5,
                 ],
         ])('left-joins three left rows to the %s right table', async (_label, right, expected) => {
@@ -158,15 +158,15 @@ describe('leftJoin keeps every left row', () => {
         })
         // every left id appears in the left-join output regardless of matches.
         it.each([
-                ['no right rows', [] as Array<[number, number, number]>],
-                ['partial matches', [[1, 1, 100]] as Array<[number, number, number]>],
+                ['no right rows', []],
+                ['partial matches', [[1, 1, 100]]],
                 [
                         'full matches',
                         [
                                 [1, 1, 1],
                                 [2, 2, 2],
                                 [3, 3, 3],
-                        ] as Array<[number, number, number]>,
+                        ],
                 ],
         ])('keeps all three left ids present for the %s right table', async (_label, right) => {
                 const { db, l, r } = await seedPair(leftThree, right)

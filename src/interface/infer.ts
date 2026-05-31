@@ -121,6 +121,6 @@ export interface Tx extends QueryBuilders {
 export interface Database<Tables extends Record<string, TableLike>> extends QueryBuilders {
         transaction<R>(fn: (tx: Tx, cursor?: any) => R | Promise<R>): Promise<R> & { run(extra?: unknown): Promise<unknown> }
         $count<T extends TableLike>(table: T, predicate?: SQL<boolean>): Promise<number>
-        backend: unknown
+        backend: any
         tables: Tables
 }

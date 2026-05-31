@@ -92,7 +92,7 @@ describe('text column predicates in a where clause', () => {
         })
         it('a text filter reads the surviving names back as their original strings', async () => {
                 const { db, t } = await seededPeople()
-                const rows = (await db.select().from(t).where(eq(t.name, 'Bob'))) as { id: number; name: string }[]
+                const rows = await db.select().from(t).where(eq(t.name, 'Bob'))
                 expect(rows[0].name).toBe('Bob')
         })
         it('an empty-string name is a real value distinct from a missing one', async () => {

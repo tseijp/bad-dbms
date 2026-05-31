@@ -32,7 +32,7 @@ describe('avg over varying datasets', () => {
                 ['mixed around zero', [-20, 0, 20], '0'],
                 ['four ascending', [2, 4, 6, 8], '5'],
         ])('averages the %s dataset', async (_label, values, expected) => {
-                const { db, t } = await numTable(values as number[])
+                const { db, t } = await numTable(values)
                 const result = await db.select({ a: avg(t.v) }).from(t)
                 expect(scalar(result, 'a')).toBe(expected)
         })

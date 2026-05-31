@@ -2,10 +2,10 @@ import type { SQL, SqlValue, JoinKind } from '../shared/types'
 import type { TypedColumn, Table } from './infer'
 export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
 export type Column<T = number | string | boolean | null | undefined> = TypedColumn<T>
-export type Columns<Key extends string = string> = Record<Key, Column<any>>
+export type Columns<Key extends string = string> = Record<Key, Column>
 export interface TableMeta {
         name: string
-        columns: Column<any>[]
+        columns: Column[]
 }
 export type ProjItem = { alias: string; expr: SQL | unknown }
 export interface JoinClause {

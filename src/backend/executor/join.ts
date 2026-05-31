@@ -37,7 +37,7 @@ export const createNestedLoopJoin = async (left: RowIterator, right: RowIterator
         let _i = 0
         return {
                 async next() {
-                        return (_i < _out.length ? _out[_i++] : null) as Row | null
+                        return _i < _out.length ? _out[_i++] : null
                 },
                 close() {},
         }

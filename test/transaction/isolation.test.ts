@@ -17,7 +17,7 @@ describe('transactions compose on one connection and isolate across connections'
                         await tx.insert(t).values({ id: 3, amount: 30 })
                 })
                 const rows = await db.select().from(t)
-                expect(idsOf(rows as { id: number }[])).toEqual([1, 2, 3])
+                expect(idsOf(rows)).toEqual([1, 2, 3])
         })
         it('a second transaction sees the committed writes of the first', async () => {
                 const { db, t } = freshLedger()
@@ -27,7 +27,7 @@ describe('transactions compose on one connection and isolate across connections'
                 const seenInside = await db.transaction(async (tx) => {
                         return tx.select().from(t)
                 })
-                expect(idsOf(seenInside as { id: number }[])).toEqual([1])
+                expect(idsOf(seenInside)).toEqual([1])
         })
         it('two separate connections do not see each others transactional writes', async () => {
                 const a = freshLedger()
@@ -54,6 +54,6 @@ describe('transactions compose on one connection and isolate across connections'
                 })
                 const rows = await db.select().from(t)
                 // only the committed second transaction's row survives
-                expect(idsOf(rows as { id: number }[])).toEqual([2])
+                expect(idsOf(rows)).toEqual([2])
         })
 })

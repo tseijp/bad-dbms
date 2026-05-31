@@ -14,7 +14,7 @@ export const floatTable = async (values: number[]) => {
         if (rows.length) await db.insert(t).values(rows)
         return { db, t: db.tables.t }
 }
-export const pairTable = async (pairs: Array<[number, number]>) => {
+export const pairTable = async (pairs: number[][]) => {
         const t = table('t', { id: integer('id').primaryKey(), a: integer('a'), b: integer('b') })
         const db = database({ t })
         const rows = pairs.map(([a, b], i) => ({ id: i + 1, a, b }))

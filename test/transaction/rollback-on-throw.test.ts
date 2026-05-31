@@ -8,7 +8,7 @@ describe('a transaction rolls back every write when its body throws', () => {
         // must read back exactly as it was before the transaction.
         it('an insert is undone when the transaction body throws after it', async () => {
                 const { db, t } = freshLedger()
-                const attempt = db.transaction(async (tx: any) => {
+                const attempt = db.transaction(async (tx) => {
                         await tx.insert(t).values({ id: 1, amount: 100 })
                         throw new Error('abort')
                 })
@@ -18,7 +18,7 @@ describe('a transaction rolls back every write when its body throws', () => {
         })
         it('an update is undone when the transaction body throws after it', async () => {
                 const { db, t } = await seeded()
-                const attempt = db.transaction(async (tx: any) => {
+                const attempt = db.transaction(async (tx) => {
                         await tx.update(t).set({ amount: 999 }).where(eq(t.id, 1))
                         throw new Error('abort')
                 })
@@ -28,17 +28,17 @@ describe('a transaction rolls back every write when its body throws', () => {
         })
         it('a delete is undone when the transaction body throws after it', async () => {
                 const { db, t } = await seeded()
-                const attempt = db.transaction(async (tx: any) => {
+                const attempt = db.transaction(async (tx) => {
                         await tx.delete(t).where(eq(t.id, 2))
                         throw new Error('abort')
                 })
                 await attempt.catch(() => undefined)
                 const rows = await db.select().from(t)
-                expect(idsOf(rows as { id: number }[])).toEqual([1, 2, 3])
+                expect(idsOf(rows)).toEqual([1, 2, 3])
         })
         it('an earlier write is rolled back when a later statement throws', async () => {
                 const { db, t } = await seeded()
-                const attempt = db.transaction(async (tx: any) => {
+                const attempt = db.transaction(async (tx) => {
                         await tx.insert(t).values({ id: 9, amount: 90 })
                         await tx.update(t).set({ amount: 0 }).where(eq(t.id, 1))
                         throw new Error('abort after two writes')
@@ -50,7 +50,7 @@ describe('a transaction rolls back every write when its body throws', () => {
         })
         it('a transaction that throws leaves the row count unchanged', async () => {
                 const { db, t } = await seeded()
-                const attempt = db.transaction(async (tx: any) => {
+                const attempt = db.transaction(async (tx) => {
                         await tx.insert(t).values({ id: 4, amount: 40 })
                         await tx.insert(t).values({ id: 5, amount: 50 })
                         throw new Error('abort')
@@ -69,16 +69,16 @@ describe('a transaction rolls back every write when its body throws', () => {
         it('a committed transaction after a rolled-back one starts from the pre-abort state', async () => {
                 const { db, t } = await seeded()
                 await db
-                        .transaction(async (tx: any) => {
+                        .transaction(async (tx) => {
                                 await tx.insert(t).values({ id: 9, amount: 90 })
                                 throw new Error('abort')
                         })
                         .catch(() => undefined)
-                await db.transaction(async (tx: any) => {
+                await db.transaction(async (tx) => {
                         await tx.insert(t).values({ id: 4, amount: 40 })
                 })
                 const rows = await db.select().from(t)
                 // id 9 was rolled back; only the seed plus id 4 remain
-                expect(idsOf(rows as { id: number }[])).toEqual([1, 2, 3, 4])
+                expect(idsOf(rows)).toEqual([1, 2, 3, 4])
         })
 })

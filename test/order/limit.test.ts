@@ -19,7 +19,7 @@ describe('limit keeps the top of an ordered result', () => {
                 [3, [10, 30, 50]],
                 [4, [10, 30, 50, 70]],
                 [5, [10, 30, 50, 70, 90]],
-        ] as const)('the lowest %i scores come back when limit is %i after an ascending sort', async (n, expected) => {
+        ])('the lowest %i scores come back when limit is %i after an ascending sort', async (n, expected) => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(asc(t.score)).limit(n)
@@ -29,7 +29,7 @@ describe('limit keeps the top of an ordered result', () => {
                 [1, [90]],
                 [2, [90, 70]],
                 [3, [90, 70, 50]],
-        ] as const)('the highest %i scores come back when limit is %i after a descending sort', async (n, expected) => {
+        ])('the highest %i scores come back when limit is %i after a descending sort', async (n, expected) => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(board)
                 const rows = await db.select().from(t).orderBy(desc(t.score)).limit(n)

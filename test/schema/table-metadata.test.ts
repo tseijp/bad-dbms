@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { table, integer, text } from '../../src/index'
-import * as bad from '../../src/index'
+import { table, integer, text, getTableColumns, getTableConfig } from '../../src/index'
 // schema rework: attack table introspection against the correct Drizzle spec.
 //
 // Drizzle-guaranteed behaviour bad-dbms is expected to miss:
@@ -12,8 +11,6 @@ import * as bad from '../../src/index'
 // file COMMENTED OUT the introspection describe as "Roadmap" — that was an
 // attack failure. The helpers are now reached off the namespace import so a
 // missing export fails honestly per test at runtime.
-const getTableColumns = (t: any) => bad.getTableColumns(t)
-const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('table node and declared shape', () => {
         it('records the table name on the node', () => {
                 const users = table('users', { id: integer('id') })

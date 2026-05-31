@@ -8,7 +8,7 @@ export const seedUsersPostsWithOrphan = async () => {
         await db.insert(posts).values(POSTS_SEED)
         return { db, users: db.tables.users, posts: db.tables.posts }
 }
-export const seedThreeTables = async (tagRows: Array<[number, number, number]>) => {
+export const seedThreeTables = async (tagRows: number[][]) => {
         const users = makeUsers()
         const posts = makePosts()
         const tags = table('tags', { id: integer('id').primaryKey(), postId: integer('post_id'), label: integer('label') })
@@ -28,7 +28,7 @@ export const seedNodeChain = async () => {
         ])
         return { db, nodes: db.tables.nodes }
 }
-export const seedPair = async (left: Array<[number, number]>, right: Array<[number, number, number]>) => {
+export const seedPair = async (left: number[][], right: number[][]) => {
         const l = table('l', { id: integer('id').primaryKey(), lv: integer('lv') })
         const r = table('r', { id: integer('id').primaryKey(), fk: integer('fk'), rv: integer('rv') })
         const db = database({ l, r })

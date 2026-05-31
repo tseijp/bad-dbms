@@ -49,14 +49,14 @@ describe('insert inside a transaction', () => {
                         await tx.insert(users).values(USERS_SEED)
                         return tx.select().from(users)
                 })
-                expect((seen as unknown[]).length).toBe(3)
+                expect(seen.length).toBe(3)
         })
         it('transaction insert with returning resolves rids inside the callback', async () => {
                 const { db, users } = freshUsers()
                 const rids = await db.transaction(async (tx) => {
                         return tx.insert(users).values(USERS_SEED).returning()
                 })
-                expect((rids as unknown[]).length).toBe(3)
+                expect(rids.length).toBe(3)
         })
         it.each([[1], [2], [4], [8]])('a transaction inserting %i rows leaves that many rows committed', async (n) => {
                 const { db, users } = freshUsers()

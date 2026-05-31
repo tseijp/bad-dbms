@@ -1,5 +1,5 @@
 import { database, table, integer, text } from '../../src/index'
-export const groupTable = async (pairs: Array<[number, number]>) => {
+export const groupTable = async (pairs: number[][]) => {
         const t = table('t', { id: integer('id').primaryKey(), g: integer('g'), v: integer('v') })
         const db = database({ t })
         const rows = pairs.map(([g, v], i) => ({ id: i + 1, g, v }))

@@ -8,9 +8,9 @@ describe('an explicit tx.rollback aborts the transaction', () => {
         it('calling tx.rollback undoes an insert made earlier in the body', async () => {
                 const { db, t } = freshLedger()
                 await db
-                        .transaction(async (tx: any) => {
+                        .transaction(async (tx) => {
                                 await tx.insert(t).values({ id: 1, amount: 100 })
-                                ;(tx as { rollback: () => void }).rollback()
+                                tx.rollback()
                         })
                         .catch(() => undefined)
                 const rows = await db.select().from(t)
@@ -19,9 +19,9 @@ describe('an explicit tx.rollback aborts the transaction', () => {
         it('calling tx.rollback undoes an update made earlier in the body', async () => {
                 const { db, t } = await seeded()
                 await db
-                        .transaction(async (tx: any) => {
+                        .transaction(async (tx) => {
                                 await tx.update(t).set({ amount: 0 }).where(eq(t.id, 1))
-                                ;(tx as { rollback: () => void }).rollback()
+                                tx.rollback()
                         })
                         .catch(() => undefined)
                 const rows = await db.select().from(t)
@@ -30,9 +30,9 @@ describe('an explicit tx.rollback aborts the transaction', () => {
         it('a transaction that rolls back explicitly leaves the row count unchanged', async () => {
                 const { db, t } = await seeded()
                 await db
-                        .transaction(async (tx: any) => {
+                        .transaction(async (tx) => {
                                 await tx.delete(t).where(gt(t.id, 0))
-                                ;(tx as { rollback: () => void }).rollback()
+                                tx.rollback()
                         })
                         .catch(() => undefined)
                 const rows = await db.select().from(t)

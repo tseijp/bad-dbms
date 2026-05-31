@@ -41,7 +41,7 @@ describe('per-group count', () => {
                                 [1, 0],
                                 [2, 0],
                                 [3, 0],
-                        ] as Array<[number, number]>,
+                        ],
                         1,
                         1,
                 ],
@@ -51,7 +51,7 @@ describe('per-group count', () => {
                                 [1, 0],
                                 [1, 0],
                                 [2, 0],
-                        ] as Array<[number, number]>,
+                        ],
                         1,
                         2,
                 ],
@@ -62,7 +62,7 @@ describe('per-group count', () => {
                                 [7, 0],
                                 [7, 0],
                                 [9, 0],
-                        ] as Array<[number, number]>,
+                        ],
                         7,
                         3,
                 ],
@@ -94,7 +94,7 @@ describe('per-group count', () => {
         })
         // dense matrix: a fixed dataset of (group, value) pairs, asserting the
         // per-group count for every group key in turn.
-        const dataset: Array<[number, number]> = [
+        const dataset = [
                 [0, 10],
                 [0, 20],
                 [0, 30],

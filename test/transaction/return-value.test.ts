@@ -16,10 +16,10 @@ describe('the value a transaction callback returns is propagated', () => {
         })
         it('a callback returning rows read inside the transaction resolves to those rows', async () => {
                 const { db, t } = await seeded()
-                const result = await db.transaction(async (tx: any) => {
+                const result = await db.transaction(async (tx) => {
                         return tx.select().from(t)
                 })
-                expect(idsOf(result as { id: number }[])).toEqual([1, 2, 3])
+                expect(idsOf(result)).toEqual([1, 2, 3])
         })
         it('a callback that returns nothing resolves the transaction to undefined', async () => {
                 const { db } = freshLedger()

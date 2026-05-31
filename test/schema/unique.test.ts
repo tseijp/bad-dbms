@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { table, integer, uint, float, text } from '../../src/index'
-import * as bad from '../../src/index'
+import { table, integer, uint, float, text, getTableConfig } from '../../src/index'
 // schema rework: attack the unique constraint against the correct Drizzle
 // spec, not the bad-dbms `$col` descriptor shape.
 //
@@ -10,10 +9,9 @@ import * as bad from '../../src/index'
 //   * `getTableConfig(table).uniqueConstraints` lists the unique columns.
 // bad-dbms records `$col.unique` as `true | undefined` and exposes no
 // introspection, so these fail honestly and are never weakened.
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
-const getTableConfig = (t: any) => bad.getTableConfig(t)
 describe('unique constraint', () => {
         it.each(factoryNames)('marks the %s column unique on the public flag', (name) => {
                 const t = table('t', { email: factories[name]('email').unique() })
@@ -62,7 +60,7 @@ describe('unique constraint', () => {
         it('names the declared unique column in getTableConfig', () => {
                 const t = table('users', { id: integer('id').primaryKey(), email: text('email').unique() })
                 const config = getTableConfig(t)
-                const uniqueCols = config.uniqueConstraints.flatMap((u: any) => u.columns.map((c: any) => c.name))
+                const uniqueCols = config.uniqueConstraints.flatMap((u) => u.columns.map((c) => c.name))
                 expect(uniqueCols).toContain('email')
         })
         it('reports no unique constraints in getTableConfig when none is declared', () => {

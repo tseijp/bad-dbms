@@ -12,7 +12,7 @@ describe('where used inside a transaction', () => {
                 const found = await db.transaction(async (tx) => {
                         return tx.select().from(users).where(eq(users.id, 2))
                 })
-                expect(idsOf(found as { id: number }[])).toEqual([2])
+                expect(idsOf(found)).toEqual([2])
         })
         it('a transactional score-band read returns the in-band users', async () => {
                 const { db, users } = await seedUsers()
@@ -22,7 +22,7 @@ describe('where used inside a transaction', () => {
                                 .from(users)
                                 .where(and(gt(users.score, 5), lt(users.score, 25)))
                 })
-                expect(idsOf(found as { id: number }[])).toEqual([1, 2])
+                expect(idsOf(found)).toEqual([1, 2])
         })
         it('the same cutoff produces the same survivors inside and outside a transaction', async () => {
                 const { db, users } = await seedUsers()
@@ -30,26 +30,24 @@ describe('where used inside a transaction', () => {
                 const inside = await db.transaction(async (tx) => {
                         return tx.select().from(users).where(gt(users.score, 15))
                 })
-                expect(idsOf(inside as { id: number }[])).toEqual(idsOf(outside))
+                expect(idsOf(inside)).toEqual(idsOf(outside))
         })
         it('two filtered reads in one transaction each apply only their own predicate', async () => {
                 const { db, users } = await seedUsers()
-                const pair = await db.transaction(async (tx) => {
+                const { low, high } = await db.transaction(async (tx) => {
                         const low = await tx.select().from(users).where(lt(users.score, 20))
                         const high = await tx.select().from(users).where(gt(users.score, 20))
                         return { low, high }
                 })
-                const { low, high } = pair as { low: { id: number }[]; high: { id: number }[] }
                 expect([idsOf(low), idsOf(high)]).toEqual([[1], [3]])
         })
         it('a transactional filter then its complement recover the whole table', async () => {
                 const { db, users } = await seedUsers()
-                const halves = await db.transaction(async (tx) => {
+                const { matched, rest } = await db.transaction(async (tx) => {
                         const matched = await tx.select().from(users).where(eq(users.id, 2))
                         const rest = await tx.select().from(users).where(gt(users.score, 999))
                         return { matched, rest }
                 })
-                const { matched, rest } = halves as { matched: { id: number }[]; rest: { id: number }[] }
                 expect([idsOf(matched), rest]).toEqual([[2], []])
         })
 })

@@ -1,12 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { table, integer, uint, float, text } from '../../src/index'
-import * as bad from '../../src/index'
+import { table, integer, uint, float, text, getTableColumns } from '../../src/index'
 // getTableColumns is a Drizzle introspection API. bad-dbms exposes no such
 // export, so it is reached off the namespace import: the symbol is undefined
 // and calling it fails honestly at runtime, per test, rather than crashing
 // the whole module at import time.
-const getTableColumns = (t: any) => bad.getTableColumns(t)
-const factories = { integer, uint, float, text } as const
+const factories = { integer, uint, float, text }
 type FactoryName = keyof typeof factories
 const factoryNames: FactoryName[] = ['integer', 'uint', 'float', 'text']
 // schema rework: attack the column factories against the correct Drizzle

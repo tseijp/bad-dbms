@@ -68,20 +68,20 @@ describe('an expression setter is evaluated per row', () => {
         it('adding a constant to a null column writes null back, not the constant', async () => {
                 const { db, t } = await seededNullableScore()
                 await db.update(t).set({ score: t.score.add(5) })
-                const rows = (await db.select().from(t)) as { id: number; score: number | null }[]
+                const rows = await db.select().from(t)
                 // id 2 was NULL: NULL + 5 = NULL, so it must read back null, not 5
                 expect(rows.find((r) => r.id === 2)?.score).toBeNull()
         })
         it('the non-null rows of a null-touching expression update still compute correctly', async () => {
                 const { db, t } = await seededNullableScore()
                 await db.update(t).set({ score: t.score.add(5) })
-                const rows = (await db.select().from(t)) as { id: number; score: number | null }[]
+                const rows = await db.select().from(t)
                 expect([rows.find((r) => r.id === 1)?.score, rows.find((r) => r.id === 3)?.score]).toEqual([15, 35])
         })
         it('multiplying a null column by zero still yields null, not zero', async () => {
                 const { db, t } = await seededNullableScore()
                 await db.update(t).set({ score: t.score.mul(0) })
-                const rows = (await db.select().from(t)) as { id: number; score: number | null }[]
+                const rows = await db.select().from(t)
                 expect(rows.find((r) => r.id === 2)?.score).toBeNull()
         })
 })

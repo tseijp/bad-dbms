@@ -21,7 +21,7 @@ export const createNamedScan = async (catalog: Catalog, ast: NamedScanOp): Promi
                 async next() {
                         if (_i >= _rids.length) return null
                         const row = await buildRow(catalog, _rel, _rids[_i++])
-                        return { [ast.name]: stripRid(row) } as Row
+                        return { [ast.name]: stripRid(row) }
                 },
                 close() {},
         }

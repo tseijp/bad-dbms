@@ -14,7 +14,7 @@ describe('limit with offset forms a pagination window', () => {
                 ['final partial page', 9, 3, [10]],
                 ['a mid-range window', 2, 4, [3, 4, 5, 6]],
                 ['a single-row window', 5, 1, [6]],
-        ] as const)('%s of the ten-row board comes back as the documented ids', async (_label, off, lim, expected) => {
+        ])('%s of the ten-row board comes back as the documented ids', async (_label, off, lim, expected) => {
                 const { db, t } = fresh(makeScored)
                 await db.insert(t).values(tenRows)
                 const rows = await db.select().from(t).orderBy(asc(t.id)).offset(off).limit(lim)

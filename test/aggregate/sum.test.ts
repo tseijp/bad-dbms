@@ -34,7 +34,7 @@ describe('sum over varying datasets', () => {
                 ['large values', [1000000, 2000000], '3000000'],
                 ['five values', [1, 2, 3, 4, 5], '15'],
         ])('sums the %s dataset', async (_label, values, expected) => {
-                const { db, t } = await numTable(values as number[])
+                const { db, t } = await numTable(values)
                 const result = await db.select({ s: sum(t.v) }).from(t)
                 expect(scalar(result, 's')).toBe(expected)
         })

@@ -34,7 +34,7 @@ describe('a delete on one table leaves a sibling table intact', () => {
         it('a row-level delete on one table leaves the sibling rows whole', async () => {
                 const { db, board, tag } = await twoTables()
                 await db.delete(board).where(eq(board.id, 1))
-                const rows = (await db.select().from(tag)) as { id: number; weight: number }[]
+                const rows = await db.select().from(tag)
                 const first = rows.find((r) => r.id === 1)
                 expect(first).toMatchObject({ id: 1, weight: 5 })
         })
