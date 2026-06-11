@@ -2,6 +2,7 @@ import './style.css'
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { addColumn, BASE_COLS, cells, db, dropColumn, resetSheet, restoreSheet, saveCell, scan, scanStats } from './schema'
+import { finder } from 'opfs-finder'
 const sideOf = (cols: string[], stats: Awaited<ReturnType<typeof scanStats>>, reports: Awaited<ReturnType<typeof scan>>[]) => {
         const count = Number(stats.count) * cols.length
         let sum = 0
@@ -63,6 +64,9 @@ function App() {
                         <header className="mx-auto mb-4 flex max-w-[1200px] justify-between">
                                 <h1 className="text-2xl font-bold text-slate-900">bad-dbms sheet</h1>
                                 <div className="flex gap-2">
+                                        <button className="rounded border px-3 py-2" onClick={() => finder()}>
+                                                Open finder
+                                        </button>
                                         <button className="rounded border px-3 py-2" onClick={reset}>
                                                 Reseed
                                         </button>

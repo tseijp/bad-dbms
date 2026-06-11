@@ -1,4 +1,4 @@
-import { count, database, desc, eq, float, gte, integer, make, max, min, sum, table, text } from '../src/interface'
+import { count, database, desc, eq, gte, integer, make, max, min, sum, table, text } from '../src/interface'
 import type { TypedColumn } from '../src/interface'
 import { createHeap } from '../src/backend/access/heap'
 import * as DB from '../src/index'
@@ -20,7 +20,7 @@ const sheets = table('sheets', {
         updatedAt: integer('updated_at').defaultFn(() => now()),
         documentId: integer('document_id').references(() => documents.id),
 })
-export const cells = table<DB.ColumnsShape>('cells', { id: integer('id').primaryKey(), ...Object.fromEntries(BASE_COLS.map((name) => [name, float(name).notNull()])) })
+export const cells = table<DB.ColumnsShape>('cells', { id: integer('id').primaryKey() })
 export const db = database({ documents, sheets, cells }, { adapter: 'browser' })
 Object.assign(window, { db }, DB)
 const now = () => Math.floor(Date.now() / 1000)

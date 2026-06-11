@@ -51,6 +51,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^4.1.6
         version: 4.1.6(vitest@4.1.6)
+      opfs-finder:
+        specifier: 0.6.0
+        version: 0.6.0
       partyserver:
         specifier: 0.5.6
         version: 0.5.6(@cloudflare/workers-types@4.20260511.1)
@@ -1163,6 +1166,9 @@ packages:
 
   obug@2.1.1:
     resolution: {integrity: sha512-uTqF9MuPraAQ+IsnPf366RG4cP9RtUi7MLO1N3KEc+wb0a6yKpeL0lmk2IB1jY5KHPAlTc6T/JRdC/YqxHNwkQ==}
+
+  opfs-finder@0.6.0:
+    resolution: {integrity: sha512-UdRFf5fkdNMqQTWpvi2FvE9Tfu7JFdSKlXBrDt3eLTzqU25H6MGqKCZkjhS65rSn8T1ImO15YIp+1+hngSE+ZA==}
 
   partyserver@0.5.6:
     resolution: {integrity: sha512-/LKCqlq9nWzNXA8UXZFO/Xz15QDCjJnGAgRQVLnXJO9bA0HKt5J8VM8wLnGc814WatzuQgeG17tqzI//y5WFGA==}
@@ -2438,6 +2444,8 @@ snapshots:
   nanoid@5.1.11: {}
 
   obug@2.1.1: {}
+
+  opfs-finder@0.6.0: {}
 
   partyserver@0.5.6(@cloudflare/workers-types@4.20260511.1):
     dependencies:
