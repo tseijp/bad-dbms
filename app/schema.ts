@@ -1,6 +1,4 @@
-import { count, database, desc, eq, gte, integer, make, max, min, sum, table, text } from '../src/interface'
-import type { TypedColumn } from '../src/interface'
-import { createHeap } from '../src/backend/access/heap'
+import { count, database, desc, eq, float, gte, integer, max, min, sum, table, text } from '../src/interface'
 import * as DB from '../src/index'
 export const BASE_COLS = [...'ABCDEFGHIJ']
 const BASE_ROW_COUNT = 24
@@ -25,51 +23,16 @@ export const db = database({ documents, sheets, cells }, { adapter: 'browser' })
 Object.assign(window, { db }, DB)
 const now = () => Math.floor(Date.now() / 1000)
 const random = () => +(Math.random() * 100).toFixed(2)
-const relation = () => db.backend.catalog.resolve('cells')
-const storageId = (relId: number, forkId: number) => relId * 10000 + forkId
 const colName = (index: number): string => {
         const code = index % 26
         const prefix = Math.floor(index / 26)
         if (prefix === 0) return String.fromCharCode(65 + code)
         return `${colName(prefix - 1)}${String.fromCharCode(65 + code)}`
 }
-const addColumnHeap = async (name: string, values: number[]) => {
-        if (!cells[name]) {
-                const col = make<number>({ type: 'column', name, dataType: 'float', tableName: 'cells' }) as TypedColumn<number | null>
-                col.$col = { name, key: name, type: 'f32', tableName: 'cells' }
-                cells[name] = col
-                cells.$meta.columns.push(col)
-        }
-        const rel = relation()
-        const forkId = 10 + rel.columns.length
-        const heap = createHeap({ buffer: db.backend.buffer, smgr: db.backend.smgr, fsm: db.backend.fsm, relId: storageId(rel.relId, forkId), valueSize: 4, valueType: 'f32' })
-        rel.columns.push({ name, type: 'f32', byteSize: 4, forkId, isPrimary: false, isUnique: false, notNull: false, isText: false })
-        rel.heaps.push(heap)
-        rel.codecs.push({ strings: [], intern: new Map(), nulls: new Set() })
-        for (const value of values) await heap.insert(value)
-}
-const dropColumnHeap = async (name: string) => {
-        const rel = relation()
-        const index = rel.columns.findIndex((col: any) => col.name === name)
-        if (index < 0) return
-        const [col] = rel.columns.splice(index, 1)
-        delete cells[name]
-        cells.$meta.columns = cells.$meta.columns.filter((item) => item.$col?.key !== name)
-        rel.heaps.splice(index, 1)
-        rel.codecs.splice(index, 1)
-        await db.backend.smgr.unlink(db.backend.smgr.open(storageId(rel.relId, col.forkId)), 0)
-}
-const syncColumns = async (cols: string[], values: Record<string, number[]> = {}) => {
-        for (const name of relation()
-                .columns.map((col: any) => col.name)
-                .filter((name: string) => name !== 'id')) {
-                if (cols.includes(name)) continue
-                await dropColumnHeap(name)
-        }
-        for (const name of cols) {
-                if (relation().columns.some((col: any) => col.name === name)) continue
-                await addColumnHeap(name, values[name] ?? [])
-        }
+const cellCols = () => cells.$meta.columns.map((col) => col.$col.key ?? col.$col.name).filter((name) => name !== 'id')
+const syncColumns = async (cols: string[]) => {
+        for (const name of cellCols()) if (!cols.includes(name)) await db.alter(cells).dropColumn(name)
+        for (const name of cols) if (!cells[name]) await db.alter(cells).addColumn(float(name))
 }
 const writeSheet = async (rows: number, cols: number) => {
         await db.update(sheets).set({ rows, cols, updatedAt: now() }).where(eq(sheets.id, 1))
@@ -94,7 +57,8 @@ export const restoreSheet = async () => {
 export const addColumn = async (cols: string[], rows: Record<string, any>[]) => {
         const name = colName(cols.length)
         const next = [...cols, name]
-        await syncColumns(next, { [name]: rows.map(random) })
+        await db.alter(cells).addColumn(float(name))
+        for (const row of rows) await db.update(cells).set({ [name]: random() }).where(eq(cells.id, Number(row.id)))
         await writeSheet(rows.length, next.length)
         return next
 }

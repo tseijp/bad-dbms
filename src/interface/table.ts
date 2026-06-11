@@ -2,7 +2,7 @@ import { dataTypeOf } from './column'
 import type { Column, TableMeta } from './types'
 import type { ColumnsShape, Table } from './infer'
 export type { TableMeta } from './types'
-const finalizeColumn = (col: Column, key: string, tableName: string): Column => {
+export const finalizeColumn = (col: Column, key: string, tableName: string): Column => {
         const desc = col.$col
         desc.name = desc.name || key
         desc.key = key

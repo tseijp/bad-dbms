@@ -180,7 +180,41 @@ export interface InsertOp {
         values: Row[]
         returning?: boolean
 }
-export type PhysicalOp = SeqScanOp | NamedScanOp | FilterOp | ProjectionOp | NestedLoopJoinOp | AggregateOp | SortOp | DistinctOp | LimitOp | UpdateOp | DeleteOp | InsertOp
+export interface ColumnDef {
+        name: string
+        type?: ColumnType
+        isPrimary?: boolean
+        isUnique?: boolean
+        notNull?: boolean
+        isText?: boolean
+        defaultValue?: unknown
+        defaultFn?: () => unknown
+        references?: { table: string; column: string; onDelete?: string }
+}
+export type AlterCmd =
+        | { kind: 'RenameTable'; to: string }
+        | { kind: 'AddColumn'; def: ColumnDef; col?: unknown }
+        | { kind: 'DropColumn'; name: string }
+        | { kind: 'RenameColumn'; name: string; to: string }
+        | { kind: 'SetDefault'; name: string; value: unknown }
+        | { kind: 'DropDefault'; name: string }
+        | { kind: 'AddUnique'; name: string }
+        | { kind: 'DropUnique'; name: string }
+export interface CreateTableOp {
+        op: 'CreateTable'
+        table: TableRef
+        columns: ColumnDef[]
+}
+export interface DropTableOp {
+        op: 'DropTable'
+        table: TableRef
+}
+export interface AlterTableOp {
+        op: 'AlterTable'
+        table: TableRef
+        cmds: AlterCmd[]
+}
+export type PhysicalOp = SeqScanOp | NamedScanOp | FilterOp | ProjectionOp | NestedLoopJoinOp | AggregateOp | SortOp | DistinctOp | LimitOp | UpdateOp | DeleteOp | InsertOp | CreateTableOp | DropTableOp | AlterTableOp
 export interface EmptyAst {
         op?: undefined
 }

@@ -5,6 +5,8 @@ import { createSeqScan, createNamedScan, createFilter, createProjection } from '
 import { createNestedLoopJoin } from './join'
 import { createAggregate, createSort, createDistinct, createLimit } from './group'
 import { createUpdate, createDelete, createInsert } from './modify'
+import { createCreateTable, createDropTable, createAlterTable } from './ddl'
+export * from './ddl'
 export * from './group'
 export * from './index'
 export * from './join'
@@ -25,6 +27,9 @@ const build = async (catalog: Catalog, ast: PhysicalOp): Promise<RowIterator> =>
         if (ast.op === 'Update') return createUpdate(catalog, ast)
         if (ast.op === 'Delete') return createDelete(catalog, ast)
         if (ast.op === 'Insert') return createInsert(catalog, ast)
+        if (ast.op === 'CreateTable') return createCreateTable(catalog, ast)
+        if (ast.op === 'DropTable') return createDropTable(catalog, ast)
+        if (ast.op === 'AlterTable') return createAlterTable(catalog, ast)
         throw new Error(`error: no ast op match`)
 }
 export const createExecutor = ({ catalog }: { catalog: Catalog }) => ({

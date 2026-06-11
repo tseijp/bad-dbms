@@ -69,5 +69,15 @@ export const createBufferPool = ({ smgr, frameCount = 64, pageSize = 4096 }: Buf
                         if (frame.pinCount > 0) frame.pinCount--
                         if (frame.pinCount === 0 && frame.dirty) await _flush(frame)
                 },
+                drop(relId) {
+                        for (const f of _frames) {
+                                if (!f.valid || f.relId !== relId) continue
+                                _lookup.delete(keyOf(f.relId, f.forkId, f.blockNo))
+                                f.valid = false
+                                f.dirty = false
+                                f.pinCount = 0
+                                f.usage = 0
+                        }
+                },
         }
 }

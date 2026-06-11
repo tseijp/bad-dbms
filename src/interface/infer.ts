@@ -105,6 +105,16 @@ export interface DeleteChain<T extends TableLike, R> extends P<R> {
         where(c?: SQL<boolean>): DeleteChain<T, R>
         returning(): DeleteChain<T, RowOfTable<T>[]>
 }
+export interface AlterChain extends P<Changes> {
+        renameTo(to: string): AlterChain
+        addColumn(col: AnyCol): AlterChain
+        dropColumn(col: AnyCol | string): AlterChain
+        renameColumn(col: AnyCol | string, to: string): AlterChain
+        setDefault(col: AnyCol | string, value: unknown): AlterChain
+        dropDefault(col: AnyCol | string): AlterChain
+        addUnique(col: AnyCol | string): AlterChain
+        dropUnique(col: AnyCol | string): AlterChain
+}
 export interface QueryBuilders {
         select(): SelectStar
         select<F extends Fields>(fields: F): SelectProj<F>
@@ -113,6 +123,9 @@ export interface QueryBuilders {
         insert<T extends TableLike>(t: T): InsertChain<T, Changes>
         update<T extends TableLike>(t: T): UpdateChain<T, Changes>
         delete<T extends TableLike>(t: T): DeleteChain<T, Changes>
+        create<T extends TableLike>(t: T): P<Changes>
+        drop<T extends TableLike>(t: T): P<Changes>
+        alter<T extends TableLike>(t: T): AlterChain
 }
 export interface Tx extends QueryBuilders {
         rollback(): never
