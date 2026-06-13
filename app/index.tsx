@@ -37,7 +37,7 @@ const resetSheet = async () => {
         await db.delete(sheets).where(eq(sheets.id, sheetId))
         await syncColumns(prev, baseCols)
         await db.insert(sheets).values({ id: sheetId, cols: baseCols.length })
-        await db.insert(cells).values(range(23).map((id) => ({ id: id + 1, ...Object.fromEntries(baseCols.map((name) => [name, random()])) })))
+        await db.insert(cells).values(range(20).map((id) => ({ id: id + 1, ...Object.fromEntries(baseCols.map((name) => [name, random()])) })))
         return baseCols
 }
 const restoreSheet = async () => {
@@ -89,7 +89,7 @@ function App() {
         }
         useEffect(() => void load(restoreSheet()), [])
         return (
-                <main className="min-h-screen bg-slate-50 p-6">
+                <main className="min-h-screen bg-slate-50 p-14">
                         <header className="mx-auto mb-4 flex max-w-[1200px] justify-between">
                                 <h1 className="text-2xl font-bold text-slate-900">bad-dbms sheet</h1>
                                 <div className="flex gap-2">
