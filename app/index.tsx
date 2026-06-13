@@ -96,6 +96,7 @@ function App() {
                                         {(
                                                 [
                                                         ['Open finder', () => void finder()],
+                                                        ['Open Github', () => void window.open('https://github.com/tseijp/bad-dbms', '_blank', 'noopener,noreferrer')],
                                                         ['Reseed', () => load(resetSheet())],
                                                         ['Insert column', () => load(resizeSheet(cols, rows, cols.length + 1))],
                                                         ['Drop column', () => load(resizeSheet(cols, rows, cols.length - 1))],
