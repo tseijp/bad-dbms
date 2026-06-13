@@ -6,8 +6,7 @@ import { database, eq, float, integer, table } from '../src/interface'
 import * as DB from '../src/index'
 type Row = Record<string, any>
 type StatGroup = readonly [string, readonly (readonly [string, string | number])[]]
-const BASECOLS = [...'ABCDEFGHI']
-const BASEROWCOUNT = 23
+const BASECOLCOUNT = 9
 const sheets = table('sheets', { id: integer('id').primaryKey(), cols: integer('cols') })
 const cells = table<DB.ColumnsShape>('cells', { id: integer('id').primaryKey() })
 const db = database({ sheets, cells }, { adapter: 'browser' })
@@ -20,32 +19,37 @@ const colName = (index: number): string => {
         if (prefix === 0) return String.fromCharCode(65 + code)
         return `${colName(prefix - 1)}${String.fromCharCode(65 + code)}`
 }
+const colsOf = (count: number) => range(count).map(colName)
 const numberOf = (row: Row, name: string) => Number(row[name] ?? 0)
 const updateCell = (id: number, value: Row) => db.update(cells).set(value).where(eq(cells.id, id))
-const syncColumns = async (cols: string[]) => {
-        const next = new Set(cols)
-        for (const name of cells.$meta.columns.map((col) => col.$col.key ?? col.$col.name)) if (name !== 'id' && !next.has(name)) await db.alter(cells).dropColumn(name)
-        for (const name of cols) if (!cells[name]) await db.alter(cells).addColumn(float(name))
+const syncColumns = async (prevCols: string[], nextCols: string[]) => {
+        const prev = new Set(prevCols)
+        const next = new Set(nextCols)
+        for (const name of prevCols) if (!next.has(name)) await db.alter(cells).dropColumn(name)
+        for (const name of nextCols) if (!prev.has(name)) await db.alter(cells).addColumn(float(name))
 }
 const resetSheet = async () => {
+        const [sheet] = await db.select().from(sheets).where(eq(sheets.id, 1))
+        const prev = range(sheet?.cols ?? 0).map(colName)
+        const baseCols = colsOf(BASECOLCOUNT)
         await db.delete(cells)
         await db.delete(sheets)
-        await syncColumns(BASECOLS)
-        await db.insert(sheets).values({ id: 1, cols: BASECOLS.length })
-        await db.insert(cells).values(range(BASEROWCOUNT).map((id) => ({ id: id + 1, ...Object.fromEntries(BASECOLS.map((name) => [name, random()])) })))
-        return BASECOLS
+        await syncColumns(prev, baseCols)
+        await db.insert(sheets).values({ id: 1, cols: baseCols.length })
+        await db.insert(cells).values(range(23).map((id) => ({ id: id + 1, ...Object.fromEntries(baseCols.map((name) => [name, random()])) })))
+        return baseCols
 }
 const restoreSheet = async () => {
         const [sheet] = await db.select().from(sheets).where(eq(sheets.id, 1))
         if (!sheet) return resetSheet()
-        const cols = range(sheet.cols ?? BASECOLS.length).map(colName)
-        await syncColumns(cols)
+        const cols = colsOf(sheet.cols ?? BASECOLCOUNT)
+        await syncColumns([], cols)
         return cols
 }
 const resizeSheet = async (cols: string[], rows: Row[], size: number) => {
         if (size < 1) return cols
-        const next = range(size).map(colName)
-        await syncColumns(next)
+        const next = colsOf(size)
+        await syncColumns(cols, next)
         for (const row of rows) if (size > cols.length) await updateCell(Number(row.id), { [next.at(-1)!]: random() })
         await db.update(sheets).set({ cols: next.length }).where(eq(sheets.id, 1))
         return next
@@ -76,7 +80,7 @@ const cellText = (value: unknown) => {
 }
 function App() {
         const [rows, setRows] = useState<Row[]>([])
-        const [cols, setCols] = useState(BASECOLS)
+        const [cols, setCols] = useState(() => colsOf(BASECOLCOUNT))
         const refresh = async () => setRows(await db.select().from(cells))
         const load = async (next: Promise<string[]>) => {
                 setCols(await next)
@@ -129,7 +133,7 @@ function App() {
                                                                                                         await refresh()
                                                                                                 }}
                                                                                                 onKeyDown={(event) => {
-                                                                                                        if (event.key === 'Enter') event.currentTarget.blur()
+                                                                                                        if (event.key === 'Enter') event.prevTarget.blur()
                                                                                                 }}
                                                                                                 className={`w-full px-2 py-1 text-right text-sm outline-0 focus:bg-blue-50 ${numberOf(row, name) >= 50 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'}`}
                                                                                         />
