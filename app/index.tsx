@@ -1,118 +1,153 @@
 import './style.css'
 import { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { addColumn, BASE_COLS, cells, db, dropColumn, resetSheet, restoreSheet, saveCell, scan, scanStats } from './schema'
 import { finder } from 'opfs-finder'
-const sideOf = (cols: string[], stats: Awaited<ReturnType<typeof scanStats>>, reports: Awaited<ReturnType<typeof scan>>[]) => {
-        const count = Number(stats.count) * cols.length
-        let sum = 0
-        let high = 0
-        const top: { name: string; value: number }[] = []
-        for (const name of cols) sum += Number(stats[`sum${name}`])
-        for (const report of reports) {
-                high += Number(report.high?.count ?? 0)
-                for (const row of report.top) top.push({ name: `${report.name}${Number(row.id)}`, value: Number(row.value) })
-        }
-        top.sort((a, b) => b.value - a.value)
-        return {
-                'all cells': [
-                        { name: 'count', value: count },
-                        { name: 'sum', value: sum.toFixed(1) },
-                        { name: 'avg', value: (sum / count).toFixed(2) },
-                        { name: 'min', value: Math.min(...cols.map((name) => Number(stats[`min${name}`]))).toFixed(1) },
-                        { name: 'max', value: Math.max(...cols.map((name) => Number(stats[`max${name}`]))).toFixed(1) },
-                        { name: 'where >=50', value: high },
+import { database, eq, float, integer, table } from '../src/interface'
+import * as DB from '../src/index'
+type Row = Record<string, any>
+type StatGroup = readonly [string, readonly (readonly [string, string | number])[]]
+const BASECOLS = [...'ABCDEFGHI']
+const BASEROWCOUNT = 23
+const sheets = table('sheets', { id: integer('id').primaryKey(), cols: integer('cols') })
+const cells = table<DB.ColumnsShape>('cells', { id: integer('id').primaryKey() })
+const db = database({ sheets, cells }, { adapter: 'browser' })
+Object.assign(window, { db }, DB)
+const range = (count: number) => [...new Array(count).keys()]
+const random = () => +(Math.random() * 100).toFixed(2)
+const colName = (index: number): string => {
+        const code = index % 26
+        const prefix = Math.floor(index / 26)
+        if (prefix === 0) return String.fromCharCode(65 + code)
+        return `${colName(prefix - 1)}${String.fromCharCode(65 + code)}`
+}
+const numberOf = (row: Row, name: string) => Number(row[name] ?? 0)
+const updateCell = (id: number, value: Row) => db.update(cells).set(value).where(eq(cells.id, id))
+const syncColumns = async (cols: string[]) => {
+        const next = new Set(cols)
+        for (const name of cells.$meta.columns.map((col) => col.$col.key ?? col.$col.name)) if (name !== 'id' && !next.has(name)) await db.alter(cells).dropColumn(name)
+        for (const name of cols) if (!cells[name]) await db.alter(cells).addColumn(float(name))
+}
+const resetSheet = async () => {
+        await db.delete(cells)
+        await db.delete(sheets)
+        await syncColumns(BASECOLS)
+        await db.insert(sheets).values({ id: 1, cols: BASECOLS.length })
+        await db.insert(cells).values(range(BASEROWCOUNT).map((id) => ({ id: id + 1, ...Object.fromEntries(BASECOLS.map((name) => [name, random()])) })))
+        return BASECOLS
+}
+const restoreSheet = async () => {
+        const [sheet] = await db.select().from(sheets).where(eq(sheets.id, 1))
+        if (!sheet) return resetSheet()
+        const cols = range(sheet.cols ?? BASECOLS.length).map(colName)
+        await syncColumns(cols)
+        return cols
+}
+const resizeSheet = async (cols: string[], rows: Row[], size: number) => {
+        if (size < 1) return cols
+        const next = range(size).map(colName)
+        await syncColumns(next)
+        for (const row of rows) if (size > cols.length) await updateCell(Number(row.id), { [next.at(-1)!]: random() })
+        await db.update(sheets).set({ cols: next.length }).where(eq(sheets.id, 1))
+        return next
+}
+const statsOf = (cols: string[], rows: Row[]): readonly StatGroup[] => {
+        const values = rows.flatMap((row) => cols.map((name) => ({ name: `${name}${Number(row.id)}`, value: numberOf(row, name) })))
+        const sum = values.reduce((total, cell) => total + cell.value, 0)
+        const sorted = values.slice().sort((a, b) => b.value - a.value)
+        return [
+                [
+                        'all cells',
+                        [
+                                ['count', values.length],
+                                ['sum', sum.toFixed(1)],
+                                ['avg', (sum / values.length || 0).toFixed(2)],
+                                ['min', (sorted.at(-1)?.value ?? 0).toFixed(1)],
+                                ['max', (sorted[0]?.value ?? 0).toFixed(1)],
+                                ['where >=50', values.filter((cell) => cell.value >= 50).length],
+                        ],
                 ],
-                'top 5 cells': top.slice(0, 5).map(({ name, value }) => ({ name, value: value.toFixed(2) })),
-        }
+                ['top 5 cells', sorted.slice(0, 5).map(({ name, value }) => [name, value.toFixed(2)])],
+        ]
+}
+const cellText = (value: unknown) => {
+        if (value === null || value === undefined) return '0.0'
+        if (typeof value === 'number') return value.toFixed(1)
+        return String(value)
 }
 function App() {
-        const [rows, setRows] = useState<Record<string, any>[]>([])
-        const [cols, setCols] = useState(BASE_COLS)
-        const [side, setSide] = useState<Record<string, { name: string; value: string | number }[]>>({ 'all cells': [], 'top 5 cells': [] })
-        const refresh = async (nextCols = cols) => {
-                setRows(await db.select().from(cells))
-                setSide(sideOf(nextCols, await scanStats(nextCols), await Promise.all(nextCols.map(scan))))
-        }
-        const reset = async () => {
-                const next = await resetSheet()
-                setCols(next)
-                await refresh(next)
-        }
-        const add = async () => {
-                const next = await addColumn(cols, rows)
-                setCols(next)
-                await refresh(next)
-        }
-        const drop = async () => {
-                const next = await dropColumn(cols, rows)
-                setCols(next)
-                await refresh(next)
-        }
-        const save = async (id: number, name: string, value: string) => {
-                await saveCell(id, name, value)
+        const [rows, setRows] = useState<Row[]>([])
+        const [cols, setCols] = useState(BASECOLS)
+        const refresh = async () => setRows(await db.select().from(cells))
+        const load = async (next: Promise<string[]>) => {
+                setCols(await next)
                 await refresh()
         }
-        useEffect(() => {
-                void restoreSheet().then(async (next) => {
-                        setCols(next)
-                        await refresh(next)
-                })
-        }, [])
+        useEffect(() => void load(restoreSheet()), [])
         return (
                 <main className="min-h-screen bg-slate-50 p-6">
                         <header className="mx-auto mb-4 flex max-w-[1200px] justify-between">
                                 <h1 className="text-2xl font-bold text-slate-900">bad-dbms sheet</h1>
                                 <div className="flex gap-2">
-                                        <button className="rounded border px-3 py-2" onClick={() => finder()}>
-                                                Open finder
-                                        </button>
-                                        <button className="rounded border px-3 py-2" onClick={reset}>
-                                                Reseed
-                                        </button>
-                                        <button className="rounded border px-3 py-2" onClick={add}>
-                                                Insert column
-                                        </button>
-                                        <button className="rounded border px-3 py-2" onClick={drop}>
-                                                Drop column
-                                        </button>
+                                        {(
+                                                [
+                                                        ['Open finder', () => void finder()],
+                                                        ['Reseed', () => load(resetSheet())],
+                                                        ['Insert column', () => load(resizeSheet(cols, rows, cols.length + 1))],
+                                                        ['Drop column', () => load(resizeSheet(cols, rows, cols.length - 1))],
+                                                ] as const
+                                        ).map(([label, action]) => (
+                                                <button key={label} className="rounded border px-3 py-2" onClick={action}>
+                                                        {label}
+                                                </button>
+                                        ))}
                                 </div>
                         </header>
                         <div className="mx-auto grid max-w-[1200px] grid-cols-[1fr_240px] gap-4 max-md:grid-cols-1">
                                 <div className="overflow-auto rounded border bg-white">
-                                        <div className="grid" style={{ minWidth: `${44 + cols.length * 96}px`, gridTemplateColumns: `44px repeat(${cols.length},96px)` }}>
-                                                <div className="bg-slate-100" />
-                                                {cols.map((name) => (
-                                                        <div key={name} className="grid place-items-center bg-slate-100 py-2 text-xs font-bold text-slate-600">
-                                                                {name}
-                                                        </div>
-                                                ))}
-                                                {rows.map((row, index) => (
-                                                        <div key={row.id} className="contents">
-                                                                <div className="grid place-items-center bg-slate-100 text-xs font-bold text-slate-600">{index + 1}</div>
+                                        <table className="border-collapse table-fixed" style={{ minWidth: `${44 + cols.length * 96}px` }}>
+                                                <thead>
+                                                        <tr className="bg-slate-100 text-xs font-bold text-slate-600">
+                                                                <th className="w-11" />
                                                                 {cols.map((name) => (
-                                                                        <input
-                                                                                key={name}
-                                                                                defaultValue={Number(row[name] ?? 0).toFixed(1)}
-                                                                                onBlur={(event) => save(Number(row.id), name, event.target.value)}
-                                                                                onKeyDown={(event) => {
-                                                                                        if (event.key === 'Enter') event.currentTarget.blur()
-                                                                                }}
-                                                                                className={`w-full border-t border-l border-slate-200 px-2 py-1 text-right text-sm outline-0 focus:bg-blue-50 ${Number(row[name] ?? 0) >= 50 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'}`}
-                                                                        />
+                                                                        <th key={name} className="w-24 py-2">
+                                                                                {name}
+                                                                        </th>
                                                                 ))}
-                                                        </div>
-                                                ))}
-                                        </div>
+                                                        </tr>
+                                                </thead>
+                                                <tbody>
+                                                        {rows.map((row, index) => (
+                                                                <tr key={row.id}>
+                                                                        <th className="bg-slate-100 text-xs font-bold text-slate-600">{index + 1}</th>
+                                                                        {cols.map((name) => (
+                                                                                <td key={name} className="border-t border-l border-slate-200">
+                                                                                        <input
+                                                                                                value={cellText(row[name])}
+                                                                                                onChange={(event) => setRows((rows) => rows.map((next) => (Number(next.id) === Number(row.id) ? { ...next, [name]: event.target.value } : next)))}
+                                                                                                onBlur={async (event) => {
+                                                                                                        await updateCell(Number(row.id), { [name]: +event.target.value || 0 })
+                                                                                                        await refresh()
+                                                                                                }}
+                                                                                                onKeyDown={(event) => {
+                                                                                                        if (event.key === 'Enter') event.currentTarget.blur()
+                                                                                                }}
+                                                                                                className={`w-full px-2 py-1 text-right text-sm outline-0 focus:bg-blue-50 ${numberOf(row, name) >= 50 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'}`}
+                                                                                        />
+                                                                                </td>
+                                                                        ))}
+                                                                </tr>
+                                                        ))}
+                                                </tbody>
+                                        </table>
                                 </div>
                                 <aside className="flex flex-col gap-2 text-sm">
-                                        {Object.entries(side).map(([title, rows]) => (
+                                        {statsOf(cols, rows).map(([title, stats]) => (
                                                 <div key={title} className="rounded border bg-white p-3">
                                                         <h2 className="mb-2 font-bold">{title}</h2>
-                                                        {rows.map((row) => (
-                                                                <div key={row.name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
-                                                                        <span className="text-slate-500">{row.name}</span>
-                                                                        <strong>{row.value}</strong>
+                                                        {stats.map(([name, value]) => (
+                                                                <div key={name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
+                                                                        <span className="text-slate-500">{name}</span>
+                                                                        <strong>{value}</strong>
                                                                 </div>
                                                         ))}
                                                 </div>
