@@ -12,6 +12,7 @@ const cells = table<DB.ColumnsShape>('cells', { id: integer('id').primaryKey() }
 const db = database({ sheets, cells }, { adapter: 'browser' })
 Object.assign(window, { db }, DB)
 const range = (count: number) => [...new Array(count).keys()]
+const sheetId = Number(new URLSearchParams(location.search).get('q')) || 1
 const random = () => +(Math.random() * 100).toFixed(2)
 const colName = (index: number): string => {
         const code = index % 26
@@ -29,18 +30,18 @@ const syncColumns = async (prevCols: string[], nextCols: string[]) => {
         for (const name of nextCols) if (!prev.has(name)) await db.alter(cells).addColumn(float(name))
 }
 const resetSheet = async () => {
-        const [sheet] = await db.select().from(sheets).where(eq(sheets.id, 1))
+        const [sheet] = await db.select().from(sheets).where(eq(sheets.id, sheetId))
         const prev = range(sheet?.cols ?? 0).map(colName)
         const baseCols = colsOf(BASECOLCOUNT)
         await db.delete(cells)
-        await db.delete(sheets)
+        await db.delete(sheets).where(eq(sheets.id, sheetId))
         await syncColumns(prev, baseCols)
-        await db.insert(sheets).values({ id: 1, cols: baseCols.length })
+        await db.insert(sheets).values({ id: sheetId, cols: baseCols.length })
         await db.insert(cells).values(range(23).map((id) => ({ id: id + 1, ...Object.fromEntries(baseCols.map((name) => [name, random()])) })))
         return baseCols
 }
 const restoreSheet = async () => {
-        const [sheet] = await db.select().from(sheets).where(eq(sheets.id, 1))
+        const [sheet] = await db.select().from(sheets).where(eq(sheets.id, sheetId))
         if (!sheet) return resetSheet()
         const cols = colsOf(sheet.cols ?? BASECOLCOUNT)
         await syncColumns([], cols)
@@ -51,7 +52,7 @@ const resizeSheet = async (cols: string[], rows: Row[], size: number) => {
         const next = colsOf(size)
         await syncColumns(cols, next)
         for (const row of rows) if (size > cols.length) await updateCell(Number(row.id), { [next.at(-1)!]: random() })
-        await db.update(sheets).set({ cols: next.length }).where(eq(sheets.id, 1))
+        await db.update(sheets).set({ cols: next.length }).where(eq(sheets.id, sheetId))
         return next
 }
 const statsOf = (cols: string[], rows: Row[]): readonly StatGroup[] => {
@@ -133,7 +134,7 @@ function App() {
                                                                                                         await refresh()
                                                                                                 }}
                                                                                                 onKeyDown={(event) => {
-                                                                                                        if (event.key === 'Enter') event.prevTarget.blur()
+                                                                                                        if (event.key === 'Enter') event.currentTarget.blur()
                                                                                                 }}
                                                                                                 className={`w-full px-2 py-1 text-right text-sm outline-0 focus:bg-blue-50 ${numberOf(row, name) >= 50 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'}`}
                                                                                         />
