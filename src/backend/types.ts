@@ -46,6 +46,7 @@ export interface Frame {
 export interface BufferPool {
         pin(relId: number, forkId: number, blockNo: number): Promise<Frame>
         unpin(frame: Frame, dirty?: boolean): Promise<void>
+        drop(relId: number): void
 }
 export interface ForkState {
         fid: string
@@ -70,6 +71,7 @@ export interface StorageManager {
 export interface FreeSpaceMap {
         findPage(relId: number, forkId: number, neededBytes: number): number
         update(relId: number, forkId: number, blockNo: number, freeBytes: number): void
+        drop(relId: number, forkId: number): void
 }
 export interface ColumnMeta {
         name: string
@@ -108,6 +110,7 @@ export interface HeapHandle {
         insert(value: number): Promise<Rid>
         read(rid: Rid): Promise<number | undefined>
         update(rid: Rid, value: number): Promise<Rid>
+        place(rid: Rid, value: number): Promise<void>
         delete(rid: Rid): Promise<void>
         scan(emit: (rid: Rid, value: number) => boolean | void | Promise<boolean | void>): Promise<void>
         bulkLoad(values: number[]): Promise<Rid[]>

@@ -1,6 +1,7 @@
 export * from './expressions/conditions'
 export * from './expressions/select'
 export * from './functions/aggregate'
+export * from './alter'
 export * from './column'
 export * from './introspect'
 export * from './compile'

@@ -1,6 +1,6 @@
-import type { SQL, SqlValue, JoinKind } from '../shared/types'
+import type { SQL, SqlValue, JoinKind, AlterCmd } from '../shared/types'
 import type { TypedColumn, Table } from './infer'
-export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
+export type { SQL, SqlNode, SqlValue, NodeType, BinOp, UnOp, AggKind, ColumnType, ColumnConfig, ColumnDescriptor, ColumnDef, AlterCmd, ExprMethods, Rid, Row, PhysicalOp, JoinKind, AdapterKind, AdapterOptions } from '../shared/types'
 export type Column<T = number | string | boolean | null | undefined> = TypedColumn<T>
 export type Columns<Key extends string = string> = Record<Key, Column>
 export interface TableMeta {
@@ -44,4 +44,17 @@ export interface DeleteAst {
         table: Table
         where?: SQL
         returning?: boolean
+}
+export interface CreateAst {
+        op: 'Create'
+        table: Table
+}
+export interface DropAst {
+        op: 'Drop'
+        table: Table
+}
+export interface AlterAst {
+        op: 'Alter'
+        table: Table
+        cmds: AlterCmd[]
 }

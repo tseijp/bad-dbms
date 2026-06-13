@@ -53,5 +53,8 @@ export const createFreeSpaceMap = (): FreeSpaceMap => {
                         s.leaf[blockNo] = Math.min(255, Math.floor(freeBytes / GRAN))
                         recomputeUpper(s, blockNo)
                 },
+                drop(relId: number, forkId: number) {
+                        _stores.delete(forkKey(relId, forkId))
+                },
         }
 }

@@ -97,6 +97,17 @@ export const createHeap = ({ buffer, smgr, fsm, relId, valueSize, valueType }: H
                         await _unpin(frame, true)
                         return rid
                 },
+                async place(rid: Rid, value: number): Promise<void> {
+                        const frame = await _pinPage(rid[0])
+                        const page = createPage(frame.bytes)
+                        const slotCount = page.getHeader().slotCount || 0
+                        page.setAlive(rid[1], true)
+                        page.writeValue(rid[1], valueType, value)
+                        page.setHeader({ kind: 'data', slotCount: Math.max(slotCount, rid[1] + 1) })
+                        const free = _computeFree(page)
+                        await _unpin(frame, true)
+                        fsm.update(relId, HEAP_FORK, rid[0], free)
+                },
                 async delete(rid: Rid): Promise<void> {
                         const frame = await _pinPage(rid[0])
                         const page = createPage(frame.bytes)

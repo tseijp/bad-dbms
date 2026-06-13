@@ -3,5 +3,5 @@
         "name": "bad-dbms",
         "compatibility_date": "2025-05-01",
         "main": "src/index.ts",
-        "kv_namespaces": [{ "binding": "KV", "id": "bad_dbms_local" }]
+        "kv_namespaces": [{ "binding": "KV", "id": "cb483300dcaf4bb6bb840bb8177328f6" }],
 }

@@ -1,31 +1,26 @@
 import type { SQL, SqlValue, Row, PhysicalOp, Rid } from '../shared/types'
-import type { Columns, SelectAst, InsertAst, UpdateAst, DeleteAst, JoinKind } from './types'
+import type { Columns, SelectAst, InsertAst, UpdateAst, DeleteAst, CreateAst, DropAst, AlterAst, JoinKind } from './types'
 import { createBackend } from '../backend/index'
 import { createMemoryAdapter } from '../backend/adapter/memory'
 import { createAdapter } from '../backend/adapter'
 import { compileExpr, compilePredicate, EvalCtx } from './compile'
 import { planSelect } from './plan'
+import { alterMethods, columnDefOf, columnDefsOf, syncTable } from './alter'
 import { tableNameOf, stripRid } from '../shared/helper'
 import type { Database, TableLike, Table, DatabaseConfig } from './infer'
 type Backend = ReturnType<typeof createBackend>
-type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst
+type AnyAst = SelectAst | InsertAst | UpdateAst | DeleteAst | CreateAst | DropAst | AlterAst
 type RunFn = (ast: AnyAst) => unknown
 const isSqlValue = (v: unknown): v is SQL => !!v && typeof v === 'object' && (v as { kind?: string }).kind === 'sql'
 const projectionOf = (fields?: Columns | Record<string, SQL>) => (fields ? Object.keys(fields).map((k) => ({ alias: k, expr: fields[k] })) : undefined)
-const referenceOf = (c: { references?: { fn: () => SQL; onDelete?: string } }) => {
-        const tc = (c.references?.fn() as { $col?: { key?: string; name?: string; tableName?: string } } | undefined)?.$col
-        if (!c.references || !tc?.tableName) return undefined
-        return { table: tc.tableName, column: tc.key ?? tc.name ?? '', onDelete: c.references.onDelete }
-}
 const registerTables = (backend: Backend, tables: Record<string, Table>) => {
         for (const key in tables) {
                 const meta = tables[key].$meta
                 if (!meta) continue
                 const def: Record<string, unknown> = {}
                 for (const col of meta.columns) {
-                        const c = col.$col
-                        const k = c.key ?? c.name
-                        def[k] = { name: k, type: c.type, isPrimary: !!c.primaryKey, isUnique: !!c.unique, notNull: !!c.notNull || !!c.primaryKey, isText: c.tag === 'str', defaultValue: c.defaultValue, defaultFn: c.defaultFn, references: referenceOf(c) }
+                        const d = columnDefOf((col.$col.key ?? col.$col.name) as string, col)
+                        def[d.name] = d
                 }
                 backend.catalog.register(meta.name, def as Parameters<Backend['catalog']['register']>[1])
         }
@@ -89,6 +84,19 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
         }
         const _run: RunFn = async (ast) => {
                 if (ast.op === 'Select') return _rowsOf(planSelect(ast, _ctx).plan)
+                if (ast.op === 'Create') {
+                        await _rowsOf({ op: 'CreateTable', table: tableNameOf(ast.table), columns: columnDefsOf(ast.table) })
+                        return { rowCount: 0, changes: 0 }
+                }
+                if (ast.op === 'Drop') {
+                        await _rowsOf({ op: 'DropTable', table: tableNameOf(ast.table) })
+                        return { rowCount: 0, changes: 0 }
+                }
+                if (ast.op === 'Alter') {
+                        await _rowsOf({ op: 'AlterTable', table: tableNameOf(ast.table), cmds: ast.cmds })
+                        syncTable(ast.table, ast.cmds)
+                        return { rowCount: 0, changes: 0 }
+                }
                 const table = tableNameOf(ast.table)
                 let plan: PhysicalOp
                 if (ast.op === 'Insert') {
@@ -182,6 +190,15 @@ const _database = (tables: Record<string, Table>, { execute, pageSize, frameCoun
                                         return b()
                                 },
                         }))
+                },
+                create(t: Table) {
+                        return builder(_run, { op: 'Create', table: t } as CreateAst, () => ({}))
+                },
+                drop(t: Table) {
+                        return builder(_run, { op: 'Drop', table: t } as DropAst, () => ({}))
+                },
+                alter(t: Table) {
+                        return builder(_run, { op: 'Alter', table: t, cmds: [] } as AlterAst, alterMethods)
                 },
         })
         type Tx = ReturnType<typeof _buildTx> & { rollback(): never; transaction<T>(fn: (tx: Tx) => Promise<T> | T): Promise<T> }
