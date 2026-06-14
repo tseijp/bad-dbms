@@ -55,18 +55,17 @@ export interface ForkState {
 }
 export interface SMgrRelation {
         relId: number
+        path: string
         forks: ForkState[]
 }
 export interface StorageManager {
+        intern(path: string): number
         open(relId: number): SMgrRelation
-        create(rel: SMgrRelation, forkId: number): Promise<void>
-        exists(rel: SMgrRelation, forkId: number): Promise<boolean>
         unlink(rel: SMgrRelation, forkId: number): Promise<void>
         read(rel: SMgrRelation, forkId: number, blockNo: number): Promise<Uint8Array>
         write(rel: SMgrRelation, forkId: number, blockNo: number, bytes: Uint8Array): Promise<void>
         extend(rel: SMgrRelation, forkId: number): Promise<number>
         nBlocks(rel: SMgrRelation, forkId: number): Promise<number>
-        truncate(rel: SMgrRelation, forkId: number, blockNo: number): Promise<void>
 }
 export interface FreeSpaceMap {
         findPage(relId: number, forkId: number, neededBytes: number): number
@@ -103,7 +102,6 @@ export interface RelationDescriptor {
         columns: ColumnMeta[]
         indexes: IndexDescriptor[]
         heaps: HeapHandle[]
-        idxHandles: AccessIndex[]
         codecs: ColumnCodec[]
 }
 export interface HeapHandle {

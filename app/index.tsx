@@ -7,9 +7,9 @@ import { database, eq, float, integer, table } from '../src/interface'
 import * as DB from '../src/index'
 type Row = Record<string, any>
 const sheets = table('sheets', { id: integer('id').primaryKey(), cols: integer('cols') })
-const cells = table<DB.ColumnsShape>('cells', { id: integer('id').primaryKey() })
+const sheetId = Math.max(1, Math.trunc(Number(new URLSearchParams(location.search).get('q')) || 1))
+const cells = table<DB.ColumnsShape>(`cells_${sheetId}`, { id: integer('id').primaryKey() })
 const db = database({ sheets, cells }, { adapter: 'browser' })
-const sheetId = Number(new URLSearchParams(location.search).get('q')) || 1
 const range = (count: number) => [...new Array(count).keys()]
 const random = () => +(Math.random() * 100).toFixed(2)
 const colName = (index: number): string => {
@@ -21,6 +21,8 @@ const colName = (index: number): string => {
 const colsOf = (count = 9) => range(count).map(colName) // default col count is 9
 const numberOf = (row: Row, name: string) => Number(row[name] ?? 0)
 const updateCell = (id: number, value: Row) => db.update(cells).set(value).where(eq(cells.id, id))
+const schemaCols = () => cells.$meta.columns.map((col: any) => col.$col.key ?? col.$col.name).filter((name) => name !== 'id')
+const seedCells = (names: string[]) => db.insert(cells).values(range(20).map((id) => ({ id: id + 1, ...Object.fromEntries(names.map((name) => [name, random()])) })))
 let rows: Row[] = []
 let cols = colsOf()
 Object.assign(window, { db }, DB)
@@ -31,20 +33,21 @@ const syncColumns = async (prevCols: string[], nextCols: string[]) => {
         for (const name of nextCols) if (!prev.has(name)) await db.alter(cells).addColumn(float(name))
 }
 const resetSheet = async () => {
-        const [sheet] = await db.select().from(sheets).where(eq(sheets.id, sheetId))
         const baseCols = colsOf()
         await db.delete(cells)
         await db.delete(sheets).where(eq(sheets.id, sheetId))
-        await syncColumns(colsOf(sheet?.cols ?? void 0), baseCols)
+        await syncColumns(schemaCols(), baseCols)
         await db.insert(sheets).values({ id: sheetId, cols: baseCols.length })
-        await db.insert(cells).values(range(20).map((id) => ({ id: id + 1, ...Object.fromEntries(baseCols.map((name) => [name, random()])) })))
+        await seedCells(baseCols)
         return baseCols
 }
 const restoreSheet = async () => {
         const [sheet] = await db.select().from(sheets).where(eq(sheets.id, sheetId))
         if (!sheet) return resetSheet()
         const next = colsOf(sheet.cols ?? void 0)
-        await syncColumns([], next)
+        await syncColumns(schemaCols(), next)
+        const saved = await db.select().from(cells)
+        if (saved.length < 1) await seedCells(next)
         return next
 }
 const resizeSheet = async (size: number) => {

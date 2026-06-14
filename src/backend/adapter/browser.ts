@@ -8,7 +8,11 @@ export const createBrowserAdapter = (rootName = 'tmp'): FileAdapter => {
         }
         const _walkDir = async (parts: string[], create: boolean) => {
                 let dir = await _root
-                for (const part of parts) dir = await dir.getDirectoryHandle(part, { create }).catch(() => undefined)
+                for (const part of parts) {
+                        const next = await dir.getDirectoryHandle(part, { create }).catch(() => undefined)
+                        if (!next) return undefined
+                        dir = next
+                }
                 return dir
         }
         const _listAll = async (dir: any, prefix: string): Promise<string[]> => {
