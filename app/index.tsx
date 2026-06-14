@@ -1,18 +1,16 @@
+/** @jsxRuntime classic */
+/** @jsx create */
 import './style.css'
-import { useEffect, useState } from 'react'
-import { createRoot } from 'react-dom/client'
+import { create } from './utils/node'
 import { finder } from 'opfs-finder'
 import { database, eq, float, integer, table } from '../src/interface'
 import * as DB from '../src/index'
 type Row = Record<string, any>
-type StatGroup = readonly [string, readonly (readonly [string, string | number])[]]
-const BASECOLCOUNT = 9
 const sheets = table('sheets', { id: integer('id').primaryKey(), cols: integer('cols') })
 const cells = table<DB.ColumnsShape>('cells', { id: integer('id').primaryKey() })
 const db = database({ sheets, cells }, { adapter: 'browser' })
-Object.assign(window, { db }, DB)
-const range = (count: number) => [...new Array(count).keys()]
 const sheetId = Number(new URLSearchParams(location.search).get('q')) || 1
+const range = (count: number) => [...new Array(count).keys()]
 const random = () => +(Math.random() * 100).toFixed(2)
 const colName = (index: number): string => {
         const code = index % 26
@@ -20,9 +18,12 @@ const colName = (index: number): string => {
         if (prefix === 0) return String.fromCharCode(65 + code)
         return `${colName(prefix - 1)}${String.fromCharCode(65 + code)}`
 }
-const colsOf = (count: number) => range(count).map(colName)
+const colsOf = (count = 9) => range(count).map(colName) // default col count is 9
 const numberOf = (row: Row, name: string) => Number(row[name] ?? 0)
 const updateCell = (id: number, value: Row) => db.update(cells).set(value).where(eq(cells.id, id))
+let rows: Row[] = []
+let cols = colsOf()
+Object.assign(window, { db }, DB)
 const syncColumns = async (prevCols: string[], nextCols: string[]) => {
         const prev = new Set(prevCols)
         const next = new Set(nextCols)
@@ -31,11 +32,10 @@ const syncColumns = async (prevCols: string[], nextCols: string[]) => {
 }
 const resetSheet = async () => {
         const [sheet] = await db.select().from(sheets).where(eq(sheets.id, sheetId))
-        const prev = range(sheet?.cols ?? 0).map(colName)
-        const baseCols = colsOf(BASECOLCOUNT)
+        const baseCols = colsOf()
         await db.delete(cells)
         await db.delete(sheets).where(eq(sheets.id, sheetId))
-        await syncColumns(prev, baseCols)
+        await syncColumns(colsOf(sheet?.cols ?? void 0), baseCols)
         await db.insert(sheets).values({ id: sheetId, cols: baseCols.length })
         await db.insert(cells).values(range(20).map((id) => ({ id: id + 1, ...Object.fromEntries(baseCols.map((name) => [name, random()])) })))
         return baseCols
@@ -43,11 +43,11 @@ const resetSheet = async () => {
 const restoreSheet = async () => {
         const [sheet] = await db.select().from(sheets).where(eq(sheets.id, sheetId))
         if (!sheet) return resetSheet()
-        const cols = colsOf(sheet.cols ?? BASECOLCOUNT)
-        await syncColumns([], cols)
-        return cols
+        const next = colsOf(sheet.cols ?? void 0)
+        await syncColumns([], next)
+        return next
 }
-const resizeSheet = async (cols: string[], rows: Row[], size: number) => {
+const resizeSheet = async (size: number) => {
         if (size < 1) return cols
         const next = colsOf(size)
         await syncColumns(cols, next)
@@ -55,7 +55,7 @@ const resizeSheet = async (cols: string[], rows: Row[], size: number) => {
         await db.update(sheets).set({ cols: next.length }).where(eq(sheets.id, sheetId))
         return next
 }
-const statsOf = (cols: string[], rows: Row[]): readonly StatGroup[] => {
+const statsOf = () => {
         const values = rows.flatMap((row) => cols.map((name) => ({ name: `${name}${Number(row.id)}`, value: numberOf(row, name) })))
         const sum = values.reduce((total, cell) => total + cell.value, 0)
         const sorted = values.slice().sort((a, b) => b.value - a.value)
@@ -72,23 +72,11 @@ const statsOf = (cols: string[], rows: Row[]): readonly StatGroup[] => {
                         ],
                 ],
                 ['top 5 cells', sorted.slice(0, 5).map(({ name, value }) => [name, value.toFixed(2)])],
-        ]
+        ] as const
 }
-const cellText = (value: unknown) => {
-        if (value === null || value === undefined) return '0.0'
-        if (typeof value === 'number') return value.toFixed(1)
-        return String(value)
-}
-function App() {
-        const [rows, setRows] = useState<Row[]>([])
-        const [cols, setCols] = useState(() => colsOf(BASECOLCOUNT))
-        const refresh = async () => setRows(await db.select().from(cells))
-        const load = async (next: Promise<string[]>) => {
-                setCols(await next)
-                await refresh()
-        }
-        useEffect(() => void load(restoreSheet()), [])
-        return (
+const refresh = async () => {
+        rows = await db.select().from(cells)
+        document.getElementById('root')!.replaceChildren(
                 <main className="min-h-screen bg-slate-50 p-14">
                         <header className="mx-auto mb-4 flex max-w-[1200px] justify-between">
                                 <h1 className="text-2xl font-bold text-slate-900">bad-dbms sheet</h1>
@@ -96,13 +84,13 @@ function App() {
                                         {(
                                                 [
                                                         ['Open finder', () => void finder()],
-                                                        ['Open Github', () => void window.open('https://github.com/tseijp/bad-dbms', '_blank', 'noopener,noreferrer')],
-                                                        ['Reseed', () => load(resetSheet())],
-                                                        ['Insert column', () => load(resizeSheet(cols, rows, cols.length + 1))],
-                                                        ['Drop column', () => load(resizeSheet(cols, rows, cols.length - 1))],
+                                                        ['Open Github', () => void window.open('https://github.com/tseijp/bad-dbms/blob/main/app/index.tsx', '_blank', 'noopener,noreferrer')],
+                                                        ['Reseed', () => void load(resetSheet())],
+                                                        ['Insert column', () => void load(resizeSheet(cols.length + 1))],
+                                                        ['Drop column', () => void load(resizeSheet(cols.length - 1))],
                                                 ] as const
                                         ).map(([label, action]) => (
-                                                <button key={label} className="rounded border px-3 py-2" onClick={action}>
+                                                <button className="rounded border px-3 py-2" onclick={action}>
                                                         {label}
                                                 </button>
                                         ))}
@@ -115,26 +103,23 @@ function App() {
                                                         <tr className="bg-slate-100 text-xs font-bold text-slate-600">
                                                                 <th className="w-11" />
                                                                 {cols.map((name) => (
-                                                                        <th key={name} className="w-24 py-2">
-                                                                                {name}
-                                                                        </th>
+                                                                        <th className="w-24 py-2">{name}</th>
                                                                 ))}
                                                         </tr>
                                                 </thead>
                                                 <tbody>
                                                         {rows.map((row, index) => (
-                                                                <tr key={row.id}>
+                                                                <tr>
                                                                         <th className="bg-slate-100 text-xs font-bold text-slate-600">{index + 1}</th>
                                                                         {cols.map((name) => (
-                                                                                <td key={name} className="border-t border-l border-slate-200">
+                                                                                <td className="border-t border-l border-slate-200">
                                                                                         <input
-                                                                                                value={cellText(row[name])}
-                                                                                                onChange={(event) => setRows((rows) => rows.map((next) => (Number(next.id) === Number(row.id) ? { ...next, [name]: event.target.value } : next)))}
-                                                                                                onBlur={async (event) => {
-                                                                                                        await updateCell(Number(row.id), { [name]: +event.target.value || 0 })
+                                                                                                value={row[name] == null ? '0.0' : typeof row[name] === 'number' ? row[name].toFixed(1) : String(row[name])}
+                                                                                                onblur={async (event: any) => {
+                                                                                                        await updateCell(Number(row.id), { [name]: +event.currentTarget.value || 0 })
                                                                                                         await refresh()
                                                                                                 }}
-                                                                                                onKeyDown={(event) => {
+                                                                                                onkeydown={(event: any) => {
                                                                                                         if (event.key === 'Enter') event.currentTarget.blur()
                                                                                                 }}
                                                                                                 className={`w-full px-2 py-1 text-right text-sm outline-0 focus:bg-blue-50 ${numberOf(row, name) >= 50 ? 'bg-green-50 text-green-700' : 'bg-white text-slate-700'}`}
@@ -147,11 +132,11 @@ function App() {
                                         </table>
                                 </div>
                                 <aside className="flex flex-col gap-2 text-sm">
-                                        {statsOf(cols, rows).map(([title, stats]) => (
-                                                <div key={title} className="rounded border bg-white p-3">
+                                        {statsOf().map(([title, stats]) => (
+                                                <div className="rounded border bg-white p-3">
                                                         <h2 className="mb-2 font-bold">{title}</h2>
                                                         {stats.map(([name, value]) => (
-                                                                <div key={name} className="flex justify-between border-t border-slate-100 py-1 first:border-0">
+                                                                <div className="flex justify-between border-t border-slate-100 py-1 first:border-0">
                                                                         <span className="text-slate-500">{name}</span>
                                                                         <strong>{value}</strong>
                                                                 </div>
@@ -160,7 +145,11 @@ function App() {
                                         ))}
                                 </aside>
                         </div>
-                </main>
+                </main>,
         )
 }
-createRoot(document.getElementById('root')!).render(<App />)
+const load = async (next: Promise<string[]>) => {
+        cols = await next
+        await refresh()
+}
+void load(restoreSheet())

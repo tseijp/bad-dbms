@@ -13,8 +13,6 @@
         },
         "dependencies": {
                 "hono": "^4.12.18",
-                "react": "19.2.6",
-                "react-dom": "19.2.6",
                 "swr": "2.4.1",
                 "tailwindcss": "4.3.0"
         },
@@ -24,8 +22,6 @@
                 "@cloudflare/workers-types": "4.20260511.1",
                 "@hono/zod-validator": "^0.8.0",
                 "@tailwindcss/vite": "4.3.0",
-                "@types/react": "19.2.14",
-                "@types/react-dom": "19.2.3",
                 "@vitejs/plugin-react": "6.0.1",
                 "@vitest/coverage-v8": "^4.1.6",
                 "opfs-finder": "0.6.0",
