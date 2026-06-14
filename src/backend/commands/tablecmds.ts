@@ -1,5 +1,5 @@
 import { createHeap } from '../access/heap'
-import { storageRelOf, ridKey, buildColumn, makeCodec, encodeCell, decodeCell, COLUMN_FORK_BASE } from '../column'
+import { ridKey, buildColumn, makeCodec, encodeCell, decodeCell, COLUMN_FORK_BASE } from '../column'
 import type { ColumnDef, Rid } from '../../shared/types'
 import type { BufferPool, StorageManager, FreeSpaceMap, ColumnMeta, RelationDescriptor } from '../types'
 export interface AlterDeps {
@@ -18,9 +18,10 @@ const defaultOf = (col: ColumnMeta): unknown => {
         if (col.defaultFn) return col.defaultFn()
         return undefined
 }
+const columnPathOf = (rel: RelationDescriptor, name: string) => `${rel.name}/${name}`
 export const createAlterOps = ({ buffer, smgr, fsm }: AlterDeps) => {
-        const _unlinkFork = async (relId: number, forkId: number) => {
-                const storageId = storageRelOf(relId, forkId)
+        const _unlink = async (path: string) => {
+                const storageId = smgr.intern(path)
                 buffer.drop(storageId)
                 fsm.drop(storageId, 0)
                 await smgr.unlink(smgr.open(storageId), 0)
@@ -29,7 +30,7 @@ export const createAlterOps = ({ buffer, smgr, fsm }: AlterDeps) => {
                 async addColumn(rel: RelationDescriptor, def: ColumnDef): Promise<void> {
                         if (rel.columns.some((c) => c.name === def.name)) throw new Error(`column already exists: ${def.name}`)
                         const col = buildColumn(def.name, def as Partial<ColumnMeta>, nextForkOf(rel))
-                        const heap = createHeap({ buffer, smgr, fsm, relId: storageRelOf(rel.relId, col.forkId), valueSize: col.byteSize, valueType: col.type })
+                        const heap = createHeap({ buffer, smgr, fsm, relId: smgr.intern(columnPathOf(rel, col.name)), valueSize: col.byteSize, valueType: col.type })
                         const codec = makeCodec()
                         rel.columns.push(col)
                         rel.heaps.push(heap)
@@ -47,11 +48,10 @@ export const createAlterOps = ({ buffer, smgr, fsm }: AlterDeps) => {
                         const [col] = rel.columns.splice(i, 1)
                         rel.heaps.splice(i, 1)
                         rel.codecs.splice(i, 1)
-                        for (const idx of rel.indexes.filter((x) => x.columnIdx === i)) await _unlinkFork(rel.relId, idx.forkId)
+                        for (const idx of rel.indexes.filter((x) => x.columnIdx === i)) await _unlink(columnPathOf(rel, idx.name))
                         rel.indexes = rel.indexes.filter((x) => x.columnIdx !== i)
                         for (const idx of rel.indexes) if (idx.columnIdx > i) idx.columnIdx--
-                        rel.idxHandles = rel.indexes.map((x) => x.handle)
-                        await _unlinkFork(rel.relId, col.forkId)
+                        await _unlink(columnPathOf(rel, col.name))
                 },
                 renameColumn(rel: RelationDescriptor, name: string, to: string): void {
                         if (rel.columns.some((c) => c.name === to)) throw new Error(`column already exists: ${to}`)
@@ -82,8 +82,8 @@ export const createAlterOps = ({ buffer, smgr, fsm }: AlterDeps) => {
                         rel.columns[colIndexOf(rel, name)].isUnique = false
                 },
                 async dropTable(rel: RelationDescriptor): Promise<void> {
-                        for (const col of rel.columns) await _unlinkFork(rel.relId, col.forkId)
-                        for (const idx of rel.indexes) await _unlinkFork(rel.relId, idx.forkId)
+                        for (const col of rel.columns) await _unlink(columnPathOf(rel, col.name))
+                        for (const idx of rel.indexes) await _unlink(columnPathOf(rel, idx.name))
                 },
         }
 }
